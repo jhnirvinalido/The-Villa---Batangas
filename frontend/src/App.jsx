@@ -1172,17 +1172,7 @@ function App() {
           <div className="container hero-inner">
             <div className="hero-content">
               <div className="hero-message">
-              <h1>A place to unwind. Moments to remember.</h1>
-              <p>
-                Discover the comfort of a private villa, the freedom to slow down,
-                and space to reconnect. Share unhurried mornings, enjoy a refreshing
-                swim, and settle into time together with the people who matter most.
-              </p>
-              <p className="hero-extra-copy">
-                From family weekends and meaningful celebrations to a well-deserved
-                break with friends, find a private setting that feels like your own.
-                Explore our villas and choose the space for your next memorable stay.
-              </p>
+              <h1>Unwind and make moments to remember in your own private villa.</h1>
               </div>
               <div className="hero-controls">
 
