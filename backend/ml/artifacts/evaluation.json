@@ -1,0 +1,688 @@
+{
+  "dataset_rows": 73,
+  "class_distribution": {
+    "negative": 35,
+    "positive": 34,
+    "neutral": 4
+  },
+  "label_source": "explicit phrase annotations; provisional AI annotations require independent human review",
+  "evaluation": {
+    "method": "3-fold grouped out-of-fold evaluation",
+    "seed": 42,
+    "analyzer": "word",
+    "fold_sizes": [
+      {
+        "train": 43,
+        "test": 30,
+        "test_groups": [
+          "airbnb-10",
+          "airbnb-11",
+          "airbnb-15",
+          "airbnb-16",
+          "airbnb-20",
+          "airbnb-23",
+          "airbnb-24",
+          "airbnb-26",
+          "airbnb-3"
+        ]
+      },
+      {
+        "train": 51,
+        "test": 22,
+        "test_groups": [
+          "airbnb-1",
+          "airbnb-18",
+          "airbnb-19",
+          "airbnb-22",
+          "airbnb-25",
+          "airbnb-4",
+          "airbnb-5",
+          "airbnb-7",
+          "airbnb-8"
+        ]
+      },
+      {
+        "train": 52,
+        "test": 21,
+        "test_groups": [
+          "airbnb-12",
+          "airbnb-13",
+          "airbnb-14",
+          "airbnb-17",
+          "airbnb-2",
+          "airbnb-21",
+          "airbnb-6",
+          "airbnb-9"
+        ]
+      }
+    ],
+    "model": {
+      "accuracy": 0.547945205479452,
+      "macro_f1": 0.3717948717948718,
+      "per_class": {
+        "negative": {
+          "precision": 0.5517241379310345,
+          "recall": 0.45714285714285713,
+          "f1": 0.5,
+          "support": 35
+        },
+        "neutral": {
+          "precision": 0,
+          "recall": 0.0,
+          "f1": 0,
+          "support": 4
+        },
+        "positive": {
+          "precision": 0.5454545454545454,
+          "recall": 0.7058823529411765,
+          "f1": 0.6153846153846153,
+          "support": 34
+        }
+      },
+      "confusion_matrix": {
+        "negative": {
+          "negative": 16,
+          "neutral": 0,
+          "positive": 19
+        },
+        "neutral": {
+          "negative": 3,
+          "neutral": 0,
+          "positive": 1
+        },
+        "positive": {
+          "negative": 10,
+          "neutral": 0,
+          "positive": 24
+        }
+      }
+    },
+    "majority_baseline": {
+      "accuracy": 0.3561643835616438,
+      "macro_f1": 0.24091880341880342,
+      "per_class": {
+        "negative": {
+          "precision": 0.37209302325581395,
+          "recall": 0.45714285714285713,
+          "f1": 0.41025641025641024,
+          "support": 35
+        },
+        "neutral": {
+          "precision": 0,
+          "recall": 0.0,
+          "f1": 0,
+          "support": 4
+        },
+        "positive": {
+          "precision": 0.3333333333333333,
+          "recall": 0.29411764705882354,
+          "f1": 0.3125,
+          "support": 34
+        }
+      },
+      "confusion_matrix": {
+        "negative": {
+          "negative": 16,
+          "neutral": 0,
+          "positive": 19
+        },
+        "neutral": {
+          "negative": 3,
+          "neutral": 0,
+          "positive": 1
+        },
+        "positive": {
+          "negative": 24,
+          "neutral": 0,
+          "positive": 10
+        }
+      }
+    }
+  },
+  "feature_comparison": {
+    "word": {
+      "method": "3-fold grouped out-of-fold evaluation",
+      "seed": 42,
+      "analyzer": "word",
+      "fold_sizes": [
+        {
+          "train": 43,
+          "test": 30,
+          "test_groups": [
+            "airbnb-10",
+            "airbnb-11",
+            "airbnb-15",
+            "airbnb-16",
+            "airbnb-20",
+            "airbnb-23",
+            "airbnb-24",
+            "airbnb-26",
+            "airbnb-3"
+          ]
+        },
+        {
+          "train": 51,
+          "test": 22,
+          "test_groups": [
+            "airbnb-1",
+            "airbnb-18",
+            "airbnb-19",
+            "airbnb-22",
+            "airbnb-25",
+            "airbnb-4",
+            "airbnb-5",
+            "airbnb-7",
+            "airbnb-8"
+          ]
+        },
+        {
+          "train": 52,
+          "test": 21,
+          "test_groups": [
+            "airbnb-12",
+            "airbnb-13",
+            "airbnb-14",
+            "airbnb-17",
+            "airbnb-2",
+            "airbnb-21",
+            "airbnb-6",
+            "airbnb-9"
+          ]
+        }
+      ],
+      "model": {
+        "accuracy": 0.547945205479452,
+        "macro_f1": 0.3717948717948718,
+        "per_class": {
+          "negative": {
+            "precision": 0.5517241379310345,
+            "recall": 0.45714285714285713,
+            "f1": 0.5,
+            "support": 35
+          },
+          "neutral": {
+            "precision": 0,
+            "recall": 0.0,
+            "f1": 0,
+            "support": 4
+          },
+          "positive": {
+            "precision": 0.5454545454545454,
+            "recall": 0.7058823529411765,
+            "f1": 0.6153846153846153,
+            "support": 34
+          }
+        },
+        "confusion_matrix": {
+          "negative": {
+            "negative": 16,
+            "neutral": 0,
+            "positive": 19
+          },
+          "neutral": {
+            "negative": 3,
+            "neutral": 0,
+            "positive": 1
+          },
+          "positive": {
+            "negative": 10,
+            "neutral": 0,
+            "positive": 24
+          }
+        }
+      },
+      "majority_baseline": {
+        "accuracy": 0.3561643835616438,
+        "macro_f1": 0.24091880341880342,
+        "per_class": {
+          "negative": {
+            "precision": 0.37209302325581395,
+            "recall": 0.45714285714285713,
+            "f1": 0.41025641025641024,
+            "support": 35
+          },
+          "neutral": {
+            "precision": 0,
+            "recall": 0.0,
+            "f1": 0,
+            "support": 4
+          },
+          "positive": {
+            "precision": 0.3333333333333333,
+            "recall": 0.29411764705882354,
+            "f1": 0.3125,
+            "support": 34
+          }
+        },
+        "confusion_matrix": {
+          "negative": {
+            "negative": 16,
+            "neutral": 0,
+            "positive": 19
+          },
+          "neutral": {
+            "negative": 3,
+            "neutral": 0,
+            "positive": 1
+          },
+          "positive": {
+            "negative": 24,
+            "neutral": 0,
+            "positive": 10
+          }
+        }
+      }
+    },
+    "char": {
+      "method": "3-fold grouped out-of-fold evaluation",
+      "seed": 42,
+      "analyzer": "char",
+      "fold_sizes": [
+        {
+          "train": 43,
+          "test": 30,
+          "test_groups": [
+            "airbnb-10",
+            "airbnb-11",
+            "airbnb-15",
+            "airbnb-16",
+            "airbnb-20",
+            "airbnb-23",
+            "airbnb-24",
+            "airbnb-26",
+            "airbnb-3"
+          ]
+        },
+        {
+          "train": 51,
+          "test": 22,
+          "test_groups": [
+            "airbnb-1",
+            "airbnb-18",
+            "airbnb-19",
+            "airbnb-22",
+            "airbnb-25",
+            "airbnb-4",
+            "airbnb-5",
+            "airbnb-7",
+            "airbnb-8"
+          ]
+        },
+        {
+          "train": 52,
+          "test": 21,
+          "test_groups": [
+            "airbnb-12",
+            "airbnb-13",
+            "airbnb-14",
+            "airbnb-17",
+            "airbnb-2",
+            "airbnb-21",
+            "airbnb-6",
+            "airbnb-9"
+          ]
+        }
+      ],
+      "model": {
+        "accuracy": 0.589041095890411,
+        "macro_f1": 0.3970856102003643,
+        "per_class": {
+          "negative": {
+            "precision": 0.6153846153846154,
+            "recall": 0.45714285714285713,
+            "f1": 0.5245901639344263,
+            "support": 35
+          },
+          "neutral": {
+            "precision": 0,
+            "recall": 0.0,
+            "f1": 0,
+            "support": 4
+          },
+          "positive": {
+            "precision": 0.574468085106383,
+            "recall": 0.7941176470588235,
+            "f1": 0.6666666666666666,
+            "support": 34
+          }
+        },
+        "confusion_matrix": {
+          "negative": {
+            "negative": 16,
+            "neutral": 0,
+            "positive": 19
+          },
+          "neutral": {
+            "negative": 3,
+            "neutral": 0,
+            "positive": 1
+          },
+          "positive": {
+            "negative": 7,
+            "neutral": 0,
+            "positive": 27
+          }
+        }
+      },
+      "majority_baseline": {
+        "accuracy": 0.3561643835616438,
+        "macro_f1": 0.24091880341880342,
+        "per_class": {
+          "negative": {
+            "precision": 0.37209302325581395,
+            "recall": 0.45714285714285713,
+            "f1": 0.41025641025641024,
+            "support": 35
+          },
+          "neutral": {
+            "precision": 0,
+            "recall": 0.0,
+            "f1": 0,
+            "support": 4
+          },
+          "positive": {
+            "precision": 0.3333333333333333,
+            "recall": 0.29411764705882354,
+            "f1": 0.3125,
+            "support": 34
+          }
+        },
+        "confusion_matrix": {
+          "negative": {
+            "negative": 16,
+            "neutral": 0,
+            "positive": 19
+          },
+          "neutral": {
+            "negative": 3,
+            "neutral": 0,
+            "positive": 1
+          },
+          "positive": {
+            "negative": 24,
+            "neutral": 0,
+            "positive": 10
+          }
+        }
+      }
+    }
+  },
+  "split_sensitivity": [
+    {
+      "method": "3-fold grouped out-of-fold evaluation",
+      "seed": 7,
+      "analyzer": "word",
+      "fold_sizes": [
+        {
+          "train": 44,
+          "test": 29,
+          "test_groups": [
+            "airbnb-11",
+            "airbnb-13",
+            "airbnb-14",
+            "airbnb-18",
+            "airbnb-20",
+            "airbnb-23",
+            "airbnb-25",
+            "airbnb-5",
+            "airbnb-8"
+          ]
+        },
+        {
+          "train": 50,
+          "test": 23,
+          "test_groups": [
+            "airbnb-1",
+            "airbnb-12",
+            "airbnb-17",
+            "airbnb-2",
+            "airbnb-24",
+            "airbnb-3",
+            "airbnb-4",
+            "airbnb-6",
+            "airbnb-9"
+          ]
+        },
+        {
+          "train": 52,
+          "test": 21,
+          "test_groups": [
+            "airbnb-10",
+            "airbnb-15",
+            "airbnb-16",
+            "airbnb-19",
+            "airbnb-21",
+            "airbnb-22",
+            "airbnb-26",
+            "airbnb-7"
+          ]
+        }
+      ],
+      "model": {
+        "accuracy": 0.6164383561643836,
+        "macro_f1": 0.4204674837586229,
+        "per_class": {
+          "negative": {
+            "precision": 0.6785714285714286,
+            "recall": 0.5428571428571428,
+            "f1": 0.603174603174603,
+            "support": 35
+          },
+          "neutral": {
+            "precision": 0,
+            "recall": 0.0,
+            "f1": 0,
+            "support": 4
+          },
+          "positive": {
+            "precision": 0.5777777777777777,
+            "recall": 0.7647058823529411,
+            "f1": 0.6582278481012658,
+            "support": 34
+          }
+        },
+        "confusion_matrix": {
+          "negative": {
+            "negative": 19,
+            "neutral": 0,
+            "positive": 16
+          },
+          "neutral": {
+            "negative": 1,
+            "neutral": 0,
+            "positive": 3
+          },
+          "positive": {
+            "negative": 8,
+            "neutral": 0,
+            "positive": 26
+          }
+        }
+      },
+      "majority_baseline": {
+        "accuracy": 0.3698630136986301,
+        "macro_f1": 0.24713682941531043,
+        "per_class": {
+          "negative": {
+            "precision": 0.4090909090909091,
+            "recall": 0.5142857142857142,
+            "f1": 0.4556962025316455,
+            "support": 35
+          },
+          "neutral": {
+            "precision": 0,
+            "recall": 0.0,
+            "f1": 0,
+            "support": 4
+          },
+          "positive": {
+            "precision": 0.3103448275862069,
+            "recall": 0.2647058823529412,
+            "f1": 0.28571428571428575,
+            "support": 34
+          }
+        },
+        "confusion_matrix": {
+          "negative": {
+            "negative": 18,
+            "neutral": 0,
+            "positive": 17
+          },
+          "neutral": {
+            "negative": 1,
+            "neutral": 0,
+            "positive": 3
+          },
+          "positive": {
+            "negative": 25,
+            "neutral": 0,
+            "positive": 9
+          }
+        }
+      }
+    },
+    {
+      "method": "3-fold grouped out-of-fold evaluation",
+      "seed": 19,
+      "analyzer": "word",
+      "fold_sizes": [
+        {
+          "train": 43,
+          "test": 30,
+          "test_groups": [
+            "airbnb-11",
+            "airbnb-12",
+            "airbnb-15",
+            "airbnb-17",
+            "airbnb-18",
+            "airbnb-2",
+            "airbnb-23",
+            "airbnb-24",
+            "airbnb-4"
+          ]
+        },
+        {
+          "train": 50,
+          "test": 23,
+          "test_groups": [
+            "airbnb-10",
+            "airbnb-13",
+            "airbnb-14",
+            "airbnb-20",
+            "airbnb-22",
+            "airbnb-26",
+            "airbnb-5",
+            "airbnb-8",
+            "airbnb-9"
+          ]
+        },
+        {
+          "train": 53,
+          "test": 20,
+          "test_groups": [
+            "airbnb-1",
+            "airbnb-16",
+            "airbnb-19",
+            "airbnb-21",
+            "airbnb-25",
+            "airbnb-3",
+            "airbnb-6",
+            "airbnb-7"
+          ]
+        }
+      ],
+      "model": {
+        "accuracy": 0.5753424657534246,
+        "macro_f1": 0.3926282051282051,
+        "per_class": {
+          "negative": {
+            "precision": 0.6206896551724138,
+            "recall": 0.5142857142857142,
+            "f1": 0.5625,
+            "support": 35
+          },
+          "neutral": {
+            "precision": 0,
+            "recall": 0.0,
+            "f1": 0,
+            "support": 4
+          },
+          "positive": {
+            "precision": 0.5454545454545454,
+            "recall": 0.7058823529411765,
+            "f1": 0.6153846153846153,
+            "support": 34
+          }
+        },
+        "confusion_matrix": {
+          "negative": {
+            "negative": 18,
+            "neutral": 0,
+            "positive": 17
+          },
+          "neutral": {
+            "negative": 1,
+            "neutral": 0,
+            "positive": 3
+          },
+          "positive": {
+            "negative": 10,
+            "neutral": 0,
+            "positive": 24
+          }
+        }
+      },
+      "majority_baseline": {
+        "accuracy": 0.3424657534246575,
+        "macro_f1": 0.23050213675213674,
+        "per_class": {
+          "negative": {
+            "precision": 0.37209302325581395,
+            "recall": 0.45714285714285713,
+            "f1": 0.41025641025641024,
+            "support": 35
+          },
+          "neutral": {
+            "precision": 0,
+            "recall": 0.0,
+            "f1": 0,
+            "support": 4
+          },
+          "positive": {
+            "precision": 0.3,
+            "recall": 0.2647058823529412,
+            "f1": 0.28125,
+            "support": 34
+          }
+        },
+        "confusion_matrix": {
+          "negative": {
+            "negative": 16,
+            "neutral": 0,
+            "positive": 19
+          },
+          "neutral": {
+            "negative": 2,
+            "neutral": 0,
+            "positive": 2
+          },
+          "positive": {
+            "negative": 25,
+            "neutral": 0,
+            "positive": 9
+          }
+        }
+      }
+    }
+  ],
+  "limitations": [
+    "Pilot only; too few examples for a reliable general-purpose sentiment model.",
+    "Very few examples per class; minority-class estimates are highly unstable.",
+    "Cross-validation measures agreement with provisional text annotations, not independently verified sentiment.",
+    "Vocabulary is fit inside each fold; test comments never contribute to training features.",
+    "No synthetic rows, oversampling, or test-set tuning.",
+    "Names, review dates, and ratings are not inference features.",
+    "Clause extraction and vocabulary-based category matching require separate human evaluation.",
+    "Posterior scores are uncalibrated; unknown vocabulary can fall back to class priors."
+  ]
+}

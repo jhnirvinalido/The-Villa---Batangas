@@ -1,0 +1,16 @@
+{
+  "version": "villa-categories-v1",
+  "status": "provisional_vocabulary_requires_client_review",
+  "categories": {
+    "Pool cleanliness": ["(?:pool|swimming|jacuzzi).*(?:dirty|clean|hair|gunk|smell|odor|circulat|filter|stagnant|madumi|malinis)", "(?:dirty|clean|hair|gunk|smell|odor|madumi|malinis).*?(?:pool|swimming|jacuzzi)"],
+    "Pool heating and facilities": ["pool|jacuzzi|bubbles|heated|heating"],
+    "Air conditioning": ["aircon|air conditioning|\\bac\\b"],
+    "Internet connectivity": ["wi-fi|wifi|internet|signal|repeater|extender"],
+    "Bathroom cleanliness and plumbing": ["bathroom|toilet|faucet|water smells|shower"],
+    "Room cleanliness and maintenance": ["bed|linen|sheet|cobweb|spider|dust|floor|ceiling|cleanliness|maintenance|condom"],
+    "Staff service": ["staff|host|caretaker|front desk|reception|service|management|assist|apology|reply|messenger"],
+    "Kitchen and supplies": ["kitchen|cook|utensil|stove|trash|condiment|guest kit"],
+    "Noise and security": ["noise|loud|karaoke|security|parking|safe"],
+    "Location and access": ["location|address|map|nearby|neighborhood|accessible"]
+  }
+}

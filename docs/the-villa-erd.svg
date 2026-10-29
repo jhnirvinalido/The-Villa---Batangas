@@ -1,0 +1,180 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="2600" height="3700" viewBox="0 0 2600 3700"><rect width="2600" height="3700" fill="white"/><style>text{font-family:Arial,sans-serif;fill:black}.title{font-size:34px;font-weight:bold}.sub{font-size:19px}.head{font-size:19px;font-weight:bold}.field{font-family:monospace;font-size:15px}.rel{font-size:16px}</style>
+<text x="50" y="55" class="title">THE VILLA — ENTITY RELATIONSHIP DIAGRAM</text>
+<text x="50" y="90" class="sub">Application-derived • Black and white • Selected attributes • Repeated tables are the same entity</text>
+<text x="50" y="122" class="sub">Dashed = application reference; solid = migration-confirmed FK. ID / REF do not certify database constraints.</text>
+<text x="50" y="175" class="head">01 / BOOKINGS AND PAYMENTS</text>
+<rect x="50" y="265" width="460" height="231" fill="white" stroke="black" stroke-width="2"/><path d="M50,301h460" stroke="black"/><text x="63" y="290" class="head">bookings</text>
+<text x="63" y="326" class="field">ID id; booking_code</text>
+<text x="63" y="349" class="field">REF user_id (optional)</text>
+<text x="63" y="372" class="field">REF villa_id; villa_ids[]</text>
+<text x="63" y="395" class="field">check_in_date, check_out_date</text>
+<text x="63" y="418" class="field">booking_status, payment_status</text>
+<text x="63" y="441" class="field">total_amount, amount_paid, balance_amount</text>
+<text x="63" y="464" class="field">REF checked_in_by_staff_id</text>
+<text x="63" y="487" class="field">REF checked_out_by_staff_id</text>
+<rect x="795" y="240" width="470" height="139" fill="white" stroke="black" stroke-width="2"/><path d="M795,276h470" stroke="black"/><text x="808" y="265" class="head">booking_payments</text>
+<text x="808" y="301" class="field">ID id; REF booking_id</text>
+<text x="808" y="324" class="field">REF user_id (optional)</text>
+<text x="808" y="347" class="field">amount, currency, status</text>
+<text x="808" y="370" class="field">paymongo_payment_id</text>
+<path d="M510,380.5 H550 V309.5 H795" fill="none" stroke="black" stroke-width="1.5" stroke-dasharray="7 5"/><rect x="555" y="218" width="705" height="22" fill="white"/><text x="565" y="234" class="rel">1 booking : 0..many payments</text>
+<rect x="795" y="415" width="470" height="139" fill="white" stroke="black" stroke-width="2"/><path d="M795,451h470" stroke="black"/><text x="808" y="440" class="head">front_desk_payments</text>
+<text x="808" y="476" class="field">ID id; REF booking_id</text>
+<text x="808" y="499" class="field">REF cashier_staff_id</text>
+<text x="808" y="522" class="field">payment_intent_id (provider ID)</text>
+<text x="808" y="545" class="field">receipt_number, amount, status</text>
+<path d="M510,380.5 H550 V484.5 H795" fill="none" stroke="black" stroke-width="1.5" stroke-dasharray="7 5"/><rect x="555" y="393" width="705" height="22" fill="white"/><text x="565" y="409" class="rel">1 booking : 0..many settlements</text>
+<rect x="795" y="590" width="470" height="116" fill="white" stroke="black" stroke-width="2"/><path d="M795,626h470" stroke="black"/><text x="808" y="615" class="head">front_desk_payment_intents</text>
+<text x="808" y="651" class="field">REF booking_id, cashier_staff_id</text>
+<text x="808" y="674" class="field">payment_intent_id (provider ID)</text>
+<text x="808" y="697" class="field">expected_amount, status</text>
+<path d="M510,380.5 H550 V648.0 H795" fill="none" stroke="black" stroke-width="1.5" stroke-dasharray="7 5"/><rect x="555" y="568" width="705" height="22" fill="white"/><text x="565" y="584" class="rel">1 booking : 0..many attempts</text>
+<rect x="795" y="765" width="470" height="116" fill="white" stroke="black" stroke-width="2"/><path d="M795,801h470" stroke="black"/><text x="808" y="790" class="head">booking_workflow_events</text>
+<text x="808" y="826" class="field">ID id; REF booking_id</text>
+<text x="808" y="849" class="field">REF actor_staff_id, actor_user_id</text>
+<text x="808" y="872" class="field">event_type, metadata, created_at</text>
+<path d="M510,380.5 H550 V823.0 H795" fill="none" stroke="black" stroke-width="1.5" stroke-dasharray="7 5"/><rect x="555" y="743" width="705" height="22" fill="white"/><text x="565" y="759" class="rel">1 booking : 0..many events</text>
+<rect x="795" y="940" width="470" height="185" fill="white" stroke="black" stroke-width="2"/><path d="M795,976h470" stroke="black"/><text x="808" y="965" class="head">admin_tasks</text>
+<text x="808" y="1001" class="field">ID id; REF booking_id (optional)</text>
+<text x="808" y="1024" class="field">REF assigned_staff_id</text>
+<text x="808" y="1047" class="field">REF created_by_staff_id</text>
+<text x="808" y="1070" class="field">REF updated_by_staff_id</text>
+<text x="808" y="1093" class="field">REF approved_by_staff_id</text>
+<text x="808" y="1116" class="field">title, status, checklist, attachments</text>
+<path d="M510,380.5 H550 V1032.5 H795" fill="none" stroke="black" stroke-width="1.5" stroke-dasharray="7 5"/><rect x="555" y="918" width="705" height="22" fill="white"/><text x="565" y="934" class="rel">0..1 booking per task; 0..many tasks</text>
+<rect x="795" y="1115" width="470" height="116" fill="white" stroke="black" stroke-width="2"/><path d="M795,1151h470" stroke="black"/><text x="808" y="1140" class="head">guest_feedback</text>
+<text x="808" y="1176" class="field">ID id; REF booking_id (optional)</text>
+<text x="808" y="1199" class="field">source, overall_rating, comments</text>
+<text x="808" y="1222" class="field">review_date, sentiment_label</text>
+<path d="M510,380.5 H550 V1173.0 H795" fill="none" stroke="black" stroke-width="1.5" stroke-dasharray="7 5"/><rect x="555" y="1093" width="705" height="22" fill="white"/><text x="565" y="1109" class="rel">0..1 booking per review; intended 0..1 review/stay</text>
+<text x="1350" y="175" class="head">02 / AUTHENTICATION AND VILLAS</text>
+<rect x="1350" y="265" width="460" height="93" fill="white" stroke="black" stroke-width="2"/><path d="M1350,301h460" stroke="black"/><text x="1363" y="290" class="head">auth.users</text>
+<text x="1363" y="326" class="field">ID id</text>
+<text x="1363" y="349" class="field">email</text>
+<rect x="2095" y="240" width="470" height="93" fill="white" stroke="black" stroke-width="2"/><path d="M2095,276h470" stroke="black"/><text x="2108" y="265" class="head">profiles</text>
+<text x="2108" y="301" class="field">ID id / REF Auth identity</text>
+<text x="2108" y="324" class="field">full_name, phone</text>
+<path d="M1810,311.5 H1850 V286.5 H2095" fill="none" stroke="black" stroke-width="1.5" stroke-dasharray="7 5"/><rect x="1855" y="218" width="705" height="22" fill="white"/><text x="1865" y="234" class="rel">same identity; profile may be absent</text>
+<rect x="2095" y="415" width="470" height="116" fill="white" stroke="black" stroke-width="2"/><path d="M2095,451h470" stroke="black"/><text x="2108" y="440" class="head">staff_accounts</text>
+<text x="2108" y="476" class="field">ID id; REF auth_user_id</text>
+<text x="2108" y="499" class="field">full_name, email, role</text>
+<text x="2108" y="522" class="field">department, account_status</text>
+<path d="M1810,311.5 H1850 V473.0 H2095" fill="none" stroke="black" stroke-width="1.5" stroke-dasharray="7 5"/><rect x="1855" y="393" width="705" height="22" fill="white"/><text x="1865" y="409" class="rel">auth_user_id; uniqueness unverified</text>
+<rect x="2095" y="590" width="470" height="231" fill="white" stroke="black" stroke-width="2"/><path d="M2095,626h470" stroke="black"/><text x="2108" y="615" class="head">bookings</text>
+<text x="2108" y="651" class="field">ID id; booking_code</text>
+<text x="2108" y="674" class="field">REF user_id (optional)</text>
+<text x="2108" y="697" class="field">REF villa_id; villa_ids[]</text>
+<text x="2108" y="720" class="field">check_in_date, check_out_date</text>
+<text x="2108" y="743" class="field">booking_status, payment_status</text>
+<text x="2108" y="766" class="field">total_amount, amount_paid, balance_amount</text>
+<text x="2108" y="789" class="field">REF checked_in_by_staff_id</text>
+<text x="2108" y="812" class="field">REF checked_out_by_staff_id</text>
+<path d="M1810,311.5 H1850 V705.5 H2095" fill="none" stroke="black" stroke-width="1.5" stroke-dasharray="7 5"/><rect x="1855" y="568" width="705" height="22" fill="white"/><text x="1865" y="584" class="rel">0..1 Auth user per booking; 0..many bookings</text>
+<rect x="2095" y="765" width="470" height="139" fill="white" stroke="black" stroke-width="2"/><path d="M2095,801h470" stroke="black"/><text x="2108" y="790" class="head">booking_payments</text>
+<text x="2108" y="826" class="field">ID id; REF booking_id</text>
+<text x="2108" y="849" class="field">REF user_id (optional)</text>
+<text x="2108" y="872" class="field">amount, currency, status</text>
+<text x="2108" y="895" class="field">paymongo_payment_id</text>
+<path d="M1810,311.5 H1850 V834.5 H2095" fill="none" stroke="black" stroke-width="1.5" stroke-dasharray="7 5"/><rect x="1855" y="743" width="705" height="22" fill="white"/><text x="1865" y="759" class="rel">0..1 Auth user per payment; 0..many payments</text>
+<rect x="2095" y="940" width="470" height="116" fill="white" stroke="black" stroke-width="2"/><path d="M2095,976h470" stroke="black"/><text x="2108" y="965" class="head">booking_workflow_events</text>
+<text x="2108" y="1001" class="field">ID id; REF booking_id</text>
+<text x="2108" y="1024" class="field">REF actor_staff_id, actor_user_id</text>
+<text x="2108" y="1047" class="field">event_type, metadata, created_at</text>
+<path d="M1810,311.5 H1850 V998.0 H2095" fill="none" stroke="black" stroke-width="1.5" stroke-dasharray="7 5"/><rect x="1855" y="918" width="705" height="22" fill="white"/><text x="1865" y="934" class="rel">actor_user_id; optional actor</text>
+<text x="50" y="1605" class="head">03 / STAFF AND ADMINISTRATION</text>
+<rect x="50" y="1695" width="460" height="116" fill="white" stroke="black" stroke-width="2"/><path d="M50,1731h460" stroke="black"/><text x="63" y="1720" class="head">staff_accounts</text>
+<text x="63" y="1756" class="field">ID id; REF auth_user_id</text>
+<text x="63" y="1779" class="field">full_name, email, role</text>
+<text x="63" y="1802" class="field">department, account_status</text>
+<rect x="795" y="1670" width="470" height="185" fill="white" stroke="black" stroke-width="2"/><path d="M795,1706h470" stroke="black"/><text x="808" y="1695" class="head">admin_tasks</text>
+<text x="808" y="1731" class="field">ID id; REF booking_id (optional)</text>
+<text x="808" y="1754" class="field">REF assigned_staff_id</text>
+<text x="808" y="1777" class="field">REF created_by_staff_id</text>
+<text x="808" y="1800" class="field">REF updated_by_staff_id</text>
+<text x="808" y="1823" class="field">REF approved_by_staff_id</text>
+<text x="808" y="1846" class="field">title, status, checklist, attachments</text>
+<path d="M510,1753.0 H550 V1762.5 H795" fill="none" stroke="black" stroke-width="1.5" stroke-dasharray="7 5"/><rect x="555" y="1648" width="705" height="22" fill="white"/><text x="565" y="1664" class="rel">0..many tasks per staff, separately for each role</text>
+<rect x="795" y="1845" width="470" height="116" fill="white" stroke="black" stroke-width="2"/><path d="M795,1881h470" stroke="black"/><text x="808" y="1870" class="head">staff_messages</text>
+<text x="808" y="1906" class="field">ID id; REF staff_account_id</text>
+<text x="808" y="1929" class="field">REF sender_account_id, task_id</text>
+<text x="808" y="1952" class="field">concern, body, sender_type</text>
+<path d="M510,1753.0 H550 V1903.0 H795" fill="none" stroke="black" stroke-width="1.5" stroke-dasharray="7 5"/><rect x="555" y="1823" width="705" height="22" fill="white"/><text x="565" y="1839" class="rel">staff_account_id / sender_account_id; separate roles</text>
+<rect x="795" y="2020" width="470" height="139" fill="white" stroke="black" stroke-width="2"/><path d="M795,2056h470" stroke="black"/><text x="808" y="2045" class="head">admin_notifications</text>
+<text x="808" y="2081" class="field">ID id; REF recipient_staff_account_id</text>
+<text x="808" y="2104" class="field">REF task_id, message_id</text>
+<text x="808" y="2127" class="field">payment_transaction_id (unverified target)</text>
+<text x="808" y="2150" class="field">type, is_read</text>
+<path d="M510,1753.0 H550 V2089.5 H795" fill="none" stroke="black" stroke-width="1.5" stroke-dasharray="7 5"/><rect x="555" y="1998" width="705" height="22" fill="white"/><text x="565" y="2014" class="rel">recipient_staff_account_id; 0..many notifications</text>
+<rect x="795" y="2195" width="470" height="93" fill="white" stroke="black" stroke-width="2"/><path d="M795,2231h470" stroke="black"/><text x="808" y="2220" class="head">admin_settings</text>
+<text x="808" y="2256" class="field">ID id; REF staff_account_id</text>
+<text x="808" y="2279" class="field">assignment_alerts, payment_alerts</text>
+<path d="M510,1753.0 H550 V2241.5 H795" fill="none" stroke="black" stroke-width="1.5" stroke-dasharray="7 5"/><rect x="555" y="2173" width="705" height="22" fill="white"/><text x="565" y="2189" class="rel">staff_account_id; intended one settings row/account</text>
+<rect x="795" y="2370" width="470" height="93" fill="white" stroke="black" stroke-width="2"/><path d="M795,2406h470" stroke="black"/><text x="808" y="2395" class="head">staff_settings</text>
+<text x="808" y="2431" class="field">ID id; REF staff_account_id</text>
+<text x="808" y="2454" class="field">push_notifications, dark_mode</text>
+<path d="M510,1753.0 H550 V2416.5 H795" fill="none" stroke="black" stroke-width="1.5" stroke-dasharray="7 5"/><rect x="555" y="2348" width="705" height="22" fill="white"/><text x="565" y="2364" class="rel">staff_account_id; intended one settings row/account</text>
+<rect x="795" y="2545" width="470" height="139" fill="white" stroke="black" stroke-width="2"/><path d="M795,2581h470" stroke="black"/><text x="808" y="2570" class="head">feedback_recommendation_reports</text>
+<text x="808" y="2606" class="field">ID id; REF created_by_staff_id</text>
+<text x="808" y="2629" class="field">REF approved_by_staff_id</text>
+<text x="808" y="2652" class="field">evidence_fingerprint, filters</text>
+<text x="808" y="2675" class="field">recommendation, status</text>
+<path d="M510,1753.0 H550 V2614.5 H795" fill="none" stroke="black" stroke-width="1.5" stroke-dasharray="7 5"/><rect x="555" y="2523" width="705" height="22" fill="white"/><text x="565" y="2539" class="rel">creator / approver; 0..many reports per role</text>
+<rect x="795" y="2720" width="470" height="93" fill="white" stroke="black" stroke-width="2"/><path d="M795,2756h470" stroke="black"/><text x="808" y="2745" class="head">manual_booking_checkouts</text>
+<text x="808" y="2781" class="field">ID id; REF created_by_staff_id</text>
+<text x="808" y="2804" class="field">booking_payload (JSON), expires_at</text>
+<path d="M510,1753.0 H550 V2766.5 H795" fill="none" stroke="black" stroke-width="1.5" stroke-dasharray="7 5"/><rect x="555" y="2698" width="705" height="22" fill="white"/><text x="565" y="2714" class="rel">created_by_staff_id; 0..many drafts</text>
+<text x="1350" y="1605" class="head">04 / DETAIL AND DELIVERY RELATIONSHIPS</text>
+<rect x="1350" y="1670" width="470" height="48" fill="white" stroke="black" stroke-width="2"/><text x="1362" y="1700" class="head">front_desk_payments</text>
+<rect x="2095" y="1670" width="470" height="48" fill="white" stroke="black" stroke-width="2"/><text x="2107" y="1700" class="head">front_desk_payment_items</text>
+<path d="M1820,1694 H2095" stroke="black" stroke-width="2" stroke-dasharray="7 5"/><text x="1355" y="1748" class="rel">1 payment : 0..many charge items</text>
+<rect x="1350" y="1787" width="470" height="48" fill="white" stroke="black" stroke-width="2"/><text x="1362" y="1817" class="head">admin_tasks</text>
+<rect x="2095" y="1787" width="470" height="48" fill="white" stroke="black" stroke-width="2"/><text x="2107" y="1817" class="head">staff_messages</text>
+<path d="M1820,1811 H2095" stroke="black" stroke-width="2" stroke-dasharray="7 5"/><text x="1355" y="1865" class="rel">0..1 task per message; 0..many messages</text>
+<rect x="1350" y="1904" width="470" height="48" fill="white" stroke="black" stroke-width="2"/><text x="1362" y="1934" class="head">admin_tasks</text>
+<rect x="2095" y="1904" width="470" height="48" fill="white" stroke="black" stroke-width="2"/><text x="2107" y="1934" class="head">admin_notifications</text>
+<path d="M1820,1928 H2095" stroke="black" stroke-width="2" stroke-dasharray="7 5"/><text x="1355" y="1982" class="rel">optional task; 0..many notifications</text>
+<rect x="1350" y="2021" width="470" height="48" fill="white" stroke="black" stroke-width="2"/><text x="1362" y="2051" class="head">staff_messages</text>
+<rect x="2095" y="2021" width="470" height="48" fill="white" stroke="black" stroke-width="2"/><text x="2107" y="2051" class="head">admin_notifications</text>
+<path d="M1820,2045 H2095" stroke="black" stroke-width="2" stroke-dasharray="7 5"/><text x="1355" y="2099" class="rel">optional message; 0..many notifications</text>
+<rect x="1350" y="2138" width="470" height="48" fill="white" stroke="black" stroke-width="2"/><text x="1362" y="2168" class="head">admin_tasks</text>
+<rect x="2095" y="2138" width="470" height="48" fill="white" stroke="black" stroke-width="2"/><text x="2107" y="2168" class="head">staff_assignment_email_outbox</text>
+<path d="M1820,2162 H2095" stroke="black" stroke-width="2" /><text x="1355" y="2216" class="rel">1 task : 0..many outbox rows</text>
+<rect x="1350" y="2255" width="470" height="48" fill="white" stroke="black" stroke-width="2"/><text x="1362" y="2285" class="head">staff_accounts</text>
+<rect x="2095" y="2255" width="470" height="48" fill="white" stroke="black" stroke-width="2"/><text x="2107" y="2285" class="head">staff_assignment_email_outbox</text>
+<path d="M1820,2279 H2095" stroke="black" stroke-width="2" /><text x="1355" y="2333" class="rel">1 recipient : 0..many outbox rows</text>
+<rect x="1350" y="2372" width="470" height="48" fill="white" stroke="black" stroke-width="2"/><text x="1362" y="2402" class="head">staff_accounts</text>
+<rect x="2095" y="2372" width="470" height="48" fill="white" stroke="black" stroke-width="2"/><text x="2107" y="2402" class="head">front_desk_payments</text>
+<path d="M1820,2396 H2095" stroke="black" stroke-width="2" stroke-dasharray="7 5"/><text x="1355" y="2450" class="rel">cashier_staff_id; 0..many payments</text>
+<rect x="1350" y="2489" width="470" height="48" fill="white" stroke="black" stroke-width="2"/><text x="1362" y="2519" class="head">staff_accounts</text>
+<rect x="2095" y="2489" width="470" height="48" fill="white" stroke="black" stroke-width="2"/><text x="2107" y="2519" class="head">front_desk_payment_intents</text>
+<path d="M1820,2513 H2095" stroke="black" stroke-width="2" stroke-dasharray="7 5"/><text x="1355" y="2567" class="rel">cashier_staff_id; 0..many attempts</text>
+<rect x="1350" y="2606" width="470" height="48" fill="white" stroke="black" stroke-width="2"/><text x="1362" y="2636" class="head">staff_accounts</text>
+<rect x="2095" y="2606" width="470" height="48" fill="white" stroke="black" stroke-width="2"/><text x="2107" y="2636" class="head">booking_workflow_events</text>
+<path d="M1820,2630 H2095" stroke="black" stroke-width="2" stroke-dasharray="7 5"/><text x="1355" y="2684" class="rel">actor_staff_id; optional staff actor</text>
+<rect x="1350" y="2723" width="470" height="48" fill="white" stroke="black" stroke-width="2"/><text x="1362" y="2753" class="head">staff_accounts</text>
+<rect x="2095" y="2723" width="470" height="48" fill="white" stroke="black" stroke-width="2"/><text x="2107" y="2753" class="head">bookings</text>
+<path d="M1820,2747 H2095" stroke="black" stroke-width="2" stroke-dasharray="7 5"/><text x="1355" y="2801" class="rel">check-in / check-out staff; separate roles</text>
+<rect x="1350" y="2840" width="470" height="48" fill="white" stroke="black" stroke-width="2"/><text x="1362" y="2870" class="head">villa_catalog</text>
+<rect x="2095" y="2840" width="470" height="48" fill="white" stroke="black" stroke-width="2"/><text x="2107" y="2870" class="head">bookings</text>
+<path d="M1820,2864 H2095" stroke="black" stroke-width="2" stroke-dasharray="7 5"/><text x="1355" y="2918" class="rel">M:N via villa_ids[]; villa_id is primary/legacy</text>
+<text x="50" y="3070" class="head">05 / STAGING AND AGGREGATE ANALYSIS — NO BOOKING FK ASSERTED</text>
+<rect x="50" y="3100" width="540" height="116" fill="white" stroke="black" stroke-width="2"/><path d="M50,3136h540" stroke="black"/><text x="63" y="3125" class="head">public_booking_checkouts</text>
+<text x="63" y="3161" class="field">PK id</text>
+<text x="63" y="3184" class="field">booking_payload (JSON)</text>
+<text x="63" y="3207" class="field">expires_at, created_at</text>
+<rect x="700" y="3100" width="540" height="93" fill="white" stroke="black" stroke-width="2"/><path d="M700,3136h540" stroke="black"/><text x="713" y="3125" class="head">feedback_analysis_jobs</text>
+<text x="713" y="3161" class="field">evidence_fingerprint</text>
+<text x="713" y="3184" class="field">status, last_error</text>
+<rect x="1350" y="3100" width="540" height="93" fill="white" stroke="black" stroke-width="2"/><path d="M1350,3136h540" stroke="black"/><text x="1363" y="3125" class="head">feedback_invitation_outbox</text>
+<text x="1363" y="3161" class="field">booking-linked invitation state</text>
+<text x="1363" y="3184" class="field">status (RPC-managed lifecycle)</text>
+<rect x="2000" y="3100" width="540" height="93" fill="white" stroke="black" stroke-width="2"/><path d="M2000,3136h540" stroke="black"/><text x="2013" y="3125" class="head">villa_catalog</text>
+<text x="2013" y="3161" class="field">ID id (text)</text>
+<text x="2013" y="3184" class="field">title, price, capacity, status</text>
+<text x="50" y="3340" class="sub">Draft IDs become booking IDs on promotion; staging records are not booking children.</text>
+<text x="50" y="3383" class="sub">Invitation lifecycle is booking-linked through RPCs; the backing DDL is absent, so exact key/cardinality is unverified.</text>
+<text x="50" y="3426" class="sub">Analysis jobs and reports share evidence_fingerprint; this is an aggregate lookup, not a confirmed FK.</text>
+<text x="50" y="3469" class="sub">Multi-villa membership is stored in villa_ids[]; no junction table is invented.</text>
+<text x="50" y="3512" class="sub">Historical feedback can exist without a booking. One verified review per stay is application intent; uniqueness is unverified.</text>
+<text x="50" y="3555" class="sub">Full base DDL is absent. See docs/erd-notes.md for evidence, caveats, and sources.</text>
+</svg>

@@ -1,0 +1,11 @@
+Public booking payment setup
+
+Apply migrations/20261022_public_checkout_drafts.sql in the Supabase SQL Editor before restarting the backend with this change. It requires the existing bookings and booking_payments tables. The configured service role can access the staging table and finalization RPC; anonymous and signed-in clients cannot.
+
+POST /public-bookings creates only a public_booking_checkouts draft. Checkout setup, failure, abandonment, expiration, and unpaid cancellation never insert bookings or booking_payments, send a booking acknowledgement, or enter admin booking reports. Drafts contain personal details and hashed access tokens, so RLS is enabled and access is limited to the backend service role.
+
+The existing success return polls sync-payment. Both polling and the signed paid webhook retrieve the session directly from PayMongo. Session ID, amount, currency, and paid status must match before finalization. The SQL function locks the draft, checks for conflicting confirmed reservations, and inserts the booking and payment in one transaction. Concurrent/repeated calls do not duplicate bookings. Payment verification failures leave the draft available for retry. A cancellation return also checks PayMongo first: a confirmed payment is saved instead of being discarded.
+
+A payment that conflicts with another reservation leaves the draft and payment evidence available for merchant review; it is not silently recorded as a successful booking. Drafts do not themselves reserve dates. Unpaid drafts remain separate from booking records; this change does not delete historical bookings or existing payment records. No scheduled deletion is added because a delayed payment webhook may still need its draft.
+
+Local checks cover draft-only creation, unpaid/failed/expired attempts, cancellation, cancellation after payment, invalid amount/currency/session, token authorization, and atomic payment promotion using mocked storage and PayMongo. Run `python -m unittest discover -s tests -p 'test_*checkout.py'` from backend. Live PayMongo, SQL execution, and browser behavior require validation against the configured Supabase project after applying the migration.

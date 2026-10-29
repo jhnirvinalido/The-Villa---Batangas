@@ -1,0 +1,154 @@
+---
+config:
+  theme: base
+  themeVariables:
+    primaryColor: "#ffffff"
+    primaryTextColor: "#000000"
+    primaryBorderColor: "#000000"
+    lineColor: "#000000"
+---
+erDiagram
+    auth_users {
+        text attribute_1 "ID id"
+        text attribute_2 "email"
+    }
+    profiles {
+        text attribute_1 "ID id / REF Auth identity"
+        text attribute_2 "full_name, phone"
+    }
+    bookings {
+        text attribute_1 "ID id; booking_code"
+        text attribute_2 "REF user_id (optional)"
+        text attribute_3 "REF villa_id; villa_ids[]"
+        text attribute_4 "check_in_date, check_out_date"
+        text attribute_5 "booking_status, payment_status"
+        text attribute_6 "total_amount, amount_paid, balance_amount"
+        text attribute_7 "REF checked_in_by_staff_id"
+        text attribute_8 "REF checked_out_by_staff_id"
+    }
+    villa_catalog {
+        text attribute_1 "ID id (text)"
+        text attribute_2 "title, price, capacity, status"
+    }
+    booking_payments {
+        text attribute_1 "ID id; REF booking_id"
+        text attribute_2 "REF user_id (optional)"
+        text attribute_3 "amount, currency, status"
+        text attribute_4 "paymongo_payment_id"
+    }
+    front_desk_payments {
+        text attribute_1 "ID id; REF booking_id"
+        text attribute_2 "REF cashier_staff_id"
+        text attribute_3 "payment_intent_id (provider ID)"
+        text attribute_4 "receipt_number, amount, status"
+    }
+    front_desk_payment_items {
+        text attribute_1 "ID id"
+        text attribute_2 "REF front_desk_payment_id"
+        text attribute_3 "description, amount"
+    }
+    front_desk_payment_intents {
+        text attribute_1 "REF booking_id, cashier_staff_id"
+        text attribute_2 "payment_intent_id (provider ID)"
+        text attribute_3 "expected_amount, status"
+    }
+    booking_workflow_events {
+        text attribute_1 "ID id; REF booking_id"
+        text attribute_2 "REF actor_staff_id, actor_user_id"
+        text attribute_3 "event_type, metadata, created_at"
+    }
+    guest_feedback {
+        text attribute_1 "ID id; REF booking_id (optional)"
+        text attribute_2 "source, overall_rating, comments"
+        text attribute_3 "review_date, sentiment_label"
+    }
+    feedback_invitation_outbox {
+        text attribute_1 "booking-linked invitation state"
+        text attribute_2 "status (RPC-managed lifecycle)"
+    }
+    staff_accounts {
+        text attribute_1 "ID id; REF auth_user_id"
+        text attribute_2 "full_name, email, role"
+        text attribute_3 "department, account_status"
+    }
+    admin_tasks {
+        text attribute_1 "ID id; REF booking_id (optional)"
+        text attribute_2 "REF assigned_staff_id"
+        text attribute_3 "REF created_by_staff_id"
+        text attribute_4 "REF updated_by_staff_id"
+        text attribute_5 "REF approved_by_staff_id"
+        text attribute_6 "title, status, checklist, attachments"
+    }
+    staff_messages {
+        text attribute_1 "ID id; REF staff_account_id"
+        text attribute_2 "REF sender_account_id, task_id"
+        text attribute_3 "concern, body, sender_type"
+    }
+    admin_notifications {
+        text attribute_1 "ID id; REF recipient_staff_account_id"
+        text attribute_2 "REF task_id, message_id"
+        text attribute_3 "payment_transaction_id (unverified target)"
+        text attribute_4 "type, is_read"
+    }
+    admin_settings {
+        text attribute_1 "ID id; REF staff_account_id"
+        text attribute_2 "assignment_alerts, payment_alerts"
+    }
+    staff_settings {
+        text attribute_1 "ID id; REF staff_account_id"
+        text attribute_2 "push_notifications, dark_mode"
+    }
+    staff_assignment_email_outbox {
+        text attribute_1 "PK id; FK task_id"
+        text attribute_2 "FK recipient_staff_account_id"
+        text attribute_3 "UNIQUE(task_id, recipient_staff_account_id)"
+        text attribute_4 "status, attempts, next_attempt_at"
+    }
+    feedback_recommendation_reports {
+        text attribute_1 "ID id; REF created_by_staff_id"
+        text attribute_2 "REF approved_by_staff_id"
+        text attribute_3 "evidence_fingerprint, filters"
+        text attribute_4 "recommendation, status"
+    }
+    feedback_analysis_jobs {
+        text attribute_1 "evidence_fingerprint"
+        text attribute_2 "status, last_error"
+    }
+    public_booking_checkouts {
+        text attribute_1 "PK id"
+        text attribute_2 "booking_payload (JSON)"
+        text attribute_3 "expires_at, created_at"
+    }
+    manual_booking_checkouts {
+        text attribute_1 "ID id; REF created_by_staff_id"
+        text attribute_2 "booking_payload (JSON), expires_at"
+    }
+    bookings ||..o{ booking_payments : "1 booking : 0..many payments"
+    bookings ||..o{ front_desk_payments : "1 booking : 0..many settlements"
+    bookings ||..o{ front_desk_payment_intents : "1 booking : 0..many attempts"
+    bookings ||..o{ booking_workflow_events : "1 booking : 0..many events"
+    bookings o|..o{ admin_tasks : "0..1 booking per task; 0..many tasks"
+    bookings o|..o| guest_feedback : "0..1 booking per review; intended 0..1 review/stay"
+    auth_users ||..o| profiles : "same identity; profile may be absent"
+    auth_users ||..o{ staff_accounts : "auth_user_id; uniqueness unverified"
+    auth_users o|..o{ bookings : "0..1 Auth user per booking; 0..many bookings"
+    auth_users o|..o{ booking_payments : "0..1 Auth user per payment; 0..many payments"
+    auth_users o|..o{ booking_workflow_events : "actor_user_id; optional actor"
+    staff_accounts o|..o{ admin_tasks : "0..many tasks per staff, separately for each role"
+    staff_accounts o|..o{ staff_messages : "staff_account_id / sender_account_id; separate roles"
+    staff_accounts ||..o{ admin_notifications : "recipient_staff_account_id; 0..many notifications"
+    staff_accounts ||..o| admin_settings : "staff_account_id; intended one settings row/account"
+    staff_accounts ||..o| staff_settings : "staff_account_id; intended one settings row/account"
+    staff_accounts o|..o{ feedback_recommendation_reports : "creator / approver; 0..many reports per role"
+    staff_accounts ||..o{ manual_booking_checkouts : "created_by_staff_id; 0..many drafts"
+    front_desk_payments ||..o{ front_desk_payment_items : "1 payment : 0..many charge items"
+    admin_tasks o|..o{ staff_messages : "0..1 task per message; 0..many messages"
+    admin_tasks o|..o{ admin_notifications : "optional task; 0..many notifications"
+    staff_messages o|..o{ admin_notifications : "optional message; 0..many notifications"
+    admin_tasks ||--o{ staff_assignment_email_outbox : "1 task : 0..many outbox rows"
+    staff_accounts ||--o{ staff_assignment_email_outbox : "1 recipient : 0..many outbox rows"
+    staff_accounts ||..o{ front_desk_payments : "cashier_staff_id; 0..many payments"
+    staff_accounts ||..o{ front_desk_payment_intents : "cashier_staff_id; 0..many attempts"
+    staff_accounts o|..o{ booking_workflow_events : "actor_staff_id; optional staff actor"
+    staff_accounts o|..o{ bookings : "check-in / check-out staff; separate roles"
+    villa_catalog }|..o{ bookings : "M:N via villa_ids[]; villa_id is primary/legacy"

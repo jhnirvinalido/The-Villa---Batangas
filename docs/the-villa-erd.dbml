@@ -1,0 +1,253 @@
+// Paste into dbdiagram.io. Application-derived diagram, not a verified database export.
+// PKs, types, and most references are inferred; see erd-notes.md.
+// Confirmed: checkout draft PK and staff assignment email outbox PK/FKs/unique pair.
+// auth_users represents Supabase auth.users.
+// villa_ids contains multiple villa IDs; only the primary villa_id is linked below.
+// Historical feedback may have no booking. Draft IDs become booking IDs on promotion.
+// Invitation outbox keys are unavailable; no relationship is invented.
+
+Project the_villa {
+  Note: 'Application-derived ERD. Selected attributes; inferred keys, types and relationships require comparison with the deployed schema. Black-and-white presentation can be set in the editor.'
+}
+
+Table auth_users {
+  id uuid [pk]
+  email text
+}
+
+Table profiles {
+  id uuid [pk]
+  full_name text
+  phone text
+}
+
+Table staff_accounts {
+  id uuid [pk]
+  auth_user_id uuid
+  employee_code text
+  full_name text
+  email text
+  username text
+  phone text
+  role text
+  department text
+  account_status text
+}
+
+Table villa_catalog {
+  id text [pk]
+  title text
+  price decimal(12,2)
+  capacity integer
+  status text
+}
+
+Table bookings {
+  id uuid [pk]
+  booking_code text
+  user_id uuid
+  villa_id text
+  villa_ids json
+  customer_name text
+  customer_email text
+  customer_phone text
+  check_in_date date
+  check_out_date date
+  guest_count integer
+  booking_status text
+  payment_status text
+  total_amount decimal(12,2)
+  amount_paid decimal(12,2)
+  balance_amount decimal(12,2)
+  checked_in_by_staff_id uuid
+  checked_out_by_staff_id uuid
+  Note: 'user_id can be null. villa_id is primary/legacy; villa_ids stores multi-villa membership without a junction table.'
+}
+
+Table booking_payments {
+  id uuid [pk]
+  booking_id uuid
+  user_id uuid
+  amount decimal(12,2)
+  currency text
+  status text
+  paymongo_payment_id text
+}
+
+Table front_desk_payment_intents {
+  booking_id uuid
+  cashier_staff_id uuid
+  payment_intent_id text
+  expected_amount decimal(12,2)
+  status text
+}
+
+Table front_desk_payments {
+  id uuid [pk]
+  booking_id uuid
+  cashier_staff_id uuid
+  payment_intent_id text
+  receipt_number text
+  amount decimal(12,2)
+  status text
+}
+
+Table front_desk_payment_items {
+  id uuid [pk]
+  front_desk_payment_id uuid
+  description text
+  amount decimal(12,2)
+}
+
+Table booking_workflow_events {
+  id uuid [pk]
+  booking_id uuid
+  actor_staff_id uuid
+  actor_user_id uuid
+  event_type text
+  metadata json
+  created_at timestamp
+}
+
+Table admin_tasks {
+  id uuid [pk]
+  booking_id uuid
+  assigned_staff_id uuid
+  created_by_staff_id uuid
+  updated_by_staff_id uuid
+  approved_by_staff_id uuid
+  title text
+  status text
+  checklist json
+  attachments json
+}
+
+Table staff_messages {
+  id uuid [pk]
+  staff_account_id uuid
+  sender_account_id uuid
+  task_id uuid
+  concern text
+  body text
+  sender_type text
+}
+
+Table admin_notifications {
+  id uuid [pk]
+  recipient_staff_account_id uuid
+  task_id uuid
+  message_id uuid
+  payment_transaction_id uuid
+  type text
+  is_read boolean
+}
+
+Table admin_settings {
+  id uuid [pk]
+  staff_account_id uuid
+  assignment_alerts boolean
+  payment_alerts boolean
+}
+
+Table staff_settings {
+  id uuid [pk]
+  staff_account_id uuid
+  push_notifications boolean
+  dark_mode boolean
+}
+
+Table guest_feedback {
+  id uuid [pk]
+  booking_id uuid
+  source text
+  overall_rating integer
+  comments text
+  review_date date
+  sentiment_label text
+  Note: 'Historical reviews may have no booking. One verified review per stay is intended; database uniqueness is unverified.'
+}
+
+Table feedback_invitation_outbox {
+  status text
+  Note: 'Booking-linked via RPC; exact key columns and cardinality are unavailable in repository DDL.'
+}
+
+Table staff_assignment_email_outbox {
+  id uuid [pk]
+  task_id uuid [not null]
+  recipient_staff_account_id uuid [not null]
+  status text
+  attempts integer
+  next_attempt_at timestamp
+
+  indexes {
+    (task_id, recipient_staff_account_id) [unique]
+  }
+}
+
+Table feedback_recommendation_reports {
+  id uuid [pk]
+  created_by_staff_id uuid
+  approved_by_staff_id uuid
+  evidence_fingerprint text
+  filters json
+  recommendation json
+  status text
+}
+
+Table feedback_analysis_jobs {
+  evidence_fingerprint text
+  status text
+  last_error text
+}
+
+Table public_booking_checkouts {
+  id uuid [pk]
+  booking_payload json
+  expires_at timestamp
+  created_at timestamp
+}
+
+Table manual_booking_checkouts {
+  id uuid [pk]
+  created_by_staff_id uuid
+  booking_payload json
+  expires_at timestamp
+}
+
+// Logical references; most enforced FK constraints are unverified.
+Ref: profiles.id > auth_users.id
+Ref: staff_accounts.auth_user_id > auth_users.id
+Ref: bookings.user_id > auth_users.id
+Ref: bookings.villa_id > villa_catalog.id
+Ref: bookings.checked_in_by_staff_id > staff_accounts.id
+Ref: bookings.checked_out_by_staff_id > staff_accounts.id
+Ref: booking_payments.booking_id > bookings.id
+Ref: booking_payments.user_id > auth_users.id
+Ref: front_desk_payment_intents.booking_id > bookings.id
+Ref: front_desk_payment_intents.cashier_staff_id > staff_accounts.id
+Ref: front_desk_payments.booking_id > bookings.id
+Ref: front_desk_payments.cashier_staff_id > staff_accounts.id
+Ref: front_desk_payment_items.front_desk_payment_id > front_desk_payments.id
+Ref: booking_workflow_events.booking_id > bookings.id
+Ref: booking_workflow_events.actor_staff_id > staff_accounts.id
+Ref: booking_workflow_events.actor_user_id > auth_users.id
+Ref: admin_tasks.booking_id > bookings.id
+Ref: admin_tasks.assigned_staff_id > staff_accounts.id
+Ref: admin_tasks.created_by_staff_id > staff_accounts.id
+Ref: admin_tasks.updated_by_staff_id > staff_accounts.id
+Ref: admin_tasks.approved_by_staff_id > staff_accounts.id
+Ref: staff_messages.staff_account_id > staff_accounts.id
+Ref: staff_messages.sender_account_id > staff_accounts.id
+Ref: staff_messages.task_id > admin_tasks.id
+Ref: admin_notifications.recipient_staff_account_id > staff_accounts.id
+Ref: admin_notifications.task_id > admin_tasks.id
+Ref: admin_notifications.message_id > staff_messages.id
+Ref: admin_settings.staff_account_id > staff_accounts.id
+Ref: staff_settings.staff_account_id > staff_accounts.id
+Ref: guest_feedback.booking_id > bookings.id
+Ref: staff_assignment_email_outbox.task_id > admin_tasks.id
+Ref: staff_assignment_email_outbox.recipient_staff_account_id > staff_accounts.id
+Ref: feedback_recommendation_reports.created_by_staff_id > staff_accounts.id
+Ref: feedback_recommendation_reports.approved_by_staff_id > staff_accounts.id
+Ref: manual_booking_checkouts.created_by_staff_id > staff_accounts.id

@@ -1,0 +1,135 @@
+{
+  "status": "development_only_provisional_annotations_not_independent_test",
+  "noisy_fixtures": {
+    "count": 10,
+    "normalization_correct": 10,
+    "category_correct": 10,
+    "results": [
+      {
+        "original": "drrty poool",
+        "normalization_correct": true,
+        "categories_correct": true
+      },
+      {
+        "original": "mahinaa aircon",
+        "normalization_correct": true,
+        "categories_correct": true
+      },
+      {
+        "original": "slooow wifi",
+        "normalization_correct": true,
+        "categories_correct": true
+      },
+      {
+        "original": "gud service",
+        "normalization_correct": true,
+        "categories_correct": true
+      },
+      {
+        "original": "sobrang init sa room",
+        "normalization_correct": true,
+        "categories_correct": true
+      },
+      {
+        "original": "Hindi madumi ang pool",
+        "normalization_correct": true,
+        "categories_correct": true
+      },
+      {
+        "original": "AC not cooling",
+        "normalization_correct": true,
+        "categories_correct": true
+      },
+      {
+        "original": "not dirty",
+        "normalization_correct": true,
+        "categories_correct": true
+      },
+      {
+        "original": "mabait ang staff",
+        "normalization_correct": true,
+        "categories_correct": true
+      },
+      {
+        "original": "hindi gud service",
+        "normalization_correct": true,
+        "categories_correct": true
+      }
+    ]
+  },
+  "category_matching": {
+    "precision": 0.9782608695652174,
+    "recall": 0.9375,
+    "micro_f1": 0.9574468085106383,
+    "phrase_count": 73
+  },
+  "distinct_review_category_count_check_with_reference_sentiment": [
+    {
+      "category": "Air conditioning",
+      "reference_count": 2,
+      "detected_count": 2,
+      "absolute_error": 0
+    },
+    {
+      "category": "Bathroom cleanliness and plumbing",
+      "reference_count": 3,
+      "detected_count": 3,
+      "absolute_error": 0
+    },
+    {
+      "category": "Internet connectivity",
+      "reference_count": 4,
+      "detected_count": 4,
+      "absolute_error": 0
+    },
+    {
+      "category": "Kitchen and supplies",
+      "reference_count": 3,
+      "detected_count": 3,
+      "absolute_error": 0
+    },
+    {
+      "category": "Location and access",
+      "reference_count": 1,
+      "detected_count": 1,
+      "absolute_error": 0
+    },
+    {
+      "category": "Noise and security",
+      "reference_count": 1,
+      "detected_count": 1,
+      "absolute_error": 0
+    },
+    {
+      "category": "Pool cleanliness",
+      "reference_count": 1,
+      "detected_count": 1,
+      "absolute_error": 0
+    },
+    {
+      "category": "Pool heating and facilities",
+      "reference_count": 4,
+      "detected_count": 4,
+      "absolute_error": 0
+    },
+    {
+      "category": "Room cleanliness and maintenance",
+      "reference_count": 3,
+      "detected_count": 4,
+      "absolute_error": 1
+    },
+    {
+      "category": "Staff service",
+      "reference_count": 4,
+      "detected_count": 3,
+      "absolute_error": 1
+    }
+  ],
+  "limitations": [
+    "Synthetic noisy fixtures are implementation smoke checks, not a measure of real-world Taglish generalization.",
+    "Category annotations are provisional and selected spans are not exhaustive full-review complaint ground truth.",
+    "Category count check uses reference sentiment to isolate vocabulary errors; it is not end-to-end deployed complaint accuracy.",
+    "Obtain independently human-reviewed holdout phrases and full reviews before final evaluation.",
+    "Evaluate Gemini separately for relevance, actionability, evidence support, and unsupported claims."
+  ]
+}

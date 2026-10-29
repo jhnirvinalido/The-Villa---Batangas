@@ -1,0 +1,91 @@
+/* Hero-local film: same source, crop, and final scale as the live carousel.
+   No scroll locks, external fonts, filters, or animation dependencies. */
+.villa-intro {
+  position: absolute;
+  inset: 0;
+  z-index: 3;
+  overflow: hidden;
+  display: grid;
+  place-items: center;
+  background: #fbfaf8;
+  pointer-events: none;
+}
+.villa-intro-film, .villa-intro-photo, .villa-intro-shade { position: absolute; inset: 0; width: 100%; height: 100%; }
+.villa-intro-film { opacity: 0; }
+.villa-intro-photo { object-fit: cover; object-position: center; }
+.villa-intro-shade {
+  background: radial-gradient(ellipse at 50% 40%, #21191420, #21191478), linear-gradient(180deg, #21191430, #21191468);
+}
+.villa-intro-lockup { position: relative; display: flex; flex-direction: column; align-items: center; text-align: center; padding: 28px; opacity: 0; }
+.villa-intro-kicker { color: #f3e5ce; font-size: 8px; letter-spacing: .28em; line-height: 1.8; margin-bottom: 26px; }
+.villa-intro-mark {
+  display: grid;
+  place-items: center;
+  width: clamp(112px, 12vw, 160px);
+  aspect-ratio: 1;
+  border-radius: 50%;
+  background: #fff;
+  box-shadow: 0 16px 48px #21191428;
+}
+.villa-intro-mark img { display: block; width: 100%; height: auto; object-fit: contain; }
+.villa-intro-mark > span { color: #816d52; font: 23px Georgia,serif; }
+.villa-intro-divider { width: 34px; height: 1px; margin: 26px 0 18px; background: #d6bb8c; }
+.villa-intro-place { color: #fff4e4; font-size: 8px; letter-spacing: .2em; line-height: 1.8; }
+.villa-intro-place > span { margin: 0 8px; color: #d6bb8c; }
+.villa-intro-skip {
+  position: absolute;
+  bottom: 24px;
+  right: clamp(18px, 3vw, 40px);
+  min-height: 44px;
+  padding: 10px 14px;
+  border: 1px solid #fff3;
+  border-radius: 999px;
+  color: #fff4e4;
+  background: #21191470;
+  font-size: 11px;
+  cursor: pointer;
+  pointer-events: auto;
+}
+.villa-intro-skip > span { margin-left: 12px; color: #d6bb8c; }
+.villa-intro-skip:hover { background: #211914a0; }
+.villa-intro-skip:focus-visible { outline: 2px solid #d6bb8c; outline-offset: 4px; }
+.villa-intro.is-preparing .villa-intro-skip { color: #654c3b; border-color: #816d5240; background: transparent; }
+.villa-intro.is-playing { animation: villa-intro-dissolve 1s 2.6s ease-in-out both; }
+.villa-intro.is-playing .villa-intro-film { animation: villa-intro-photo-in .9s ease-out both; }
+.villa-intro.is-playing .villa-intro-photo { animation: villa-intro-push 3.6s cubic-bezier(.2,.4,.4,1) both; }
+.villa-intro.is-playing .villa-intro-lockup { animation: villa-intro-brand-in .75s .25s cubic-bezier(.22,.61,.36,1) both; }
+.villa-intro.is-playing .villa-intro-mark { animation: villa-intro-mark-in .9s .3s cubic-bezier(.22,.61,.36,1) both; }
+.villa-intro.is-playing .villa-intro-divider { animation: villa-intro-line-in .7s .65s both; }
+.villa-intro.is-playing .villa-intro-place { animation: villa-intro-brand-in .65s .65s both; }
+@keyframes villa-intro-photo-in { from { opacity: 0; } to { opacity: 1; } }
+@keyframes villa-intro-push { from { transform: scale(1.025); } to { transform: scale(1.06); } }
+@keyframes villa-intro-brand-in { from { opacity: 0; transform: translateY(7px); } to { opacity: 1; transform: translateY(0); } }
+@keyframes villa-intro-mark-in { from { transform: scale(.96); } to { transform: scale(1); } }
+@keyframes villa-intro-line-in { from { opacity: 0; transform: scaleX(.2); } to { opacity: 1; transform: scaleX(1); } }
+@keyframes villa-intro-dissolve { to { opacity: 0; visibility: hidden; } }
+@media (max-height: 500px) {
+  .villa-intro-mark { width: 90px; }
+  .villa-intro-kicker { margin-bottom: 14px; }
+  .villa-intro-divider { margin: 16px 0 12px; }
+}
+@media (max-width: 400px) { .villa-intro-place { font-size: 7px; letter-spacing: .14em; } }
+@media (prefers-reduced-motion: reduce) {
+  .villa-intro { display: none; }
+  .villa-intro, .villa-intro * { animation: none !important; }
+}
+
+.villa-intro-frame { position:absolute; inset:clamp(16px,3vw,40px); border:1px solid #e4cba35c; opacity:0; }
+.villa-intro-arch { position:absolute; width:min(72%,470px); height:115%; top:10%; border:1px solid #e4cba34a; border-radius:50% 50% 0 0; opacity:0; }
+.villa-intro-title { color:#fff4e4; font:italic clamp(25px,3.4vw,46px)/1.2 Georgia,serif; letter-spacing:-.025em; margin-bottom:18px; }
+.villa-intro-mark { width:clamp(100px,11vw,146px); outline:1px solid #e4cba369; outline-offset:9px; box-shadow:0 24px 70px #21191445; }
+.villa-intro-kicker { font-size:9px; letter-spacing:.32em; }
+.villa-intro-progress { position:absolute; bottom:0; left:0; width:100%; height:2px; background:#fff1; }
+.villa-intro-progress span { display:block; width:100%; height:100%; background:#d6bb8c; transform:scaleX(0); transform-origin:left; }
+.villa-intro.is-playing .villa-intro-lockup { animation:villa-intro-brand-in 1.15s .15s cubic-bezier(.16,1,.3,1) both; }
+.villa-intro.is-playing .villa-intro-frame { animation:villa-intro-brand-in 1.3s .2s both; }
+.villa-intro.is-playing .villa-intro-arch { animation:villa-intro-arch-in 1.8s .15s cubic-bezier(.16,1,.3,1) both; }
+.villa-intro.is-playing .villa-intro-title { animation:villa-intro-brand-in 1s .5s both; }
+.villa-intro.is-playing .villa-intro-progress span { animation:villa-intro-progress 3.3s linear both; }
+@keyframes villa-intro-arch-in { from { opacity:0; transform:translateY(35px) scale(.96); } to { opacity:1; transform:translateY(0) scale(1); } }
+@keyframes villa-intro-progress { to { transform:scaleX(1); } }
+@media(max-height:500px) { .villa-intro-title { font-size:24px; margin-bottom:10px; } .villa-intro-mark { width:74px; } }

@@ -1,0 +1,10 @@
+.landing-loader { display:inline-flex; align-items:center; justify-content:center; vertical-align:middle; min-height:44px; background:transparent; }
+.landing-spinner { display:block; width:34px; height:34px; border:3px solid rgb(139 94 60 / 20%); border-top-color:var(--brand,#8b5e3c); border-right-color:var(--brand,#8b5e3c); border-radius:50%; animation:landingSpinnerTurn .8s linear infinite; }
+.landing-loader.compact { min-height:20px; }
+.landing-loader.compact .landing-spinner { width:18px; height:18px; border-width:2px; }
+.landing-loader-overlay { position:absolute; inset:0; z-index:4; display:grid; place-items:center; pointer-events:none; background:transparent; }
+.landing-loading-row { display:flex; justify-content:center; padding:16px 0; }
+.villa-image-button,.villa-modal-gallery-image { position:relative; }
+@keyframes landingSpinnerTurn { to { transform:rotate(360deg); } }
+@media(prefers-reduced-motion:reduce) { .landing-spinner { animation:none; } }
+.location-map > .landing-loader-overlay { z-index:450; }

@@ -1,0 +1,227 @@
+.staff-maintenance-workspace {
+  display: grid;
+  width: min(920px, 100%);
+  gap: 22px;
+  margin: 0 auto;
+  color: #172033;
+}
+
+.staff-maintenance-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+}
+
+.staff-maintenance-header > div:first-child {
+  min-width: 0;
+}
+
+.staff-maintenance-header > div > span {
+  color: #657187;
+  font-size: 11px;
+  font-weight: 750;
+  letter-spacing: 0.1em;
+}
+
+.staff-maintenance-header h2 {
+  margin: 5px 0 7px;
+  color: #152034;
+  font-size: 28px;
+  letter-spacing: -0.035em;
+}
+
+.staff-maintenance-header p {
+  max-width: 650px;
+  margin: 0;
+  color: #667085;
+  font-size: 13px;
+  line-height: 1.65;
+}
+
+.staff-maintenance-header-icon {
+  display: grid;
+  width: 52px;
+  height: 52px;
+  flex: 0 0 auto;
+  place-items: center;
+  border: 1px solid #dfe5ef;
+  border-radius: 15px;
+  background: #f4f6fa;
+  color: #45536b;
+}
+
+.staff-maintenance-inbox {
+  overflow: hidden;
+  border: 1px solid #e1e6ee;
+  border-radius: 10px;
+  background: #fff;
+}
+
+.staff-maintenance-request-list {
+  display: grid;
+}
+
+.staff-maintenance-request-row {
+  display: grid;
+  grid-template-columns: 40px minmax(0, 1fr) 18px;
+  align-items: center;
+  gap: 15px;
+  width: 100%;
+  padding: 18px 20px;
+  border: 0;
+  border-bottom: 1px solid #edf0f4;
+  background: #fff;
+  color: #172033;
+  text-align: left;
+  transition: background 150ms ease;
+}
+
+.staff-maintenance-request-row:last-child {
+  border-bottom: 0;
+}
+
+.staff-maintenance-request-row:hover {
+  background: #f7f9fb;
+}
+
+.staff-maintenance-request-icon {
+  display: grid;
+  width: 40px;
+  height: 40px;
+  place-items: center;
+  border-radius: 8px;
+  background: #f0f4f3;
+  color: #42675b;
+}
+
+.staff-maintenance-request-copy {
+  display: grid;
+  min-width: 0;
+  gap: 5px;
+}
+
+.staff-maintenance-request-meta,
+.staff-maintenance-request-copy small {
+  color: #667085;
+  font-size: 11px;
+}
+
+.staff-maintenance-request-copy strong {
+  overflow-wrap: anywhere;
+  font-size: 14px;
+}
+
+.staff-maintenance-request-action {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 4px;
+  color: #42675b;
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.staff-maintenance-request-row > svg:last-child {
+  color: #667085;
+}
+
+.staff-maintenance-empty {
+  display: grid;
+  justify-items: center;
+  gap: 9px;
+  min-height: 220px;
+  align-content: center;
+  padding: 24px;
+  color: #667085;
+  text-align: center;
+}
+
+.staff-maintenance-empty > svg {
+  color: #42675b;
+}
+
+.staff-maintenance-empty strong {
+  color: #172033;
+  font-size: 14px;
+}
+
+.staff-maintenance-empty p {
+  max-width: 330px;
+  font-size: 12px;
+  line-height: 1.6;
+}
+
+.staff-maintenance-message {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  margin: 0;
+  border-radius: 10px;
+  padding: 13px 15px;
+  font-size: 13px;
+  line-height: 1.55;
+}
+
+.staff-maintenance-message svg {
+  flex: 0 0 auto;
+  margin-top: 1px;
+}
+
+.staff-maintenance-message.is-error {
+  background: #fff1f0;
+  color: #a4312a;
+}
+
+.staff-maintenance-message.is-success {
+  background: #eef7f1;
+  color: #247044;
+}
+
+.staff-maintenance-loading {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 0;
+  color: #667085;
+}
+
+.staff-maintenance-spinner {
+  animation: staff-maintenance-spin 900ms linear infinite;
+}
+
+@keyframes staff-maintenance-spin {
+  to { transform: rotate(360deg); }
+}
+
+.staff-maintenance-workspace :focus-visible {
+  outline: 2px solid #687994;
+  outline-offset: 3px;
+}
+
+.staff-dashboard-shell .villa-maintenance-modal-backdrop {
+  inset: var(--topbar-height, 68px) 0 0 var(--sidebar-width, 256px);
+}
+
+@media (max-width: 620px) {
+  .staff-maintenance-header h2 {
+    font-size: 24px;
+  }
+
+  .staff-maintenance-request-row {
+    grid-template-columns: 36px minmax(0, 1fr) 16px;
+    gap: 11px;
+    padding: 15px 13px;
+  }
+
+  .staff-maintenance-request-icon {
+    width: 36px;
+    height: 36px;
+  }
+}
+
+@media (max-width: 980px) {
+  .staff-dashboard-shell .villa-maintenance-modal-backdrop {
+    left: 0;
+  }
+}
