@@ -12,6 +12,7 @@
   "dependencies": {
     "@react-oauth/google": "^0.13.5",
     "bootstrap": "^5.3.8",
+    "chart.js": "^4.6.1",
     "leaflet": "^1.9.4",
     "lucide-react": "^1.22.0",
     "react": "^19.2.7",
