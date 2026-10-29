@@ -3837,7 +3837,7 @@ export default function AdminDashboard() {
           ).length,
         };
       }),
-    [assignments]
+    [assignments, staffDirectory]
   );
 
   const filteredStaffWorkloads = React.useMemo(() => {
