@@ -17,7 +17,7 @@ def operation_summary(client):
         records = []
         offset = 0
         while True:
-            batch = client.table('admin_tasks').select('id,status,status_history,approved_at,updated_at').eq('source', SOURCE).order('id').range(offset, offset + 499).execute().data or []
+            batch = client.table('admin_tasks').select('id,status,status_history,approved_at,updated_at,due_date').eq('source', SOURCE).order('id').range(offset, offset + 499).execute().data or []
             records.extend(batch)
             if len(batch) < 500:
                 break
@@ -34,6 +34,14 @@ def operation_summary(client):
         if row['status'] not in {'Completed', 'Cancelled'}:
             summary['open'] += 1
             summary['blocking'] += bool(meta.get('blocksBooking'))
+            if meta.get('blocksBooking'):
+                # Each request reserves its scheduled calendar date. Multiple
+                # requests can cover several dates without blocking every day.
+                scheduled = str(row.get('due_date') or '')[:10]
+                if scheduled:
+                    summary.setdefault('blockingDates', []).append(scheduled)
+                else:
+                    summary['undatedBlocking'] = True
             summary['inspections'] += meta.get('kind') == 'Inspection'
             summary['forVerification'] += row['status'] == 'Pending Review'
         elif meta.get('blocksBooking') and len(str(meta.get('verificationNote') or '').strip()) >= 5:

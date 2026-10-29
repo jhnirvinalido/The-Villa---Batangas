@@ -688,6 +688,11 @@ def get_villa_catalog_map(
                 "Under Maintenance"
                 else "available"
             ),
+            "manual_operational_status": (
+                "under_maintenance" if _clean_status(row.get("manual_status", row.get("status"))) == "Under Maintenance" else "available"
+            ),
+            "maintenance_dates": row.get("operations", {}).get("blockingDates", []),
+            "undated_maintenance": row.get("operations", {}).get("undatedBlocking", False),
         }
 
     return result

@@ -1300,6 +1300,10 @@ export default function BookForm() {
   }
 
   function validatePersonalInfo() {
+    if (/\p{N}/u.test(`${form.firstName} ${form.lastName}`)) {
+      setMessage("Names must not contain numbers.");
+      return false;
+    }
     const emailReady =
       /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(
         form.email.trim()

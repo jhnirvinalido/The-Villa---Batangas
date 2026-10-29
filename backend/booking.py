@@ -22,6 +22,7 @@ import requests
 from dotenv import load_dotenv
 from fastapi import APIRouter, Header, HTTPException, Query, Request
 from pydantic import BaseModel, EmailStr, Field, field_validator
+from person_names import validate_person_name
 from villa_catalog import get_villa_catalog_map
 from booking_assignments import schedule_prearrival_assignment as _assign_prearrival_staff
 
@@ -1696,7 +1697,13 @@ def _expire_stale_public_booking_holds(
     return expired_count
 
 
-def _villa_operational(villa: dict[str, Any]) -> bool:
+def _villa_operational(villa: dict[str, Any], on_date: date | None = None) -> bool:
+    if on_date is not None and villa.get("maintenance_dates"):
+        return (
+            villa.get("manual_operational_status", "available") == "available"
+            and not villa.get("undated_maintenance", False)
+            and on_date.isoformat() not in villa["maintenance_dates"]
+        )
     return _normalized_status(
         villa.get("operational_status", "available")
     ) not in {"under maintenance", "maintenance", "disabled"}
@@ -2507,7 +2514,7 @@ def booking_calendar_availability(
         unavailable_ids: list[str] = []
 
         for villa_id, villa in active_villa_catalog.items():
-            if not _villa_operational(villa):
+            if not _villa_operational(villa, current):
                 unavailable_ids.append(villa_id)
                 continue
             if villa_id in blocked:
@@ -2632,7 +2639,7 @@ def booking_availability(
     for villa_id, villa in (
         active_villa_catalog.items()
     ):
-        operational = _villa_operational(villa)
+        operational = _villa_operational(villa, check_in_date)
         available = (
             operational
             and villa_id not in blocked_villas
@@ -3041,7 +3048,7 @@ def create_booking(
             ),
         )
 
-    if not _villa_operational(villa):
+    if not _villa_operational(villa, data.check_in_date):
         raise HTTPException(
             status_code=409,
             detail=f"{villa['name']} is currently under maintenance.",
@@ -4146,6 +4153,7 @@ async def paymongo_webhook(
 # PUBLIC MODERN BOOKING FORM ENDPOINTS
 # =========================================================
 class PublicBookingCreateRequest(BaseModel):
+    _validate_names = field_validator('first_name', 'last_name')(validate_person_name)
     first_name: str = Field(min_length=1, max_length=100)
     last_name: str = Field(min_length=1, max_length=100)
     email: EmailStr
@@ -4308,7 +4316,7 @@ def public_booking_availability(
     villas: list[dict[str, Any]] = []
 
     for villa_id, villa in catalog.items():
-        operational = _villa_operational(villa)
+        operational = _villa_operational(villa, check_in_date)
         within_capacity = True
         available = (
             operational
@@ -4433,7 +4441,7 @@ def public_booking_calendar_availability(
         unavailable_ids: list[str] = []
 
         for villa_id, villa in catalog.items():
-            if not _villa_operational(villa):
+            if not _villa_operational(villa, current):
                 unavailable_ids.append(villa_id)
             elif villa_id in blocked:
                 booked_ids.append(villa_id)
@@ -4509,7 +4517,7 @@ def _prepare_public_booking(data: PublicBookingCreateRequest, *, draft_only: boo
     if data.guest_count > sum(int(v["capacity"]) for v in chosen_villas):
         raise HTTPException(status_code=422, detail="The selected villas cannot accommodate all guests.")
 
-    if not all(_villa_operational(v) for v in chosen_villas):
+    if not all(_villa_operational(v, data.check_in_date) for v in chosen_villas):
         raise HTTPException(
             status_code=409,
             detail=f"{villa['name']} is currently under maintenance.",
@@ -4544,7 +4552,7 @@ def _prepare_public_booking(data: PublicBookingCreateRequest, *, draft_only: boo
             reserved_ids.update(row.get("villa_ids") or [row.get("villa_id")])
     available_capacities = sorted(
         (int(item["capacity"]) for villa_id, item in catalog.items()
-         if _villa_operational(item) and villa_id not in reserved_ids),
+         if _villa_operational(item, data.check_in_date) and villa_id not in reserved_ids),
         reverse=True,
     )
     minimal_count = None

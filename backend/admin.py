@@ -17,7 +17,8 @@ from zoneinfo import ZoneInfo
 
 from dotenv import load_dotenv
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
-from pydantic import BaseModel, EmailStr, Field
+from pydantic import BaseModel, EmailStr, Field, field_validator
+from person_names import validate_person_name
 from villa_catalog import get_villa_catalog_map
 from staff_admin_auth import validate_portal_access_token
 from feedback_analysis import AnalysisFilters
@@ -123,6 +124,7 @@ class ApiModel(BaseModel):
 
 
 class StaffCreateRequest(ApiModel):
+    _validate_name = field_validator('full_name')(validate_person_name)
     employee_code: str | None = Field(default=None, alias="employeeCode")
     full_name: str = Field(min_length=3, max_length=120, alias="fullName")
     email: EmailStr
@@ -137,6 +139,7 @@ class StaffCreateRequest(ApiModel):
 
 
 class StaffUpdateRequest(ApiModel):
+    _validate_name = field_validator('full_name')(validate_person_name)
     employee_code: str | None = Field(default=None, alias="employeeCode")
     full_name: str | None = Field(default=None, min_length=3, max_length=120, alias="fullName")
     email: EmailStr | None = None
@@ -224,6 +227,7 @@ class PaymentTimingPreferenceRequest(ApiModel):
 
 
 class ManualBookingRequest(BaseModel):
+    _validate_names = field_validator('first_name', 'last_name')(validate_person_name)
     first_name: str = Field(min_length=1, max_length=100)
     last_name: str = Field(min_length=1, max_length=100)
     email: EmailStr

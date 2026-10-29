@@ -217,6 +217,10 @@ export default function ManualBooking({ apiRequest, onViewBookings, onBookingCre
   async function submit(event) {
     event.preventDefault();
     setError("");
+    if (/\p{N}/u.test(`${form.first_name} ${form.last_name}`)) {
+      setError("Names must not contain numbers.");
+      return;
+    }
     if (!form.check_in_date || form.check_in_date < manilaToday()) {
       setError("Select today or a future check-in date.");
       return;
