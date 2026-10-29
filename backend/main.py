@@ -9,6 +9,7 @@ import re
 import time
 import uuid
 from datetime import datetime, timedelta, timezone
+from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
 import requests
@@ -21,7 +22,7 @@ from fastapi import (
 )
 from fastapi.encoders import jsonable_encoder
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse
+from fastapi.responses import FileResponse, JSONResponse
 from pydantic import (
     BaseModel,
     EmailStr,
@@ -2834,6 +2835,9 @@ def readable_auth_error(
 
 @app.get("/")
 def root():
+    frontend_dist = os.getenv("FRONTEND_DIST", "").strip()
+    if frontend_dist:
+        return FileResponse(Path(frontend_dist) / "index.html")
     return {
         "name": "The Villa Authentication API",
         "status": "running",
@@ -5180,6 +5184,11 @@ async def protect_feedback_responses(request, call_next):
         response.headers["Referrer-Policy"] = "no-referrer"
         response.headers["X-Robots-Tag"] = "noindex, nofollow"
     return response
+
+
+from frontend_hosting import mount_frontend
+
+mount_frontend(app, os.getenv("FRONTEND_DIST", "").strip())
 
 
 if __name__ == "__main__":

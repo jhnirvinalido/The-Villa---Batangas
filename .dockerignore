@@ -1,0 +1,13 @@
+.git
+**/.env
+**/.env.*
+**/node_modules
+**/.venv
+**/venv
+**/__pycache__
+**/.pytest_cache
+**/dist
+**/*.pyc
+**/*.log
+.DS_Store
+v30_backup_*
