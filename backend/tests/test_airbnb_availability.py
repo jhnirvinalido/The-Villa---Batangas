@@ -7,6 +7,8 @@ from pydantic import ValidationError
 
 from admin import (
     ManualBookingRequest,
+    AirbnbStayHoldRequest,
+    create_manual_airbnb_stay_hold,
     list_manual_airbnb_stays,
     manual_booking_airbnb_availability,
 )
@@ -134,6 +136,44 @@ class AirbnbAvailabilityTests(TestCase):
             result = list_manual_airbnb_stays(context={})
 
         self.assertEqual(result["data"][0]["villa_names"], ["Villa One"])
+
+    def test_create_hold_saves_a_valid_selected_villa(self):
+        class RpcQuery:
+            def execute(self):
+                return type("Response", (), {"data": {}})()
+
+        class Client:
+            def rpc(self, name, params):
+                self.rpc_name = name
+                self.rpc_params = params
+                return RpcQuery()
+
+        client = Client()
+        data = AirbnbStayHoldRequest(
+            check_in_date=date(2099, 1, 1),
+            check_out_date=date(2099, 1, 2),
+            guest_count=1,
+            villa_ids=["villa-a"],
+        )
+        availability = {
+            "villas": [{
+                "villa_id": "villa-a",
+                "villa_name": "Villa A",
+                "capacity": 2,
+                "available": True,
+            }]
+        }
+        with patch("admin.villa_business_today", return_value=date(2098, 12, 31)), \
+             patch("admin.service_client", return_value=client), \
+             patch("admin.manual_booking_airbnb_availability", return_value=availability):
+            result = create_manual_airbnb_stay_hold(
+                data,
+                {"account": {"id": "staff-id"}},
+            )
+
+        self.assertEqual(client.rpc_name, "create_airbnb_stay_hold")
+        self.assertEqual(client.rpc_params["p_villa_ids"], ["villa-a"])
+        self.assertEqual(result["data"]["villa_names"], ["Villa A"])
 
     def test_manual_checkout_only_accepts_qrph(self):
         payload = {
