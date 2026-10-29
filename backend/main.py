@@ -141,6 +141,10 @@ app = FastAPI(
     version="1.6.0",
 )
 
+if os.getenv("RENDER", "").lower() == "true" or os.getenv("MEMORY_LOGGING_ENABLED", "false").lower() == "true":
+    from runtime_memory import install_memory_monitor
+    install_memory_monitor(app)
+
 
 LOCAL_FRONTEND_ORIGINS = {
     FRONTEND_URL,
