@@ -1634,6 +1634,44 @@ def _availability_blocks_booking(booking: dict[str, Any]) -> bool:
     ) not in AVAILABILITY_RELEASE_STATUSES
 
 
+def _active_airbnb_stays(
+    supabase: Client,
+    start_date: date | None = None,
+    end_date: date | None = None,
+) -> list[dict[str, Any]]:
+    try:
+        response = (
+            supabase.table("airbnb_stays")
+            .select("id,check_in_date,check_out_date,guest_count,villa_ids,status,expires_at,created_at")
+            .in_("status", ["held", "confirmed"])
+            .execute()
+        )
+    except Exception as error:
+        logger.exception("Could not read Airbnb stay holds.")
+        raise HTTPException(
+            status_code=503,
+            detail="Airbnb stay availability is unavailable. Apply the Airbnb stay database migration and retry.",
+        ) from error
+
+    now = datetime.now(timezone.utc)
+    active = []
+    for row in _attr(response, "data", []) or []:
+        status_value = str(row.get("status") or "").lower()
+        if status_value == "held":
+            expires_at = row.get("expires_at")
+            if not expires_at or datetime.fromisoformat(
+                str(expires_at).replace("Z", "+00:00")
+            ) <= now:
+                continue
+        if start_date and end_date:
+            check_in = date.fromisoformat(str(row["check_in_date"])[:10])
+            check_out = date.fromisoformat(str(row["check_out_date"])[:10])
+            if check_in >= end_date or check_out <= start_date:
+                continue
+        active.append(row)
+    return active
+
+
 def _expire_stale_public_booking_holds(
     supabase: Client,
 ) -> int:
@@ -4313,6 +4351,19 @@ def public_booking_availability(
         ):
             blocked_villas.update(row.get("villa_ids") or [str(row.get("villa_id"))])
 
+    for stay in _active_airbnb_stays(service, check_in_date, requested_checkout):
+        if _villa_date_conflict(
+            {
+                "villa_ids": stay.get("villa_ids") or [],
+                "check_in_date": stay.get("check_in_date"),
+                "check_out_date": stay.get("check_out_date"),
+                "booking_status": "Confirmed",
+            },
+            check_in_date,
+            requested_checkout,
+        ):
+            blocked_villas.update(stay.get("villa_ids") or [])
+
     villas: list[dict[str, Any]] = []
 
     for villa_id, villa in catalog.items():
@@ -4406,6 +4457,7 @@ def public_booking_calendar_availability(
     )
 
     blocked_by_date: dict[str, set[str]] = {}
+    airbnb_blocked_by_date: dict[str, set[str]] = {}
 
     for row in _attr(response, "data", []) or []:
         if not _availability_blocks_booking(row):
@@ -4430,12 +4482,37 @@ def public_booking_calendar_availability(
 
             current_day += timedelta(days=1)
 
+    for stay in _active_airbnb_stays(service, start_date, end_date + timedelta(days=1)):
+        stay_row = {
+            "villa_ids": stay.get("villa_ids") or [],
+            "check_in_date": stay.get("check_in_date"),
+            "check_out_date": stay.get("check_out_date"),
+            "booking_status": "Confirmed",
+        }
+        current_day = start_date
+        while current_day <= end_date:
+            if _villa_date_conflict(
+                stay_row,
+                current_day,
+                current_day + timedelta(days=1),
+            ):
+                airbnb_blocked_by_date.setdefault(
+                    current_day.isoformat(),
+                    set(),
+                ).update(stay.get("villa_ids") or [])
+                blocked_by_date.setdefault(
+                    current_day.isoformat(),
+                    set(),
+                ).update(stay.get("villa_ids") or [])
+            current_day += timedelta(days=1)
+
     days: dict[str, dict[str, Any]] = {}
     current = start_date
 
     while current <= end_date:
         date_key = current.isoformat()
         blocked = blocked_by_date.get(date_key, set())
+        airbnb_blocked = airbnb_blocked_by_date.get(date_key, set())
         available_ids: list[str] = []
         booked_ids: list[str] = []
         unavailable_ids: list[str] = []
@@ -4453,6 +4530,7 @@ def public_booking_calendar_availability(
             "available_count": len(available_ids),
             "available_villa_ids": available_ids,
             "booked_villa_ids": booked_ids,
+            "airbnb_blocked_villa_ids": sorted(airbnb_blocked),
             "unavailable_villa_ids": unavailable_ids,
         }
 
@@ -4550,6 +4628,18 @@ def _prepare_public_booking(data: PublicBookingCreateRequest, *, draft_only: boo
     for row in _attr(existing_response, "data", []) or []:
         if _villa_date_conflict(row, data.check_in_date, requested_check_out):
             reserved_ids.update(row.get("villa_ids") or [row.get("villa_id")])
+    for stay in _active_airbnb_stays(service, data.check_in_date, requested_check_out):
+        if _villa_date_conflict(
+            {
+                "villa_ids": stay.get("villa_ids") or [],
+                "check_in_date": stay.get("check_in_date"),
+                "check_out_date": stay.get("check_out_date"),
+                "booking_status": "Confirmed",
+            },
+            data.check_in_date,
+            requested_check_out,
+        ):
+            reserved_ids.update(stay.get("villa_ids") or [])
     available_capacities = sorted(
         (int(item["capacity"]) for villa_id, item in catalog.items()
          if _villa_operational(item, data.check_in_date) and villa_id not in reserved_ids),
@@ -4579,6 +4669,22 @@ def _prepare_public_booking(data: PublicBookingCreateRequest, *, draft_only: boo
                     "This villa is already reserved "
                     "for the selected dates."
                 ),
+            )
+
+    for stay in _active_airbnb_stays(service, data.check_in_date, requested_check_out):
+        if set(stay.get("villa_ids") or []) & set(chosen_ids) and _villa_date_conflict(
+            {
+                "villa_ids": stay.get("villa_ids") or [],
+                "check_in_date": stay.get("check_in_date"),
+                "check_out_date": stay.get("check_out_date"),
+                "booking_status": "Confirmed",
+            },
+            data.check_in_date,
+            requested_check_out,
+        ):
+            raise HTTPException(
+                status_code=409,
+                detail="This villa is on hold for an Airbnb stay on the selected dates.",
             )
 
     total_amount = sum((_money(v["price"]) for v in chosen_villas), Decimal("0"))

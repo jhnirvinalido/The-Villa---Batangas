@@ -66,6 +66,29 @@ class AirbnbAvailabilityTests(TestCase):
         self.assertFalse(result["available"])
         self.assertEqual(result["villas"][0]["reason"], "Maintenance or unavailable")
 
+    def test_checker_identifies_internal_airbnb_holds_and_stays(self):
+        calendar = {
+            "days": {
+                "2099-01-01": {
+                    "available_villa_ids": ["villa-b"],
+                    "booked_villa_ids": [],
+                    "airbnb_blocked_villa_ids": ["villa-a"],
+                    "unavailable_villa_ids": [],
+                },
+            }
+        }
+        with patch("booking.public_booking_calendar_availability", return_value=calendar), \
+             patch("admin.get_villa_catalog_map", return_value=self.catalog), \
+             patch("admin.service_client"):
+            result = manual_booking_airbnb_availability(
+                check_in_date=date(2099, 1, 1),
+                check_out_date=date(2099, 1, 2),
+                guest_count=1,
+                context={},
+            )
+
+        self.assertEqual(result["villas"][0]["reason"], "Airbnb hold or stay for part of the stay")
+
     def test_checker_rejects_empty_stay(self):
         with self.assertRaises(HTTPException) as caught:
             manual_booking_airbnb_availability(

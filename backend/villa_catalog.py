@@ -991,9 +991,14 @@ def update_villa_catalog(
         blocking = summaries.get(normalized_id, {}).get("blocking", 0)
         previous_villa = _normalize_row(existing_rows[0] if existing_rows else DEFAULT_BY_ID[normalized_id])
         effective_status = apply_operational_status([dict(previous_villa)], service, summaries)[0]["status"]
-        if data.status is not None and _clean_status(data.status) != effective_status:
-            raise HTTPException(status_code=409, detail="Villa availability is controlled by maintenance requests. Request maintenance to pause bookings, and verify the finished work to restore availability.")
-        saved_status = previous_villa["status"] if blocking else effective_status
+        if (blocking and data.status is not None
+                and _clean_status(data.status) != previous_villa["status"]):
+            raise HTTPException(status_code=409, detail="Verify or cancel the active blocking maintenance request before changing this villa's manual status.")
+        saved_status = (
+            previous_villa["status"]
+            if blocking
+            else _clean_status(data.status) if data.status is not None else effective_status
+        )
 
         payload = {
             "id": normalized_id,

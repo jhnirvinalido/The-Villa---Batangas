@@ -2,48 +2,41 @@
 
 ## Integration boundary
 
-The Manual Booking page now includes a read-only Airbnb availability checker.
-It checks requested stay dates against bookings and scheduled maintenance in
-The Villa; it does not create a reservation, place a hold, or connect to Airbnb.
-The existing direct manual booking endpoint creates PayMongo checkout links;
-do not use it to charge an Airbnb reservation again. No Airbnb approval,
-reservation import, or review import is implemented.
+The Manual Booking page includes an Airbnb-request availability checker. The
+Villa calendar is the source of truth; no Airbnb calendar or API is connected.
+The checker includes Villa bookings, maintenance, and internally recorded
+Airbnb holds/stays. It reports when the internal calendar was checked, not an
+Airbnb sync time. The existing direct manual booking endpoint creates PayMongo
+checkout links; do not use it to charge an Airbnb reservation again.
 
-Calendar import/export is appropriate for blocked nights. It is not a complete
-reservation, guest contact, payment or reviews API. Airbnb also exports owner-
-blocked dates, so an imported event must not automatically be treated as a paid
-reservation or genuine guest. Airbnb refreshes imported calendars periodically,
-not synchronously; a feed is not an atomic lock against double booking.
+Calendar feeds are not part of this workflow. They do not provide a complete
+reservation, guest contact, payment or reviews API, and their refreshes are not
+synchronous enough to serve as an atomic availability lock.
 
 Reference: https://www.airbnb.com/help/article/99
 
 ## Approval flow
 
-1. Map each Airbnb listing to a Villa ID and configure its calendar feed or an
-   approved channel-manager/API integration. Keep feed URLs private.
-2. A request remains pending until approved on Airbnb. An iCal feed alone must
-   not be assumed to include pending requests or enough information to approve
-   them automatically.
-3. Before responding to an Airbnb booking request, use the Manual Booking
-   page's availability checker to inspect all requested nights and the party
-   size. The checker uses internal reservations and scheduled maintenance only;
-   it does not know about other pending Airbnb requests or external blocks.
-4. Recheck immediately before approving on Airbnb. This check is not a hold,
-   so another booking could be confirmed between the check and approval.
-5. Approval on Airbnb must use Airbnb or an approved API connection. A button
-   in this system must not claim to have approved Airbnb without that connection.
-6. Accepted Airbnb reservations are not currently imported into The Villa.
-   Recordkeeping and feedback eligibility need a separate external-reservation
-   workflow. Do not treat an iCal block as a paid booking or verified guest.
+1. Before accepting an Airbnb request, check its dates and guest count on the
+   Manual Booking page. Only proceed when The Villa calendar shows enough
+   availability.
+2. Select the Villa(s) and create a 10-minute hold. This reserves the chosen
+   dates inside The Villa while the admin accepts the request on Airbnb.
+3. After accepting it on Airbnb, confirm the hold in The Villa. The confirmed
+   Airbnb stay remains a separate record and blocks those dates; it is not a
+   regular paid manual booking.
+4. If the Airbnb request is not accepted or the stay is cancelled, release the
+   hold/stay in The Villa. Unconfirmed holds expire automatically.
+5. Airbnb approval still happens on Airbnb. This system does not import Airbnb
+   guest details, reservations, reviews, or calendar changes.
 
 ## Feedback for an Airbnb guest
 
 Collect a voluntary **The Villa post-stay survey**, rather than presenting it as
 an imported Airbnb review. After staff verify the external reservation and mark
-the actual stay completed, issue an expiring, booking-scoped, single-use feedback
+the actual stay completed, issue an expiring, stay-scoped, single-use feedback
 token. Give the guest its link/QR at checkout, or send it through an authorized
-contact channel when their contact is legitimately available. Do not assume a
-calendar feed provides an email address.
+contact channel when their contact is legitimately available.
 
 Use the same rating/comment questions as direct guests. Record booking source,
 verification evidence and collection source separately so ML analysis can filter

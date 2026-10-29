@@ -90,6 +90,17 @@ class VillaOperationsTests(TestCase):
         self.assertEqual(villa['manual_status'], 'Under Maintenance')
         self.assertEqual(villa['status'], 'Under Maintenance')
 
+    def test_admin_can_mark_villa_under_maintenance_without_an_assigned_technician(self):
+        values = dict(title='Villa 1', landing_title='Family Villa', price=5000, capacity=8, details='A comfortable private villa.')
+        result = catalog.update_villa_catalog(
+            'villa-1',
+            catalog.VillaCatalogUpdate(**values, status='Under Maintenance'),
+            None,
+        )
+
+        self.assertEqual(result['data']['status'], 'Under Maintenance')
+        self.assertEqual(catalog.get_villa_catalog_map(self.store)['villa-1']['operational_status'], 'under_maintenance')
+
     def test_availability_checks_include_blocking_requests_beyond_first_page(self):
         self.store.records = [{'id': str(index), 'source': domain.SOURCE, 'status': 'Pending', 'status_history': [
             {'maintenance': {'villaId': 'villa-1', 'blocksBooking': index == 500, 'kind': 'Inspection'}}

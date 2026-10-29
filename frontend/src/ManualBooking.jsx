@@ -1,5 +1,5 @@
 import { AlertMessage } from "./SystemFeedback";
-import React, { useEffect, useMemo, useRef, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import useLiveUpdates from "./useLiveUpdates";
 import {
   CalendarDays,
@@ -98,6 +98,13 @@ function formatDate(date) {
   }).format(new Date(`${date}T00:00:00Z`));
 }
 
+function formatDateTime(value) {
+  if (!value) return "—";
+  return new Intl.DateTimeFormat("en-PH", {
+    dateStyle: "medium", timeStyle: "short", timeZone: "Asia/Manila",
+  }).format(new Date(value));
+}
+
 const PENDING_MANUAL_STORAGE = "theVillaAdminManualPayment";
 
 function paymentIsVerified(payment) {
@@ -123,8 +130,13 @@ export default function ManualBooking({ apiRequest, onViewBookings, onBookingCre
   const [availability, setAvailability] = useState(() => initial?.availability || null);
   const [airbnbCheck, setAirbnbCheck] = useState({ check_in_date: "", check_out_date: "", guest_count: "1" });
   const [airbnbAvailability, setAirbnbAvailability] = useState(null);
+  const [selectedAirbnbVillaIds, setSelectedAirbnbVillaIds] = useState([]);
+  const [airbnbStays, setAirbnbStays] = useState([]);
+  const [airbnbStaysLoading, setAirbnbStaysLoading] = useState(true);
   const [airbnbChecking, setAirbnbChecking] = useState(false);
+  const [airbnbSaving, setAirbnbSaving] = useState("");
   const [airbnbError, setAirbnbError] = useState("");
+  const [airbnbNotice, setAirbnbNotice] = useState("");
   const [loadingVillas, setLoadingVillas] = useState(false);
   const [saving, setSaving] = useState(false);
   const [checkingPayment, setCheckingPayment] = useState(Boolean(initial));
@@ -148,6 +160,23 @@ export default function ManualBooking({ apiRequest, onViewBookings, onBookingCre
   const [error, setError] = useState("");
   const [copyNotice, setCopyNotice] = useState("");
 
+  const refreshAirbnbStays = useCallback(async () => {
+    setAirbnbStaysLoading(true);
+    try {
+      const response = await requestRef.current("/admin/manual-bookings/airbnb-stays");
+      setAirbnbStays(response?.data || []);
+      setAirbnbError("");
+    } catch (requestError) {
+      setAirbnbError(requestError?.message || "Airbnb stay records could not be loaded.");
+    } finally {
+      setAirbnbStaysLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    refreshAirbnbStays();
+  }, [refreshAirbnbStays]);
+
   const setField = (field, value) => {
     setForm((previous) => ({ ...previous, [field]: value }));
     setError("");
@@ -164,13 +193,17 @@ export default function ManualBooking({ apiRequest, onViewBookings, onBookingCre
   const setAirbnbCheckField = (field, value) => {
     setAirbnbCheck((current) => ({ ...current, [field]: value }));
     setAirbnbAvailability(null);
+    setSelectedAirbnbVillaIds([]);
     setAirbnbError("");
+    setAirbnbNotice("");
   };
 
   async function checkAirbnbAvailability(event) {
     event.preventDefault();
     setAirbnbError("");
+    setAirbnbNotice("");
     setAirbnbAvailability(null);
+    setSelectedAirbnbVillaIds([]);
     const guests = Number(airbnbCheck.guest_count);
     if (!airbnbCheck.check_in_date || !airbnbCheck.check_out_date ||
         airbnbCheck.check_in_date < manilaToday() ||
@@ -195,6 +228,65 @@ export default function ManualBooking({ apiRequest, onViewBookings, onBookingCre
       setAirbnbChecking(false);
     }
   }
+
+  async function createAirbnbHold() {
+    setAirbnbError("");
+    setAirbnbNotice("");
+    const selectedVillas = airbnbAvailability?.villas?.filter(villa =>
+      selectedAirbnbVillaIds.includes(villa.villa_id)
+    ) || [];
+    const selectedCapacity = selectedVillas.reduce((total, villa) => total + Number(villa.capacity || 0), 0);
+    if (!selectedVillas.length || selectedCapacity < Number(airbnbCheck.guest_count)) {
+      setAirbnbError("Select available villa(s) with enough combined guest capacity.");
+      return;
+    }
+    setAirbnbSaving("create");
+    try {
+      const result = await requestRef.current("/admin/manual-bookings/airbnb-stays", {
+        method: "POST",
+        body: JSON.stringify({
+          check_in_date: airbnbCheck.check_in_date,
+          check_out_date: airbnbCheck.check_out_date,
+          guest_count: Number(airbnbCheck.guest_count),
+          villa_ids: selectedAirbnbVillaIds,
+        }),
+      });
+      setAirbnbNotice(result?.message || "10-minute Airbnb availability hold created.");
+      setAirbnbAvailability(null);
+      setSelectedAirbnbVillaIds([]);
+      await refreshAirbnbStays();
+    } catch (requestError) {
+      setAirbnbError(requestError?.message || "The Airbnb availability hold could not be created.");
+    } finally {
+      setAirbnbSaving("");
+    }
+  }
+
+  async function updateAirbnbStay(stay, action) {
+    if (action === "release" &&
+        !window.confirm("Release these dates from The Villa calendar? Do this only if the Airbnb request was not accepted or the Airbnb stay was cancelled.")) {
+      return;
+    }
+    setAirbnbError("");
+    setAirbnbNotice("");
+    setAirbnbSaving(`${stay.id}:${action}`);
+    try {
+      const result = await requestRef.current(
+        `/admin/manual-bookings/airbnb-stays/${encodeURIComponent(stay.id)}/${action}`,
+        { method: "POST", body: JSON.stringify({}) },
+      );
+      setAirbnbNotice(result?.message || "Airbnb stay updated.");
+      await refreshAirbnbStays();
+    } catch (requestError) {
+      setAirbnbError(requestError?.message || "The Airbnb stay could not be updated.");
+    } finally {
+      setAirbnbSaving("");
+    }
+  }
+
+  const selectedAirbnbCapacity = (airbnbAvailability?.villas || [])
+    .filter(villa => selectedAirbnbVillaIds.includes(villa.villa_id))
+    .reduce((total, villa) => total + Number(villa.capacity || 0), 0);
 
   useEffect(() => {
     // The result view retains the villa snapshot during PayMongo verification.
@@ -470,7 +562,7 @@ export default function ManualBooking({ apiRequest, onViewBookings, onBookingCre
           <div className="manual-panel-icon"><CalendarDays size={19} /></div>
           <div>
             <h2 id="airbnb-check-title">Check an Airbnb request</h2>
-            <p>Check requested dates against bookings and scheduled maintenance before you respond on Airbnb.</p>
+            <p>Check The Villa’s calendar before accepting the request on Airbnb. No Airbnb calendar is connected.</p>
           </div>
         </div>
         <form className="manual-airbnb-check-form" onSubmit={checkAirbnbAvailability}>
@@ -491,6 +583,7 @@ export default function ManualBooking({ apiRequest, onViewBookings, onBookingCre
           </button>
         </form>
         {airbnbError && <AlertMessage message={airbnbError} />}
+        {airbnbNotice && <AlertMessage message={airbnbNotice} type="success" />}
         {airbnbAvailability && (
           <div className={`manual-airbnb-result ${airbnbAvailability.available ? "available" : "unavailable"}`} role="status" aria-live="polite">
             <strong>
@@ -499,17 +592,85 @@ export default function ManualBooking({ apiRequest, onViewBookings, onBookingCre
                 : "No available villa combination for this stay"}
             </strong>
             <span>{formatDate(airbnbAvailability.check_in_date)} – {formatDate(airbnbAvailability.check_out_date)} · {airbnbAvailability.nights} {airbnbAvailability.nights === 1 ? "night" : "nights"}</span>
+            <span>Availability checked {formatDateTime(airbnbAvailability.updated_at)} · The Villa calendar</span>
             <ul>
               {airbnbAvailability.villas.map((villa) => (
                 <li key={villa.villa_id}>
-                  <span>{villa.villa_name} · up to {villa.capacity} guests</span>
+                  <label className="manual-airbnb-villa-select">
+                    <input
+                      type="checkbox"
+                      disabled={!villa.available || !airbnbAvailability.available || !!airbnbSaving}
+                      checked={selectedAirbnbVillaIds.includes(villa.villa_id)}
+                      onChange={() => setSelectedAirbnbVillaIds(current =>
+                        current.includes(villa.villa_id)
+                          ? current.filter(id => id !== villa.villa_id)
+                          : [...current, villa.villa_id]
+                      )}
+                    />
+                    <span>{villa.villa_name} · up to {villa.capacity} guests</span>
+                  </label>
                   <strong>{villa.reason}</strong>
                 </li>
               ))}
             </ul>
+            {airbnbAvailability.available && (
+              <div className="manual-airbnb-hold-action">
+                <span>Selected capacity: {selectedAirbnbCapacity} / {airbnbAvailability.guest_count} guests</span>
+                <button
+                  type="button"
+                  className="manual-btn-primary"
+                  disabled={!!airbnbSaving || selectedAirbnbCapacity < airbnbAvailability.guest_count}
+                  onClick={createAirbnbHold}
+                >
+                  {airbnbSaving === "create" ? <><LoaderCircle size={16} className="manual-spin" /> Holding dates…</> : "Hold selected dates for 10 minutes"}
+                </button>
+              </div>
+            )}
           </div>
         )}
-        <p className="manual-airbnb-note">This is a read-only check, not a hold or approval. Recheck before approving on Airbnb. Airbnb reservations and guest details are not imported into The Villa; do not use the direct Manual Booking form for Airbnb stays because it creates a PayMongo checkout.</p>
+        <p className="manual-airbnb-note">Select the villas and create a 10-minute hold before accepting on Airbnb. After Airbnb accepts the request, confirm it below so the dates remain blocked. Holds expire automatically; release dates only if the Airbnb request was not accepted or the stay was cancelled. This uses The Villa’s calendar only—Airbnb requests, guest details, reviews, and calendar updates are not imported. Do not use the direct Manual Booking form for Airbnb stays because it creates a PayMongo checkout.</p>
+        <section className="manual-airbnb-stays" aria-labelledby="manual-airbnb-stays-title">
+          <div className="manual-airbnb-stays-heading">
+            <h3 id="manual-airbnb-stays-title">Airbnb holds and stays</h3>
+            <button type="button" className="manual-btn-outline" onClick={refreshAirbnbStays} disabled={airbnbStaysLoading || !!airbnbSaving}>
+              {airbnbStaysLoading ? "Refreshing…" : "Refresh"}
+            </button>
+          </div>
+          {airbnbStaysLoading ? <p>Loading Airbnb stay records…</p> : airbnbStays.length ? (
+            <ul className="manual-airbnb-stay-list">
+              {airbnbStays.map(stay => (
+                <li key={stay.id}>
+                  <div className="manual-airbnb-stay-details">
+                    <strong>{stay.status === "held" ? "10-minute hold" : "Confirmed Airbnb stay"}</strong>
+                    <span>{formatDate(stay.check_in_date)} – {formatDate(stay.check_out_date)} · {stay.guest_count} guests</span>
+                    <span>{(stay.villa_names || []).join(", ") || "Villa selection unavailable"}</span>
+                    {stay.status === "held" && <span>Expires {formatDateTime(stay.expires_at)}</span>}
+                  </div>
+                  <div className="manual-airbnb-stay-actions">
+                    {stay.status === "held" && (
+                      <button
+                        type="button"
+                        className="manual-btn-primary"
+                        disabled={!!airbnbSaving}
+                        onClick={() => updateAirbnbStay(stay, "confirm")}
+                      >
+                        {airbnbSaving === `${stay.id}:confirm` ? "Confirming…" : "Airbnb accepted"}
+                      </button>
+                    )}
+                    <button
+                      type="button"
+                      className="manual-btn-outline"
+                      disabled={!!airbnbSaving}
+                      onClick={() => updateAirbnbStay(stay, "release")}
+                    >
+                      {airbnbSaving === `${stay.id}:release` ? "Releasing…" : "Release dates"}
+                    </button>
+                  </div>
+                </li>
+              ))}
+            </ul>
+          ) : <p>No active Airbnb holds or stays.</p>}
+        </section>
       </section>
 
       {bookingResult ? (

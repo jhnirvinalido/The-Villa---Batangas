@@ -1914,6 +1914,7 @@ function createVillaEditForm(
 
   return {
     ...normalized,
+    originalManualStatus: normalized.manualStatus,
     price:
       normalized.price
         ? String(
@@ -2015,14 +2016,19 @@ function createChartRiseAnimation(reducedMotion, stagger = 45) {
 function VillaAnalyticsCharts({ analytics }) {
   const refs = [React.useRef(null), React.useRef(null), React.useRef(null), React.useRef(null)];
   React.useEffect(() => {
-    const options = {responsive:true, maintainAspectRatio:false, animation:false};
+    const reducedMotion = window.matchMedia?.("(prefers-reduced-motion: reduce)")?.matches ?? false;
+    const options = {
+      responsive: true,
+      maintainAspectRatio: false,
+      animation: createChartEntranceAnimation(reducedMotion, 35),
+    };
     const charts = [
       new Chart(refs[0].current, {type:'line', data:{labels:analytics.months, datasets:[
         {label:'Confirmed reservations', data:analytics.monthlyBookings, borderColor:'#7b5037', tension:0, fill:false}
-      ]}, options:{...options, scales:{y:{beginAtZero:true,ticks:{precision:0}}}}}),
+      ]}, options:{...options, ...createChartRiseAnimation(reducedMotion), scales:{y:{beginAtZero:true,ticks:{precision:0}}}}}),
       new Chart(refs[1].current, {type:'bar', data:{labels:analytics.villaChart.map(v=>v.name), datasets:[
         {label:'Confirmed villa reservations', data:analytics.villaChart.map(v=>v.value), backgroundColor:'#7b5037'}
-      ]}, options:{...options, scales:{y:{beginAtZero:true,ticks:{precision:0}}}}}),
+      ]}, options:{...options, ...createChartRiseAnimation(reducedMotion), scales:{y:{beginAtZero:true,ticks:{precision:0}}}}}),
       new Chart(refs[2].current, {type:'doughnut', data:{labels:Object.keys(analytics.bookingStatus), datasets:[
         {data:Object.values(analytics.bookingStatus),backgroundColor:['#d7c7b8','#5b9c77','#5c88b0','#8067a5','#c66c62']}
       ]}, options}),
@@ -6764,6 +6770,10 @@ Villas Under Maintenance
                 image_url:
                   imageUrls[0] || "",
                 image_urls: imageUrls,
+                status:
+                  villaEditorForm.manualStatus !== villaEditorForm.originalManualStatus
+                    ? villaEditorForm.manualStatus
+                    : null,
                 details:
                   villaEditorForm.details,
                 amenities:
@@ -7491,15 +7501,33 @@ Villas Under Maintenance
                   <div>
                     <span className="admin-villa-editor-section-label">Booking availability</span>
                     <h3 id="villa-availability-title">
-                      {villaEditorForm.underMaintenance ? "Under maintenance" : "Available for booking"}
+                      {villaEditorForm.manualStatus === "Under Maintenance" || villaEditorForm.operations?.blocking
+                        ? "Under maintenance"
+                        : "Available for booking"}
                     </h3>
                     <p>
-                      {villaEditorForm.underMaintenance
+                      {villaEditorForm.manualStatus === "Under Maintenance" || villaEditorForm.operations?.blocking
                         ? "Guests cannot book this Villa while it is under maintenance."
                         : "Booking availability follows the reservation calendar."}
-                      {villaEditorForm.operations?.blocking ? ` ${villaEditorForm.operations.blocking} open request(s) are keeping bookings paused. Verify the work before reopening.` : ' Availability updates automatically when maintenance is requested and verified.'}
+                      {villaEditorForm.operations?.blocking
+                        ? ` ${villaEditorForm.operations.blocking} open request(s) are keeping bookings paused. Verify the work before reopening.`
+                        : " Admins can update this status even when no technician is assigned."}
                     </p>
-                    {villaEditorForm.underMaintenance && affectedReservations.length > 0 && <p className="admin-villa-reservation-impact">{affectedReservations.length} existing reservation(s) need review while this villa is under maintenance. <button type="button" className="admin-btn-ghost" onClick={() => { closeVillaEditor(); navigate('bookings'); setGlobalSearch(villaEditorForm.title); }}>Review reservations</button></p>}
+                    {!villaEditorForm.operations?.blocking && (
+                      <button
+                        type="button"
+                        className="admin-btn-secondary"
+                        onClick={() => setVillaEditorForm(current => ({
+                          ...current,
+                          manualStatus: current.manualStatus === "Under Maintenance" ? "Available" : "Under Maintenance",
+                        }))}
+                      >
+                        {villaEditorForm.manualStatus === "Under Maintenance" ? "Mark villa available" : "Set under maintenance"}
+                      </button>
+                    )}
+                    {(villaEditorForm.manualStatus === "Under Maintenance" || villaEditorForm.operations?.blocking)
+                      && affectedReservations.length > 0
+                      && <p className="admin-villa-reservation-impact">{affectedReservations.length} existing reservation(s) need review while this villa is under maintenance. <button type="button" className="admin-btn-ghost" onClick={() => { closeVillaEditor(); navigate('bookings'); setGlobalSearch(villaEditorForm.title); }}>Review reservations</button></p>}
                   </div>
                 </section>
 

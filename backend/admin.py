@@ -240,6 +240,20 @@ class ManualBookingRequest(BaseModel):
     payment_method: Literal["qrph"] = "qrph"
 
 
+class AirbnbStayHoldRequest(ApiModel):
+    check_in_date: date
+    check_out_date: date
+    guest_count: int = Field(ge=1, le=32)
+    villa_ids: list[str] = Field(min_length=1, max_length=20)
+
+    @field_validator("villa_ids")
+    @classmethod
+    def unique_villas(cls, value):
+        if len(value) != len(set(value)):
+            raise ValueError("Select each villa only once.")
+        return value
+
+
 class BookingLifecycleRequest(ApiModel):
     notes: str | None = Field(default=None, max_length=2000)
 
@@ -4522,15 +4536,28 @@ def manual_booking_airbnb_availability(
     villas = []
     for villa_id, villa in catalog.items():
         is_available = villa_id in available_ids
-        was_booked = any(villa_id in day["booked_villa_ids"] for day in nights.values())
+        was_booked = any(villa_id in day.get("booked_villa_ids", []) for day in nights.values())
+        airbnb_blocked = any(
+            villa_id in day.get("airbnb_blocked_villa_ids", [])
+            for day in nights.values()
+        )
+        unavailable = any(
+            villa_id in day.get("unavailable_villa_ids", [])
+            for day in nights.values()
+        )
+        reasons = []
+        if airbnb_blocked:
+            reasons.append("Airbnb hold or stay for part of the stay")
+        if was_booked:
+            reasons.append("Booked for part of the stay")
+        if unavailable:
+            reasons.append("Maintenance or unavailable")
         villas.append({
             "villa_id": villa_id,
             "villa_name": villa["name"],
             "capacity": villa["capacity"],
             "available": is_available,
-            "reason": "Available for all nights" if is_available else (
-                "Booked for part of the stay" if was_booked else "Maintenance or unavailable"
-            ),
+            "reason": "Available for all nights" if is_available else ", ".join(reasons or ["Maintenance or unavailable"]),
         })
 
     total_capacity = sum(villa["capacity"] for villa in villas if villa["available"])
@@ -4545,6 +4572,154 @@ def manual_booking_airbnb_availability(
         "villas": villas,
         "updated_at": datetime.now(timezone.utc).isoformat(),
     }
+
+
+@admin_router.get("/manual-bookings/airbnb-stays")
+def list_manual_airbnb_stays(
+    context: dict[str, Any] = Depends(require_admin),
+):
+    from booking import _active_airbnb_stays
+
+    client = service_client()
+    stays = _active_airbnb_stays(client)
+    catalog = get_villa_catalog_map(client)
+    today = villa_business_today()
+    data = []
+    for stay in stays:
+        if date.fromisoformat(str(stay["check_out_date"])[:10]) < today:
+            continue
+        data.append({
+            **stay,
+            "villa_names": [
+                catalog[villa_id]["name"]
+                for villa_id in stay.get("villa_ids") or []
+                if villa_id in catalog
+            ],
+        })
+    data.sort(key=lambda stay: (stay["check_in_date"], stay["created_at"]))
+    return {"data": data}
+
+
+@admin_router.post("/manual-bookings/airbnb-stays", status_code=status.HTTP_201_CREATED)
+def create_manual_airbnb_stay_hold(
+    data: AirbnbStayHoldRequest,
+    context: dict[str, Any] = Depends(require_admin),
+):
+    if data.check_in_date < villa_business_today():
+        raise HTTPException(status_code=422, detail="Choose today or a future check-in date.")
+    if data.check_out_date <= data.check_in_date:
+        raise HTTPException(status_code=422, detail="Check-out must be after check-in.")
+    if (data.check_out_date - data.check_in_date).days > 63:
+        raise HTTPException(status_code=422, detail="Availability can be checked for up to 63 nights.")
+
+    client = service_client()
+    check = manual_booking_airbnb_availability(
+        check_in_date=data.check_in_date,
+        check_out_date=data.check_out_date,
+        guest_count=data.guest_count,
+        context=context,
+    )
+    selected_ids = set(data.villa_ids)
+    selected_villas = {
+        villa["villa_id"]: villa
+        for villa in check["villas"]
+        if villa["villa_id"] in selected_ids
+    }
+    if len(selected_villas) != len(selected_ids):
+        raise HTTPException(status_code=422, detail="One or more selected villas do not exist.")
+    if any(not villa["available"] for villa in selected_villas.values()):
+        raise HTTPException(status_code=409, detail="A selected villa is no longer available for every night.")
+    if sum(villa["capacity"] for villa in selected_villas.values()) < data.guest_count:
+        raise HTTPException(status_code=422, detail="The selected villas cannot accommodate all guests.")
+
+    now = datetime.now(timezone.utc)
+    expires_at = now + timedelta(minutes=10)
+    stay_id = str(uuid4())
+    actor_id = str(context["account"]["id"])
+    try:
+        client.rpc("create_airbnb_stay_hold", {
+            "p_id": stay_id,
+            "p_check_in_date": data.check_in_date.isoformat(),
+            "p_check_out_date": data.check_out_date.isoformat(),
+            "p_guest_count": data.guest_count,
+            "p_villa_ids": data.villa_ids,
+            "p_created_by_staff_id": actor_id,
+            "p_expires_at": expires_at.isoformat(),
+        }).execute()
+    except Exception as error:
+        message = str(error).lower()
+        if "conflict" in message or "no longer available" in message:
+            raise HTTPException(status_code=409, detail="Those dates or villas were just reserved. Check availability again.") from error
+        logger.exception("Could not create an Airbnb availability hold.")
+        raise HTTPException(
+            status_code=503,
+            detail="The Airbnb hold could not be saved. Apply the Airbnb stay database migration and retry.",
+        ) from error
+
+    villa_names = [selected_villas[villa_id]["villa_name"] for villa_id in data.villa_ids]
+    return {
+        "message": "A 10-minute hold was created. Accept the request on Airbnb, then confirm this stay here.",
+        "data": {
+            "id": stay_id,
+            "check_in_date": data.check_in_date.isoformat(),
+            "check_out_date": data.check_out_date.isoformat(),
+            "guest_count": data.guest_count,
+            "villa_ids": data.villa_ids,
+            "villa_names": villa_names,
+            "status": "held",
+            "expires_at": expires_at.isoformat(),
+            "created_at": now.isoformat(),
+        },
+    }
+
+
+@admin_router.post("/manual-bookings/airbnb-stays/{stay_id}/confirm")
+def confirm_manual_airbnb_stay(
+    stay_id: UUID,
+    context: dict[str, Any] = Depends(require_admin),
+):
+    now = datetime.now(timezone.utc).isoformat()
+    saved = rows(
+        service_client().table("airbnb_stays")
+        .update({
+            "status": "confirmed",
+            "expires_at": None,
+            "updated_by_staff_id": str(context["account"]["id"]),
+            "updated_at": now,
+        })
+        .eq("id", str(stay_id))
+        .eq("status", "held")
+        .gt("expires_at", now)
+        .select("*")
+        .execute()
+    )
+    if not saved:
+        raise HTTPException(status_code=409, detail="This hold expired or was already handled. Check availability again.")
+    return {"message": "Airbnb stay confirmed and dates remain blocked.", "data": saved[0]}
+
+
+@admin_router.post("/manual-bookings/airbnb-stays/{stay_id}/release")
+def release_manual_airbnb_stay(
+    stay_id: UUID,
+    context: dict[str, Any] = Depends(require_admin),
+):
+    now = datetime.now(timezone.utc).isoformat()
+    saved = rows(
+        service_client().table("airbnb_stays")
+        .update({
+            "status": "released",
+            "expires_at": None,
+            "updated_by_staff_id": str(context["account"]["id"]),
+            "updated_at": now,
+        })
+        .eq("id", str(stay_id))
+        .in_("status", ["held", "confirmed"])
+        .select("*")
+        .execute()
+    )
+    if not saved:
+        raise HTTPException(status_code=404, detail="The Airbnb hold or stay was not found or was already released.")
+    return {"message": "Airbnb dates released from The Villa calendar.", "data": saved[0]}
 
 
 @admin_router.post("/manual-bookings", status_code=status.HTTP_201_CREATED)
