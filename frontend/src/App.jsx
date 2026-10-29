@@ -1173,6 +1173,7 @@ function App() {
             <div className="hero-content">
               <div className="hero-message">
               <h1>Unwind and make moments to remember in your own private villa.</h1>
+              <p>Enjoy a thoughtfully appointed retreat with room to relax, recharge, and enjoy your stay at your own pace.</p>
               </div>
               <div className="hero-controls">
 
