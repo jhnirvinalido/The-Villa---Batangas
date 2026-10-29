@@ -1138,6 +1138,16 @@ function formatDate(dateString, long = false) {
   });
 }
 
+function villaMaintenanceScheduleLabel(villa) {
+  const dates = [...new Set(villa.operations?.blockingDates || [])]
+    .filter(Boolean)
+    .sort()
+    .map((date) => formatDate(date));
+  if (dates.length) return `Maintenance scheduled at: ${dates.join(", ")}`;
+  if (villa.operations?.undatedBlocking) return "Maintenance scheduled · date not set";
+  return "Maintenance scheduled at: Date not set";
+}
+
 function formatRelative(isoString) {
   if (!isoString) return "";
   const milliseconds = Date.now() - new Date(isoString).getTime();
@@ -6968,7 +6978,7 @@ Villas Under Maintenance
                       }`}
                     >
                       {villa.status === "Under Maintenance"
-                        ? "Under Maintenance"
+                        ? villaMaintenanceScheduleLabel(villa)
                         : "Calendar managed"}
                     </span>
                     <span className="admin-villa-image-count-badge">
