@@ -136,6 +136,8 @@ def suggest_maintenance_schedule(client, villa_id, *, now=None):
             candidate = datetime.combine(candidate_day, candidate_time, MANILA)
             if candidate <= now + timedelta(minutes=30):
                 continue
+            if candidate > now + timedelta(days=14):
+                continue
             if target_check_in and candidate >= target_check_in:
                 continue
             if any(_period_bounds(period)[0] <= candidate < _period_bounds(period)[1] for period in periods):

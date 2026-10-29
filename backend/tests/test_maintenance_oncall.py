@@ -98,6 +98,41 @@ class OnCallTests(MaintenanceTests):
         self.assertEqual(self.state()['state'], 'Accepted')
         self.assertEqual(len(self.store.notifications), 1)
 
+    def test_suggested_maintenance_arrival_never_exceeds_fourteen_day_limit(self):
+        from booking_assignments import MANILA
+
+        now = datetime(2026, 10, 30, 7, 0, tzinfo=MANILA)
+        edge_date = (now + timedelta(days=14)).date()
+        target_date = (now + timedelta(days=16)).date()
+        periods = [
+            {
+                'villaId': 'villa-1',
+                'checkInDate': edge_date.isoformat(),
+                'checkOutDate': edge_date.isoformat(),
+                'checkInTime': '8:00 AM',
+                'checkOutTime': '3:00 PM',
+            },
+            {
+                'villaId': 'villa-1',
+                'bookingId': 'future-booking',
+                'checkInDate': target_date.isoformat(),
+                'checkOutDate': (target_date + timedelta(days=1)).isoformat(),
+                'checkInTime': '3:00 PM',
+            },
+        ]
+        with patch.object(oncall, 'booked_periods', return_value=periods):
+            suggestion = oncall.suggest_maintenance_schedule(
+                self.store,
+                'villa-1',
+                now=now,
+            )
+
+        self.assertIsNotNone(suggestion['suggestedArrival'])
+        self.assertLessEqual(
+            oncall.parse(suggestion['suggestedArrival']),
+            now + timedelta(days=14),
+        )
+
     def test_configuration_and_transport_outcomes(self):
         import booking
         self.create(); row = self.raw()
