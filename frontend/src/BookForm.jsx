@@ -24,6 +24,7 @@ import {
   FaWallet,
 } from "react-icons/fa";
 import "./BookForm.css";
+import { readBookingToken, saveBookingToken } from "./bookingToken.mjs";
 
 const API_URL = (
   (typeof window !== "undefined" && window.__THE_VILLA_API_BASE__) ||
@@ -31,7 +32,6 @@ const API_URL = (
   "http://127.0.0.1:8000"
 ).replace(/\/$/, "");
 
-const BOOKING_TOKEN_PREFIX = "theVillaGuestBooking:";
 const LANDING_SELECTED_VILLA_KEY =
   "theVillaLandingSelectedVillaId";
 const RECENTLY_VIEWED_VILLA_KEY =
@@ -1145,9 +1145,7 @@ export default function BookForm() {
     returnHandledRef.current = true;
     setStep(5);
 
-    const token = sessionStorage.getItem(
-      `${BOOKING_TOKEN_PREFIX}${bookingId}`
-    );
+    const token = readBookingToken(bookingId);
 
     if (!token) {
       setPaymentResult({
@@ -1548,10 +1546,7 @@ export default function BookForm() {
         );
       }
 
-      sessionStorage.setItem(
-        `${BOOKING_TOKEN_PREFIX}${booking.id}`,
-        token
-      );
+      saveBookingToken(booking.id, token);
 
       setCreatedBooking(booking);
 

@@ -96,6 +96,8 @@ logger = logging.getLogger("thevilla.booking")
 
 def _smtp_configured() -> bool:
     """Return True when the required SMTP credentials are configured."""
+    if os.getenv("RESEND_API_KEY", "").strip():
+        return bool(os.getenv("RESEND_FROM", "").strip())
     return bool(
         SMTP_HOST
         and SMTP_PORT
@@ -115,7 +117,12 @@ def _send_email_message(
     on_sending=None,
     on_accepted=None,
 ):
-    """Submit an email with the same SMTP flow used for guest confirmations."""
+    """Use HTTPS email when configured; retain SMTP for local/existing hosts."""
+    if os.getenv("RESEND_API_KEY", "").strip() and not any((host, port, username, password)):
+        from email_transport import send_resend
+        return send_resend(message, on_sending=on_sending, on_accepted=on_accepted)
+    if os.getenv("RENDER", "").lower() == "true" and (port or SMTP_PORT) in {25, 465, 587} and os.getenv("RENDER_SERVICE_TYPE", "web") == "web" and os.getenv("SMTP_ALLOW_ON_RENDER", "false").lower() != "true":
+        raise RuntimeError("SMTP is disabled on this Render deployment. Configure RESEND_API_KEY and RESEND_FROM, or enable SMTP_ALLOW_ON_RENDER only on a paid service that supports SMTP.")
     with smtplib.SMTP(host or SMTP_HOST, port or SMTP_PORT, timeout=20) as smtp:
         smtp.ehlo()
         smtp.starttls()
@@ -356,7 +363,7 @@ The Villa Team
 
     try:
         _send_email_message(message)
-        logger.info("Booking confirmation SMTP acceptance recorded.")
+        logger.info("Booking confirmation email provider acceptance recorded.")
         return True
     except Exception:
         logger.exception("Booking confirmation email could not be sent. Booking=%s", booking_code)
@@ -4235,9 +4242,14 @@ def _require_booking_token(
 
 
 def _public_checkout_urls(booking_id: str) -> tuple[str, str]:
+    # Combined deployments must return to the same origin that stored the
+    # guest token. A leftover localhost/custom FRONTEND_URL loses that token.
+    origin = FRONTEND_URL
+    if os.getenv("FRONTEND_DIST", "").strip():
+        origin = (os.getenv("RENDER_EXTERNAL_URL", "").strip() or BACKEND_PUBLIC_URL or FRONTEND_URL).rstrip("/")
     return (
-        f"{FRONTEND_URL}/book?payment=success&booking={booking_id}",
-        f"{FRONTEND_URL}/book?payment=cancelled&booking={booking_id}",
+        f"{origin}/book?payment=success&booking={booking_id}",
+        f"{origin}/book?payment=cancelled&booking={booking_id}",
     )
 
 

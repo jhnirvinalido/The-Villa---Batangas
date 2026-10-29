@@ -45,8 +45,14 @@ Keep one process/instance: this app runs background workers inside FastAPI.
 - Outbound SMTP ports 25, 465, and 587 are blocked on Free web services. The
   existing Gmail SMTP implementation will not send booking confirmations,
   feedback invitations, or staff notifications from this deployment. This needs
-  an HTTPS email API integration or hosting that supports SMTP; do not assume
-  setting SMTP credentials fixes it.
+  an HTTPS email API or hosting that supports SMTP; do not assume setting SMTP
+  credentials fixes it. Guest booking confirmations now support Resend: set
+  `RESEND_API_KEY` and `RESEND_FROM` (a verified sender, e.g.
+  `The Villa <bookings@YOUR-VERIFIED-DOMAIN>`). Resend's sandbox sender can only
+  deliver to the account owner's address until a domain is verified. Staff and
+  feedback flows that use SMTP directly are not migrated by this setting.
+  SMTP attempts are skipped on Render unless `SMTP_ALLOW_ON_RENDER=true`;
+  enable that override only after moving to a plan that allows SMTP.
 - Local files are ephemeral. Store persistent application data in Supabase.
 - Free compute has limited memory. Verify runtime memory and deployment logs;
   this configuration is not evidence that the whole app fits its allocation.
@@ -59,6 +65,16 @@ Confirm API requests go to the Render origin, never localhost. Test sign-in,
 availability, a test booking/checkout, signed payment webhook handling, and
 guest/admin/staff status updates. Check a missing API URL and asset remain 404.
 Email-dependent flows require resolving the SMTP limitation above.
+
+## Checkout return troubleshooting
+
+In the combined Render deployment, guest checkout return URLs use Render's
+`RENDER_EXTERNAL_URL` so the guest returns to the same origin. Keep
+`FRONTEND_URL` and `BACKEND_PUBLIC_URL` set to that same HTTPS origin for other
+links. Browser tokens have an expiring local-storage fallback for returns in
+another tab. Existing checkouts already created with the wrong return URL are
+not rewritten; test a new checkout after deploying. Never put the guest token
+in a query string or disable token verification to recover an old checkout.
 
 The repository is prepared locally; creating the Render service and supplying
 credentials in your own account are still required.
