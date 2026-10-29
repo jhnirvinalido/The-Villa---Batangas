@@ -19,7 +19,7 @@ from dotenv import load_dotenv
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
 from pydantic import BaseModel, EmailStr, Field, field_validator
 from person_names import validate_person_name
-from villa_catalog import get_villa_catalog_map
+from villa_catalog import DEFAULT_VILLA_CATALOG, get_villa_catalog_map
 from staff_admin_auth import validate_portal_access_token
 from feedback_analysis import AnalysisFilters
 
@@ -4582,7 +4582,26 @@ def list_manual_airbnb_stays(
 
     client = service_client()
     stays = _active_airbnb_stays(client)
-    catalog = get_villa_catalog_map(client)
+    catalog_names = {
+        str(villa["id"]): str(villa["title"])
+        for villa in DEFAULT_VILLA_CATALOG
+    }
+    try:
+        catalog_response = (
+            client.table("villa_catalog")
+            .select("id,title")
+            .execute()
+        )
+        for villa in rows(catalog_response):
+            if villa.get("id") and villa.get("title"):
+                catalog_names[str(villa["id"])] = str(villa["title"])
+    except Exception as error:
+        logger.exception("Could not load villa names for Airbnb stays.")
+        raise HTTPException(
+            status_code=503,
+            detail="Airbnb stays are available, but Villa names could not be loaded. Please retry.",
+        ) from error
+
     today = villa_business_today()
     data = []
     for stay in stays:
@@ -4591,12 +4610,15 @@ def list_manual_airbnb_stays(
         data.append({
             **stay,
             "villa_names": [
-                catalog[villa_id]["name"]
+                catalog_names[villa_id]
                 for villa_id in stay.get("villa_ids") or []
-                if villa_id in catalog
+                if villa_id in catalog_names
             ],
         })
-    data.sort(key=lambda stay: (stay["check_in_date"], stay["created_at"]))
+    data.sort(key=lambda stay: (
+        str(stay.get("check_in_date") or ""),
+        str(stay.get("created_at") or ""),
+    ))
     return {"data": data}
 
 

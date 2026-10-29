@@ -5,7 +5,11 @@ from unittest.mock import patch
 from fastapi import HTTPException
 from pydantic import ValidationError
 
-from admin import ManualBookingRequest, manual_booking_airbnb_availability
+from admin import (
+    ManualBookingRequest,
+    list_manual_airbnb_stays,
+    manual_booking_airbnb_availability,
+)
 
 
 class AirbnbAvailabilityTests(TestCase):
@@ -98,6 +102,38 @@ class AirbnbAvailabilityTests(TestCase):
                 context={},
             )
         self.assertEqual(caught.exception.status_code, 422)
+
+    def test_airbnb_stay_list_loads_villa_names_without_maintenance_summary(self):
+        class CatalogQuery:
+            def select(self, columns):
+                self.columns = columns
+                return self
+
+            def execute(self):
+                return type("Response", (), {
+                    "data": [{"id": "villa-1", "title": "Villa One"}]
+                })()
+
+        class Client:
+            def table(self, name):
+                self.table_name = name
+                return CatalogQuery()
+
+        stays = [{
+            "id": "stay-1",
+            "check_in_date": "2099-01-01",
+            "check_out_date": "2099-01-02",
+            "guest_count": 2,
+            "villa_ids": ["villa-1"],
+            "status": "confirmed",
+            "created_at": "2098-12-01T00:00:00+00:00",
+        }]
+        with patch("admin.service_client", return_value=Client()), \
+             patch("booking._active_airbnb_stays", return_value=stays), \
+             patch("admin.villa_business_today", return_value=date(2098, 12, 31)):
+            result = list_manual_airbnb_stays(context={})
+
+        self.assertEqual(result["data"][0]["villa_names"], ["Villa One"])
 
     def test_manual_checkout_only_accepts_qrph(self):
         payload = {
