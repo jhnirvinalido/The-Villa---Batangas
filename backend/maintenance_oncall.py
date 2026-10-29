@@ -123,11 +123,14 @@ def suggest_maintenance_schedule(client, villa_id, *, now=None):
     target_check_in = min(upcoming, key=lambda value: value[0])[0] if upcoming else None
 
     if target_check_in:
-        latest_day = min(target_check_in.date() - timedelta(days=1), now.date() + timedelta(days=14))
-        candidate_days = (latest_day - timedelta(days=offset) for offset in range(15))
+        latest_day = target_check_in.date() - timedelta(days=1)
+        candidate_days = (
+            latest_day - timedelta(days=offset)
+            for offset in range((latest_day - now.date()).days + 1)
+        )
     else:
         first_day = now.date() + timedelta(days=1)
-        candidate_days = (first_day + timedelta(days=offset) for offset in range(14))
+        candidate_days = iter((first_day,))
 
     for candidate_day in candidate_days:
         if candidate_day < now.date():
@@ -135,8 +138,6 @@ def suggest_maintenance_schedule(client, villa_id, *, now=None):
         for candidate_time in (time(9), time(13), time(16)):
             candidate = datetime.combine(candidate_day, candidate_time, MANILA)
             if candidate <= now + timedelta(minutes=30):
-                continue
-            if candidate > now + timedelta(days=14):
                 continue
             if target_check_in and candidate >= target_check_in:
                 continue
@@ -296,8 +297,8 @@ def arrival_time(value, now=None):
     now = now or utcnow()
     if value is None or value.tzinfo is None:
         raise HTTPException(status_code=422, detail='Enter an arrival time, including its time zone.')
-    if value < now - timedelta(minutes=2) or value > now + timedelta(days=14):
-        raise HTTPException(status_code=422, detail='Choose an arrival time from now through the next 14 days.')
+    if value < now - timedelta(minutes=2):
+        raise HTTPException(status_code=422, detail='Choose an arrival time that is not in the past.')
     return stamp(value)
 
 

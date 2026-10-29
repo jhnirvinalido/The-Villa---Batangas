@@ -98,28 +98,18 @@ class OnCallTests(MaintenanceTests):
         self.assertEqual(self.state()['state'], 'Accepted')
         self.assertEqual(len(self.store.notifications), 1)
 
-    def test_suggested_maintenance_arrival_never_exceeds_fourteen_day_limit(self):
+    def test_suggested_maintenance_arrival_can_be_after_fourteen_days(self):
         from booking_assignments import MANILA
 
         now = datetime(2026, 10, 30, 7, 0, tzinfo=MANILA)
-        edge_date = (now + timedelta(days=14)).date()
-        target_date = (now + timedelta(days=16)).date()
-        periods = [
-            {
-                'villaId': 'villa-1',
-                'checkInDate': edge_date.isoformat(),
-                'checkOutDate': edge_date.isoformat(),
-                'checkInTime': '8:00 AM',
-                'checkOutTime': '3:00 PM',
-            },
-            {
-                'villaId': 'villa-1',
-                'bookingId': 'future-booking',
-                'checkInDate': target_date.isoformat(),
-                'checkOutDate': (target_date + timedelta(days=1)).isoformat(),
-                'checkInTime': '3:00 PM',
-            },
-        ]
+        target_date = (now + timedelta(days=30)).date()
+        periods = [{
+            'villaId': 'villa-1',
+            'bookingId': 'future-booking',
+            'checkInDate': target_date.isoformat(),
+            'checkOutDate': (target_date + timedelta(days=1)).isoformat(),
+            'checkInTime': '3:00 PM',
+        }]
         with patch.object(oncall, 'booked_periods', return_value=periods):
             suggestion = oncall.suggest_maintenance_schedule(
                 self.store,
@@ -128,10 +118,21 @@ class OnCallTests(MaintenanceTests):
             )
 
         self.assertIsNotNone(suggestion['suggestedArrival'])
-        self.assertLessEqual(
+        self.assertGreater(
             oncall.parse(suggestion['suggestedArrival']),
             now + timedelta(days=14),
         )
+        self.assertLess(
+            oncall.parse(suggestion['suggestedArrival']),
+            oncall.parse(f"{target_date.isoformat()}T15:00:00+08:00"),
+        )
+
+    def test_technician_arrival_after_fourteen_days_is_valid(self):
+        from maintenance_oncall import arrival_time
+
+        now = self.now
+        arrival = now + timedelta(days=30)
+        self.assertEqual(arrival_time(arrival, now), arrival.isoformat())
 
     def test_configuration_and_transport_outcomes(self):
         import booking
