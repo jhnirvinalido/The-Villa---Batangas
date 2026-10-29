@@ -1299,6 +1299,15 @@ export default function BookForm() {
     }
   }
 
+  function updatePersonName(field, value) {
+    if (/\p{N}/u.test(value)) {
+      setMessage("Names must not contain numbers.");
+      return;
+    }
+    setMessage("");
+    updateForm(field, value);
+  }
+
   function validatePersonalInfo() {
     if (/\p{N}/u.test(`${form.firstName} ${form.lastName}`)) {
       setMessage("Names must not contain numbers.");
@@ -2071,7 +2080,7 @@ export default function BookForm() {
                     autoComplete="given-name"
                     value={form.firstName}
                     onChange={(event) =>
-                      updateForm(
+                      updatePersonName(
                         "firstName",
                         event.target.value
                       )
@@ -2090,7 +2099,7 @@ export default function BookForm() {
                     autoComplete="family-name"
                     value={form.lastName}
                     onChange={(event) =>
-                      updateForm(
+                      updatePersonName(
                         "lastName",
                         event.target.value
                       )

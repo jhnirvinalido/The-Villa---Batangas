@@ -237,7 +237,7 @@ class ManualBookingRequest(BaseModel):
     guest_count: int = Field(ge=1, le=32)
     notes: str | None = Field(default=None, max_length=1000)
     payment_choice: Literal["half", "full"] = "half"
-    payment_method: Literal["qrph", "gcash", "maya", "debit"] = "qrph"
+    payment_method: Literal["qrph"] = "qrph"
 
 
 class BookingLifecycleRequest(ApiModel):
@@ -4489,6 +4489,62 @@ def manual_booking_availability(
     # Same source of truth and same overlap rules as public BookForm.
     from booking import public_booking_availability
     return public_booking_availability(check_in_date=check_in_date, guest_count=1)
+
+
+@admin_router.get("/manual-bookings/airbnb-availability")
+def manual_booking_airbnb_availability(
+    check_in_date: date,
+    check_out_date: date,
+    guest_count: int = Query(ge=1, le=32),
+    context: dict[str, Any] = Depends(require_admin),
+):
+    if check_in_date < villa_business_today():
+        raise HTTPException(status_code=422, detail="Choose today or a future check-in date.")
+    if check_out_date <= check_in_date:
+        raise HTTPException(status_code=422, detail="Check-out must be after check-in.")
+    if (check_out_date - check_in_date).days > 63:
+        raise HTTPException(status_code=422, detail="Availability can be checked for up to 63 nights.")
+
+    from booking import public_booking_calendar_availability
+
+    calendar = public_booking_calendar_availability(
+        start_date=check_in_date,
+        end_date=check_out_date - timedelta(days=1),
+        guest_count=guest_count,
+    )
+    catalog = get_villa_catalog_map(service_client())
+    nights = calendar["days"]
+    available_sets = [
+        set(day["available_villa_ids"])
+        for day in nights.values()
+    ]
+    available_ids = set.intersection(*available_sets) if available_sets else set()
+    villas = []
+    for villa_id, villa in catalog.items():
+        is_available = villa_id in available_ids
+        was_booked = any(villa_id in day["booked_villa_ids"] for day in nights.values())
+        villas.append({
+            "villa_id": villa_id,
+            "villa_name": villa["name"],
+            "capacity": villa["capacity"],
+            "available": is_available,
+            "reason": "Available for all nights" if is_available else (
+                "Booked for part of the stay" if was_booked else "Maintenance or unavailable"
+            ),
+        })
+
+    total_capacity = sum(villa["capacity"] for villa in villas if villa["available"])
+    return {
+        "check_in_date": check_in_date.isoformat(),
+        "check_out_date": check_out_date.isoformat(),
+        "nights": (check_out_date - check_in_date).days,
+        "guest_count": guest_count,
+        "available": total_capacity >= guest_count,
+        "total_available_capacity": total_capacity,
+        "available_villa_ids": sorted(available_ids),
+        "villas": villas,
+        "updated_at": datetime.now(timezone.utc).isoformat(),
+    }
 
 
 @admin_router.post("/manual-bookings", status_code=status.HTTP_201_CREATED)

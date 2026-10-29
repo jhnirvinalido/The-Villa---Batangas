@@ -34,13 +34,6 @@ const EMPTY_FORM = {
   payment_method: "qrph",
 };
 
-const PAYMENT_METHODS = [
-  { id: "gcash", name: "GCash", subtitle: "E-wallet", symbol: "G" },
-  { id: "maya", name: "Maya", subtitle: "E-wallet", symbol: "M" },
-  { id: "qrph", name: "QR Ph", subtitle: "Scan to pay", symbol: "QR" },
-  { id: "debit", name: "Credit / Debit", subtitle: "Visa / Mastercard", symbol: "CARD" },
-];
-
 function requiredVillaCount(guests, villas) {
   const wanted = Number(guests);
   if (!Number.isInteger(wanted) || wanted < 1 || wanted > 32) return Infinity;
@@ -125,9 +118,13 @@ function readManualPaymentSession() {
 
 export default function ManualBooking({ apiRequest, onViewBookings, onBookingCreated }) {
   const initial = useMemo(readManualPaymentSession, []);
-  const [form, setForm] = useState(() => initial?.form || { ...EMPTY_FORM });
+  const [form, setForm] = useState(() => ({ ...EMPTY_FORM, ...initial?.form, payment_method: "qrph" }));
   const [selectedIds, setSelectedIds] = useState(() => initial?.selectedIds || []);
   const [availability, setAvailability] = useState(() => initial?.availability || null);
+  const [airbnbCheck, setAirbnbCheck] = useState({ check_in_date: "", check_out_date: "", guest_count: "1" });
+  const [airbnbAvailability, setAirbnbAvailability] = useState(null);
+  const [airbnbChecking, setAirbnbChecking] = useState(false);
+  const [airbnbError, setAirbnbError] = useState("");
   const [loadingVillas, setLoadingVillas] = useState(false);
   const [saving, setSaving] = useState(false);
   const [checkingPayment, setCheckingPayment] = useState(Boolean(initial));
@@ -155,6 +152,49 @@ export default function ManualBooking({ apiRequest, onViewBookings, onBookingCre
     setForm((previous) => ({ ...previous, [field]: value }));
     setError("");
   };
+
+  const setNameField = (field, value) => {
+    if (/\p{N}/u.test(value)) {
+      setError("Names must not contain numbers.");
+      return;
+    }
+    setField(field, value);
+  };
+
+  const setAirbnbCheckField = (field, value) => {
+    setAirbnbCheck((current) => ({ ...current, [field]: value }));
+    setAirbnbAvailability(null);
+    setAirbnbError("");
+  };
+
+  async function checkAirbnbAvailability(event) {
+    event.preventDefault();
+    setAirbnbError("");
+    setAirbnbAvailability(null);
+    const guests = Number(airbnbCheck.guest_count);
+    if (!airbnbCheck.check_in_date || !airbnbCheck.check_out_date ||
+        airbnbCheck.check_in_date < manilaToday() ||
+        airbnbCheck.check_out_date <= airbnbCheck.check_in_date ||
+        !Number.isInteger(guests) || guests < 1 || guests > 32) {
+      setAirbnbError("Enter valid future check-in and check-out dates and 1–32 guests.");
+      return;
+    }
+    setAirbnbChecking(true);
+    try {
+      const params = new URLSearchParams({
+        check_in_date: airbnbCheck.check_in_date,
+        check_out_date: airbnbCheck.check_out_date,
+        guest_count: String(guests),
+      });
+      setAirbnbAvailability(await requestRef.current(
+        `/admin/manual-bookings/airbnb-availability?${params.toString()}`
+      ));
+    } catch (requestError) {
+      setAirbnbError(requestError?.message || "Unable to check availability for this stay.");
+    } finally {
+      setAirbnbChecking(false);
+    }
+  }
 
   useEffect(() => {
     // The result view retains the villa snapshot during PayMongo verification.
@@ -425,6 +465,53 @@ export default function ManualBooking({ apiRequest, onViewBookings, onBookingCre
         
       </header>
 
+      <section className="manual-panel manual-airbnb-check" aria-labelledby="airbnb-check-title">
+        <div className="manual-panel-heading">
+          <div className="manual-panel-icon"><CalendarDays size={19} /></div>
+          <div>
+            <h2 id="airbnb-check-title">Check an Airbnb request</h2>
+            <p>Check requested dates against bookings and scheduled maintenance before you respond on Airbnb.</p>
+          </div>
+        </div>
+        <form className="manual-airbnb-check-form" onSubmit={checkAirbnbAvailability}>
+          <label className="manual-field">Check-in
+            <input required type="date" min={manilaToday()} value={airbnbCheck.check_in_date}
+              onChange={(event) => setAirbnbCheckField("check_in_date", event.target.value)} />
+          </label>
+          <label className="manual-field">Check-out
+            <input required type="date" min={airbnbCheck.check_in_date || manilaToday()} value={airbnbCheck.check_out_date}
+              onChange={(event) => setAirbnbCheckField("check_out_date", event.target.value)} />
+          </label>
+          <label className="manual-field">Guests
+            <input required type="number" min="1" max="32" step="1" value={airbnbCheck.guest_count}
+              onChange={(event) => setAirbnbCheckField("guest_count", event.target.value)} />
+          </label>
+          <button type="submit" className="manual-btn-primary" disabled={airbnbChecking}>
+            {airbnbChecking ? <><LoaderCircle size={16} className="manual-spin" /> Checking…</> : "Check availability"}
+          </button>
+        </form>
+        {airbnbError && <AlertMessage message={airbnbError} />}
+        {airbnbAvailability && (
+          <div className={`manual-airbnb-result ${airbnbAvailability.available ? "available" : "unavailable"}`} role="status" aria-live="polite">
+            <strong>
+              {airbnbAvailability.available
+                ? `${airbnbAvailability.total_available_capacity} guest spaces available`
+                : "No available villa combination for this stay"}
+            </strong>
+            <span>{formatDate(airbnbAvailability.check_in_date)} – {formatDate(airbnbAvailability.check_out_date)} · {airbnbAvailability.nights} {airbnbAvailability.nights === 1 ? "night" : "nights"}</span>
+            <ul>
+              {airbnbAvailability.villas.map((villa) => (
+                <li key={villa.villa_id}>
+                  <span>{villa.villa_name} · up to {villa.capacity} guests</span>
+                  <strong>{villa.reason}</strong>
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+        <p className="manual-airbnb-note">This is a read-only check, not a hold or approval. Recheck before approving on Airbnb. Airbnb reservations and guest details are not imported into The Villa; do not use the direct Manual Booking form for Airbnb stays because it creates a PayMongo checkout.</p>
+      </section>
+
       {bookingResult ? (
         <div className="manual-result-layout">
           <section className="manual-panel manual-result-details">
@@ -495,10 +582,10 @@ export default function ManualBooking({ apiRequest, onViewBookings, onBookingCre
               </div>
               <div className="manual-fields">
                 <label className="manual-field">First name
-                  <input required maxLength={100} autoComplete="given-name" placeholder="First name" value={form.first_name} onChange={(e) => setField("first_name", e.target.value)} />
+                  <input required maxLength={100} autoComplete="given-name" placeholder="First name" value={form.first_name} onChange={(e) => setNameField("first_name", e.target.value)} />
                 </label>
                 <label className="manual-field">Last name
-                  <input required maxLength={100} autoComplete="family-name" placeholder="Last name" value={form.last_name} onChange={(e) => setField("last_name", e.target.value)} />
+                  <input required maxLength={100} autoComplete="family-name" placeholder="Last name" value={form.last_name} onChange={(e) => setNameField("last_name", e.target.value)} />
                 </label>
                 <label className="manual-field">Mobile number
                   <input required type="tel" autoComplete="tel" placeholder="09XXXXXXXXX" value={form.phone} onChange={(e) => setField("phone", e.target.value)} />
@@ -590,17 +677,13 @@ export default function ManualBooking({ apiRequest, onViewBookings, onBookingCre
             </div>
             <div className="manual-select-title"><h3>Payment method</h3></div>
             <div className="manual-methods">
-              {PAYMENT_METHODS.map(({ id, name, subtitle, symbol }) => (
-                <button type="button" key={id} aria-label={`Pay with ${name}`} aria-pressed={form.payment_method === id}
-                  className={`manual-wallet ${id} ${form.payment_method === id ? "selected" : ""}`} onClick={() => setField("payment_method", id)}>
-                  <span className="manual-wallet-top">
-                    <span className="manual-wallet-symbol">{id === "qrph" ? <QrCode size={20} /> : id === "debit" ? <CreditCard size={20} /> : symbol}</span>
-                    {form.payment_method === id && <CheckCircle2 size={17} className="manual-wallet-selected" />}
-                  </span>
-                  <span className="manual-wallet-label"><strong>{name}</strong><small>{subtitle}</small></span>
-                  {id === "debit" && <span className="manual-card-network" aria-hidden="true"><i/><i/></span>}
-                </button>
-              ))}
+              <div className="manual-wallet qrph selected" aria-label="Payment method QR Ph">
+                <span className="manual-wallet-top">
+                  <span className="manual-wallet-symbol"><QrCode size={20} /></span>
+                  <CheckCircle2 size={17} className="manual-wallet-selected" />
+                </span>
+                <span className="manual-wallet-label"><strong>QR Ph</strong><small>Scan to pay</small></span>
+              </div>
             </div>
             <div className="manual-due">
               <span>Amount to collect</span>

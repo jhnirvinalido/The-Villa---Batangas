@@ -93,10 +93,11 @@
   .manual-payment-options button.selected .manual-radio::after {content:"";position:absolute;inset:3px;border-radius:50%;background:var(--mb-accent);}
   .manual-payment-options strong {font-size:11px;font-weight:800;line-height:17px;white-space:normal;}
   .manual-payment-options .manual-option-price {grid-column:1/-1;color:var(--mb-accent);font-size:15px;font-weight:800;white-space:nowrap;}
-  .manual-methods {display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;}
-  .manual-methods button.manual-wallet {position:relative;overflow:hidden;isolation:isolate;width:100%;min-width:0;min-height:112px;border:2px solid transparent;border-radius:12px;padding:12px;display:flex;flex-direction:column;align-items:stretch;justify-content:space-between;gap:10px;text-align:left;transition:transform .16s,border-color .16s,box-shadow .16s;box-shadow:0 5px 14px rgba(16,29,41,.09);}
+  .manual-methods {display:grid;grid-template-columns:minmax(0,1fr);gap:10px;}
+  .manual-methods .manual-wallet {position:relative;overflow:hidden;isolation:isolate;width:100%;min-width:0;min-height:112px;border:2px solid transparent;border-radius:12px;padding:12px;display:flex;flex-direction:column;align-items:stretch;justify-content:space-between;gap:10px;text-align:left;transition:transform .16s,border-color .16s,box-shadow .16s;box-shadow:0 5px 14px rgba(16,29,41,.09);}
   .manual-methods button.manual-wallet:hover {transform:translateY(-1px);box-shadow:0 9px 18px rgba(16,29,41,.14);}
   .manual-methods button.manual-wallet.selected {border-color:#e6b567;box-shadow:0 0 0 2px rgba(229,185,116,.33),0 5px 14px rgba(16,29,41,.13);}
+  .manual-methods .manual-wallet.selected {border-color:#e6b567;box-shadow:0 0 0 2px rgba(229,185,116,.33),0 5px 14px rgba(16,29,41,.13);}
   .manual-wallet.gcash {background:linear-gradient(130deg,#0865e4,#06429b);color:#fff;}
   .manual-wallet.maya {background:linear-gradient(130deg,#05744c,#064533);color:#fff;}
   .manual-wallet.qrph {background:linear-gradient(130deg,#fff,#eff6fd);color:#1c4c80;border-color:#d9e6f3;}
@@ -159,6 +160,17 @@
   .manual-share-content textarea {min-height:147px;}
   .manual-copy-button {width:100%;min-width:0;min-height:44px;}
   .manual-share-panel .manual-panel-footnote {margin-top:auto;padding-top:14px;}
+  .manual-airbnb-check {margin-bottom:18px;}
+  .manual-airbnb-check-form {display:grid;grid-template-columns:repeat(3,minmax(0,1fr)) auto;gap:14px;align-items:end;}
+  .manual-airbnb-check-form .manual-btn-primary {min-height:45px;}
+  .manual-airbnb-result {display:grid;gap:7px;margin-top:18px;padding:14px 16px;border:1px solid #cfe7d6;border-radius:11px;background:#eff9f1;color:#24683f;}
+  .manual-airbnb-result.unavailable {border-color:#f0d7b6;background:#fff8ec;color:#815a25;}
+  .manual-airbnb-result>strong {font-size:13px;font-weight:800;}
+  .manual-airbnb-result>span {font-size:11px;color:var(--mb-subtle);}
+  .manual-airbnb-result ul {display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:7px 18px;margin:6px 0 0;padding:0;list-style:none;}
+  .manual-airbnb-result li {display:flex;justify-content:space-between;gap:10px;font-size:11px;color:var(--mb-ink);}
+  .manual-airbnb-result li strong {text-align:right;font-size:10px;color:inherit;}
+  .manual-airbnb-note {margin:14px 0 0!important;font-size:10px;line-height:1.55;color:var(--mb-subtle);}
   
   /* Processing / success screen. Fully styled even if Tailwind CSS isn't installed. */
   .manual-completion-screen {position:fixed;inset:0;z-index:9999;display:flex;align-items:center;justify-content:center;padding:20px;background:rgba(34,24,17,.62);backdrop-filter:blur(7px);-webkit-backdrop-filter:blur(7px);}
@@ -185,9 +197,8 @@
   @media(prefers-reduced-motion:reduce){.manual-completion-card,.manual-processing-ring,.manual-progress-track>span,.manual-spin {animation:none!important;}}
   
   @media(max-width:1200px){.manual-workspace {grid-template-columns:minmax(0,1.35fr) minmax(310px,.8fr);}.manual-panel {padding:20px;}.manual-villa {flex-wrap:wrap;}.manual-villa-price {margin-left:31px;}}
-  @media(max-width:980px){.manual-workspace,.manual-result-layout {grid-template-columns:1fr;}.manual-summary {position:static;}.manual-villa {flex-wrap:nowrap;}.manual-villa-price {margin-left:0;}.manual-result-layout>.manual-panel {min-height:auto;}.manual-share-panel .manual-panel-footnote {margin-top:10px;}}
-  @media(max-width:580px){.manual-page-header {align-items:flex-start;flex-wrap:wrap;gap:13px;}.manual-header-mark {width:44px;height:44px;flex-basis:44px;}.manual-header-identity {gap:11px;}.manual-header-identity h1 {font-size:22px!important;}.manual-header-actions {width:100%;}.manual-header-actions .manual-btn-outline {width:100%;}.manual-panel {padding:18px;border-radius:13px;}.manual-fields,.manual-villas {grid-template-columns:1fr;}.manual-payment-options,.manual-methods {grid-template-columns:repeat(2,minmax(0,1fr));}.manual-result-actions {grid-template-columns:1fr;}.manual-stay-strip {padding:12px;}.manual-wallet-label strong {font-size:12px;}.manual-completion-card {padding:32px 22px;border-radius:19px;}.manual-completion-card h2 {font-size:22px!important;}}
-  @media(max-width:360px){.manual-payment-options,.manual-methods {grid-template-columns:1fr;}}
+  @media(max-width:980px){.manual-workspace,.manual-result-layout {grid-template-columns:1fr;}.manual-summary {position:static;}.manual-villa {flex-wrap:nowrap;}.manual-villa-price {margin-left:0;}.manual-result-layout>.manual-panel {min-height:auto;}.manual-share-panel .manual-panel-footnote {margin-top:10px;}.manual-airbnb-check-form {grid-template-columns:repeat(2,minmax(0,1fr));}}
+  @media(max-width:580px){.manual-page-header {align-items:flex-start;flex-wrap:wrap;gap:13px;}.manual-header-mark {width:44px;height:44px;flex-basis:44px;}.manual-header-identity {gap:11px;}.manual-header-identity h1 {font-size:22px!important;}.manual-header-actions {width:100%;}.manual-header-actions .manual-btn-outline {width:100%;}.manual-panel {padding:18px;border-radius:13px;}.manual-fields,.manual-villas,.manual-airbnb-check-form {grid-template-columns:1fr;}.manual-payment-options,.manual-methods {grid-template-columns:1fr;}.manual-result-actions,.manual-airbnb-result ul {grid-template-columns:1fr;}.manual-stay-strip {padding:12px;}.manual-wallet-label strong {font-size:12px;}.manual-completion-card {padding:32px 22px;border-radius:19px;}.manual-completion-card h2 {font-size:22px!important;}}
   
   /* Readable surfaces when the administrator enables the existing dark theme. */
   .admin-dashboard-shell.dark-mode .manual-booking-page .manual-header-mark,

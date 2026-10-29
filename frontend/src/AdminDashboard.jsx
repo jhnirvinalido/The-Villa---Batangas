@@ -1369,7 +1369,7 @@ function normalizeBooking(booking) {
       payment.cashier ||
       "System",
     source: payment.source || "booking",
-    status: payment.status || "Completed",
+    status: payment.status || "",
   }));
 
   const computedPaymentStatus =
@@ -2036,7 +2036,7 @@ function VillaAnalyticsCharts({ analytics }) {
     ['Monthly Booking Trend', `Confirmed stays by check-in month · ${analytics.year}`],
     ['Villa Performance', `Confirmed reservations per villa · ${analytics.year}`],
     ['Reservation Status', `All reservations by check-in year · ${analytics.year}`],
-    ['Payment Analytics', `Paid, partial and unpaid reservation counts · ${analytics.year}`],
+    ['Payment Status', `Paid, partial and unpaid active reservations · ${analytics.year}`],
   ].map(([title,description],index)=><div className="chart-card" key={title}>
     <h3>{title}</h3><p>{description}</p><div className="chart-wrapper"><canvas ref={refs[index]}/></div>
   </div>)}</div>;
@@ -4398,7 +4398,12 @@ async function resetStaffPassword(staffId) {
     );
   }
   function renderAnalyticsData() {
-    return bookingAnalytics(normalizedBookings, villaCatalog, Number(today.slice(0, 4)));
+    return bookingAnalytics(
+      normalizedBookings,
+      villaCatalog,
+      Number(today.slice(0, 4)),
+      paymentTransactions,
+    );
   }
   // ============================================================
   // PAGES
@@ -4406,42 +4411,6 @@ async function resetStaffPassword(staffId) {
   function renderDashboard(){
 
     const analytics = renderAnalyticsData();
-    
-    
-    const totalRevenue =
-    normalizedBookings.reduce(
-    (sum,item)=>sum+item.totalAmount,
-    0
-    );
-    
-    
-    const totalSales =
-    normalizedBookings?.length || 0;
-    
-    
-    const averageSale =
-    totalSales
-    ? totalRevenue / totalSales
-    :0;
-    
-    
-    const highestMonth =
-    analytics.monthlyRevenue
-    .map((value,index)=>({
-    
-        month: analytics.months[index],
-    
-        value:value
-    
-    }))
-    .reduce(
-    (a,b)=>
-    a.value > b.value ? a : b,
-    {
-        month:"-",
-        value:0
-    }
-    );
     
     
     return (
@@ -4461,7 +4430,7 @@ async function resetStaffPassword(staffId) {
 <div>
 
 <span>
-Total Bookings
+Bookings this year
 </span>
 
 <strong>
@@ -4488,12 +4457,12 @@ Total Bookings
 <div>
 
 <span>
-Total Revenue
+Revenue this year
 </span>
 
 
 <strong>
-{formatPeso(totalRevenue)}
+{formatPeso(analytics.totalRevenue)}
 </strong>
 
 
@@ -8693,12 +8662,17 @@ Villas Under Maintenance
                 <span>Complete name *</span>
                 <input
                   value={staffAccountForm.name}
-                  onChange={(event) =>
+                  onChange={(event) => {
+                    if (/\p{N}/u.test(event.target.value)) {
+                      setStaffAccountError("Names must not contain numbers.");
+                      return;
+                    }
                     setStaffAccountForm((current) => ({
                       ...current,
                       name: event.target.value,
-                    }))
-                  }
+                    }));
+                    setStaffAccountError("");
+                  }}
                   placeholder="Staff complete name"
                 />
               </label>

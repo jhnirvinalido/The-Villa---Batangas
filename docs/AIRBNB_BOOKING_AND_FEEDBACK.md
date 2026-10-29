@@ -2,10 +2,12 @@
 
 ## Integration boundary
 
-This is the proposed workflow, not an installed Airbnb connection. The existing
-manual booking endpoint creates PayMongo checkout links; do not use it to charge
-an Airbnb reservation again. No Airbnb approval or review import is implemented
-by the chart/name/maintenance changes.
+The Manual Booking page now includes a read-only Airbnb availability checker.
+It checks requested stay dates against bookings and scheduled maintenance in
+The Villa; it does not create a reservation, place a hold, or connect to Airbnb.
+The existing direct manual booking endpoint creates PayMongo checkout links;
+do not use it to charge an Airbnb reservation again. No Airbnb approval,
+reservation import, or review import is implemented.
 
 Calendar import/export is appropriate for blocked nights. It is not a complete
 reservation, guest contact, payment or reviews API. Airbnb also exports owner-
@@ -22,16 +24,17 @@ Reference: https://www.airbnb.com/help/article/99
 2. A request remains pending until approved on Airbnb. An iCal feed alone must
    not be assumed to include pending requests or enough information to approve
    them automatically.
-3. Show the admin a single calendar containing internal reservations, external
-   blocks and scheduled maintenance dates. Show each source and last sync time.
-4. Refresh external availability before the admin decides. Detect overlapping
-   stays using check-in inclusive / checkout exclusive ranges, not equal dates.
+3. Before responding to an Airbnb booking request, use the Manual Booking
+   page's availability checker to inspect all requested nights and the party
+   size. The checker uses internal reservations and scheduled maintenance only;
+   it does not know about other pending Airbnb requests or external blocks.
+4. Recheck immediately before approving on Airbnb. This check is not a hold,
+   so another booking could be confirmed between the check and approval.
 5. Approval on Airbnb must use Airbnb or an approved API connection. A button
    in this system must not claim to have approved Airbnb without that connection.
-6. Once confirmed, deduplicate by external reservation ID. Store source=Airbnb,
-   reservation reference, villa/date range and externally collected payment
-   status. Use a separate flow from PayMongo checkout. iCal blocks without
-   sufficient reservation evidence stay blocks, not paid revenue records.
+6. Accepted Airbnb reservations are not currently imported into The Villa.
+   Recordkeeping and feedback eligibility need a separate external-reservation
+   workflow. Do not treat an iCal block as a paid booking or verified guest.
 
 ## Feedback for an Airbnb guest
 
