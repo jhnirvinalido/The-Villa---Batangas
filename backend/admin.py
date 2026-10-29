@@ -283,7 +283,8 @@ def safe_table_rows(
             query = query.order(order_column, desc=descending)
         if limit is not None:
             query = query.limit(limit)
-        return rows(query.execute())
+        from db_pool import read_with_retry
+        return rows(read_with_retry(query.execute))
     except Exception as error:
         logger.warning(
             "Optional admin table %s could not be loaded: %s",
@@ -297,21 +298,21 @@ def load_booking_rows(client: Client) -> list[dict[str, Any]]:
     """Load every customer booking using the real database columns."""
 
     try:
+        from db_pool import read_with_retry
         return rows(
-            client.table("bookings")
+            read_with_retry(client.table("bookings")
             .select("*")
             .order("created_at", desc=True)
             .limit(3000)
-            .execute()
+            .execute)
         )
     except Exception as error:
         logger.exception("Administrator booking query failed.")
         raise HTTPException(
             status_code=500,
             detail=(
-                "Bookings could not be loaded from Supabase. "
-                "Confirm that public.bookings exists and that the backend "
-                "SUPABASE_SERVICE_ROLE_KEY belongs to the same project."
+                "Booking updates are temporarily unavailable. Retry in a moment. "
+                "Previously loaded bookings are still displayed."
             ),
         ) from error
 
@@ -1087,21 +1088,22 @@ def bootstrap(context: dict[str, Any] = Depends(require_admin)):
 
     def notifications():
         try:
-            return rows(client.table("admin_notifications").select(NOTIFICATION_SELECT)
+            from db_pool import read_with_retry
+            return rows(read_with_retry(service_client().table("admin_notifications").select(NOTIFICATION_SELECT)
                         .eq("recipient_staff_account_id", context["account"]["id"])
-                        .order("created_at", desc=True).limit(1000).execute())
+                        .order("created_at", desc=True).limit(1000).execute))
         except Exception:
             logger.warning("Admin notifications could not be loaded.")
             return None
 
     loaded = parallel_reads({
-        "staff": lambda: safe_table_rows(client, "staff_accounts", STAFF_SELECT, order_column="full_name", preserve_failure=True),
-        "tasks": lambda: safe_table_rows(client, "admin_tasks", TASK_SELECT, order_column="created_at", descending=True, limit=2000, preserve_failure=True),
+        "staff": lambda: safe_table_rows(service_client(), "staff_accounts", STAFF_SELECT, order_column="full_name", preserve_failure=True),
+        "tasks": lambda: safe_table_rows(service_client(), "admin_tasks", TASK_SELECT, order_column="created_at", descending=True, limit=2000, preserve_failure=True),
         "notifications": notifications,
-        "booking_result": lambda: load_bootstrap_bookings(client),
-        "payments": lambda: safe_table_rows(client, "front_desk_payments", FRONT_DESK_PAYMENT_SELECT, order_column="processed_at", descending=True, limit=3000, preserve_failure=True),
-        "events": lambda: safe_table_rows(client, "booking_workflow_events", WORKFLOW_EVENT_SELECT, order_column="created_at", descending=True, limit=1000),
-        "timing": lambda: load_payment_timing_events(client),
+        "booking_result": lambda: load_bootstrap_bookings(service_client()),
+        "payments": lambda: safe_table_rows(service_client(), "front_desk_payments", FRONT_DESK_PAYMENT_SELECT, order_column="processed_at", descending=True, limit=3000, preserve_failure=True),
+        "events": lambda: safe_table_rows(service_client(), "booking_workflow_events", WORKFLOW_EVENT_SELECT, order_column="created_at", descending=True, limit=1000),
+        "timing": lambda: load_payment_timing_events(service_client()),
     })
     staff_rows, task_rows = loaded["staff"] or [], loaded["tasks"] or []
     staff_map = {str(item["id"]): item for item in staff_rows}
@@ -4142,6 +4144,7 @@ def list_front_desk_payments(context: dict[str, Any] = Depends(require_admin)):
     )
     from read_batches import parallel_reads
     def records_by_ids(table, columns, ids):
+        client = service_client()
         found = {}
         ids = sorted(set(ids))
         for start in range(0, len(ids), 100):
@@ -4151,7 +4154,7 @@ def list_front_desk_payments(context: dict[str, Any] = Depends(require_admin)):
     loaded = parallel_reads({
         "bookings": lambda: records_by_ids("bookings", "id,booking_code,customer_name,villa_name", [str(p["booking_id"]) for p in payment_rows]),
         "staff": lambda: records_by_ids("staff_accounts", "id,full_name", [str(p["cashier_staff_id"]) for p in payment_rows if p.get("cashier_staff_id")]),
-        "items": lambda: load_front_desk_items_map(client, [str(p["id"]) for p in payment_rows]),
+        "items": lambda: load_front_desk_items_map(service_client(), [str(p["id"]) for p in payment_rows]),
     })
     return {"data": [front_desk_payment_api(
         item, client=client, booking=loaded["bookings"].get(str(item.get("booking_id")), {}),

@@ -119,8 +119,6 @@ def create_supabase_client() -> Client:
 
 
 def create_service_supabase_client() -> Client:
-    from supabase import create_client
-
     if not SUPABASE_SERVICE_ROLE_KEY:
         raise HTTPException(
             status_code=500,
@@ -130,10 +128,8 @@ def create_service_supabase_client() -> Client:
             ),
         )
 
-    return create_client(
-        SUPABASE_URL,
-        SUPABASE_SERVICE_ROLE_KEY,
-    )
+    from db_pool import service_client_for
+    return service_client_for(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY)
 
 
 app = FastAPI(
@@ -144,6 +140,21 @@ app = FastAPI(
 if os.getenv("RENDER", "").lower() == "true" or os.getenv("MEMORY_LOGGING_ENABLED", "false").lower() == "true":
     from runtime_memory import install_memory_monitor
     install_memory_monitor(app)
+
+
+@app.on_event("startup")
+async def configure_render_concurrency():
+    if os.getenv("RENDER", "").lower() != "true":
+        return
+    import anyio.to_thread
+    from concurrent.futures import ThreadPoolExecutor
+
+    # Sync API handlers and background jobs use different thread pools. Bound
+    # both so bursts after login cannot grow dozens of per-thread DB clients.
+    anyio.to_thread.current_default_thread_limiter().total_tokens = 8
+    asyncio.get_running_loop().set_default_executor(
+        ThreadPoolExecutor(max_workers=4, thread_name_prefix="villa-background")
+    )
 
 
 LOCAL_FRONTEND_ORIGINS = {

@@ -1,7 +1,7 @@
 """Bounded concurrent independent reads; no shared response/auth cache."""
 from concurrent.futures import ThreadPoolExecutor
 
-_pool = ThreadPoolExecutor(max_workers=8, thread_name_prefix='villa-read')
+_pool = ThreadPoolExecutor(max_workers=4, thread_name_prefix='villa-read')
 
 
 def parallel_reads(reads):
