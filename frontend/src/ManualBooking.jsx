@@ -19,6 +19,7 @@ import {
   LockKeyhole,
   FileCheck2,
   AlertCircle,
+  X,
 } from "lucide-react";
 import "./ManualBooking.css";
 
@@ -91,6 +92,12 @@ function manilaToday() {
   }).format(new Date());
 }
 
+function nextCalendarDate(date) {
+  const next = new Date(`${date}T00:00:00Z`);
+  next.setUTCDate(next.getUTCDate() + 1);
+  return next.toISOString().slice(0, 10);
+}
+
 function formatDate(date) {
   if (!date) return "—";
   return new Intl.DateTimeFormat("en-PH", {
@@ -128,7 +135,8 @@ export default function ManualBooking({ apiRequest, onViewBookings, onBookingCre
   const [form, setForm] = useState(() => ({ ...EMPTY_FORM, ...initial?.form, payment_method: "qrph" }));
   const [selectedIds, setSelectedIds] = useState(() => initial?.selectedIds || []);
   const [availability, setAvailability] = useState(() => initial?.availability || null);
-  const [airbnbCheck, setAirbnbCheck] = useState({ check_in_date: "", check_out_date: "", guest_count: "1" });
+  const [airbnbCheck, setAirbnbCheck] = useState({ check_in_date: "", guest_count: "1" });
+  const [airbnbModalOpen, setAirbnbModalOpen] = useState(false);
   const [airbnbAvailability, setAirbnbAvailability] = useState(null);
   const [selectedAirbnbVillaIds, setSelectedAirbnbVillaIds] = useState([]);
   const [airbnbStays, setAirbnbStays] = useState([]);
@@ -177,6 +185,20 @@ export default function ManualBooking({ apiRequest, onViewBookings, onBookingCre
     refreshAirbnbStays();
   }, [refreshAirbnbStays]);
 
+  useEffect(() => {
+    if (!airbnbModalOpen) return undefined;
+    const previousOverflow = document.body.style.overflow;
+    const closeOnEscape = (event) => {
+      if (event.key === "Escape") setAirbnbModalOpen(false);
+    };
+    document.body.style.overflow = "hidden";
+    window.addEventListener("keydown", closeOnEscape);
+    return () => {
+      document.body.style.overflow = previousOverflow;
+      window.removeEventListener("keydown", closeOnEscape);
+    };
+  }, [airbnbModalOpen]);
+
   const setField = (field, value) => {
     setForm((previous) => ({ ...previous, [field]: value }));
     setError("");
@@ -205,18 +227,18 @@ export default function ManualBooking({ apiRequest, onViewBookings, onBookingCre
     setAirbnbAvailability(null);
     setSelectedAirbnbVillaIds([]);
     const guests = Number(airbnbCheck.guest_count);
-    if (!airbnbCheck.check_in_date || !airbnbCheck.check_out_date ||
+    if (!airbnbCheck.check_in_date ||
         airbnbCheck.check_in_date < manilaToday() ||
-        airbnbCheck.check_out_date <= airbnbCheck.check_in_date ||
         !Number.isInteger(guests) || guests < 1 || guests > 32) {
-      setAirbnbError("Enter valid future check-in and check-out dates and 1–32 guests.");
+      setAirbnbError("Enter a valid future check-in date and 1–32 guests.");
       return;
     }
+    const checkOutDate = nextCalendarDate(airbnbCheck.check_in_date);
     setAirbnbChecking(true);
     try {
       const params = new URLSearchParams({
         check_in_date: airbnbCheck.check_in_date,
-        check_out_date: airbnbCheck.check_out_date,
+        check_out_date: checkOutDate,
         guest_count: String(guests),
       });
       setAirbnbAvailability(await requestRef.current(
@@ -246,7 +268,7 @@ export default function ManualBooking({ apiRequest, onViewBookings, onBookingCre
         method: "POST",
         body: JSON.stringify({
           check_in_date: airbnbCheck.check_in_date,
-          check_out_date: airbnbCheck.check_out_date,
+          check_out_date: nextCalendarDate(airbnbCheck.check_in_date),
           guest_count: Number(airbnbCheck.guest_count),
           villa_ids: selectedAirbnbVillaIds,
         }),
@@ -554,25 +576,30 @@ export default function ManualBooking({ apiRequest, onViewBookings, onBookingCre
             <h1>Manual Booking</h1> 
           </div>
         </div>
-        
+        <button type="button" className="manual-btn-primary" onClick={() => setAirbnbModalOpen(true)}>
+          <CalendarDays size={17} /> Check Airbnb dates
+        </button>
       </header>
 
-      <section className="manual-panel manual-airbnb-check" aria-labelledby="airbnb-check-title">
+      {airbnbModalOpen && (
+      <div className="manual-airbnb-modal-backdrop" onClick={(event) => {
+        if (event.target === event.currentTarget) setAirbnbModalOpen(false);
+      }}>
+      <section className="manual-panel manual-airbnb-check" role="dialog" aria-modal="true" aria-labelledby="airbnb-check-title">
         <div className="manual-panel-heading">
           <div className="manual-panel-icon"><CalendarDays size={19} /></div>
           <div>
             <h2 id="airbnb-check-title">Check an Airbnb request</h2>
             <p>Check The Villa’s calendar before accepting the request on Airbnb. No Airbnb calendar is connected.</p>
           </div>
+          <button type="button" className="manual-airbnb-modal-close" aria-label="Close Airbnb availability" onClick={() => setAirbnbModalOpen(false)}>
+            <X size={19} />
+          </button>
         </div>
         <form className="manual-airbnb-check-form" onSubmit={checkAirbnbAvailability}>
-          <label className="manual-field">Check-in
+          <label className="manual-field">Check-in (3:00 PM)
             <input required type="date" min={manilaToday()} value={airbnbCheck.check_in_date}
               onChange={(event) => setAirbnbCheckField("check_in_date", event.target.value)} />
-          </label>
-          <label className="manual-field">Check-out
-            <input required type="date" min={airbnbCheck.check_in_date || manilaToday()} value={airbnbCheck.check_out_date}
-              onChange={(event) => setAirbnbCheckField("check_out_date", event.target.value)} />
           </label>
           <label className="manual-field">Guests
             <input required type="number" min="1" max="32" step="1" value={airbnbCheck.guest_count}
@@ -582,6 +609,7 @@ export default function ManualBooking({ apiRequest, onViewBookings, onBookingCre
             {airbnbChecking ? <><LoaderCircle size={16} className="manual-spin" /> Checking…</> : "Check availability"}
           </button>
         </form>
+        <p className="manual-airbnb-note">Standard stay: check in at 3:00 PM and check out at 12:00 PM the next day (21 hours).</p>
         {airbnbError && <AlertMessage message={airbnbError} />}
         {airbnbNotice && <AlertMessage message={airbnbNotice} type="success" />}
         {airbnbAvailability && (
@@ -591,7 +619,7 @@ export default function ManualBooking({ apiRequest, onViewBookings, onBookingCre
                 ? `${airbnbAvailability.total_available_capacity} guest spaces available`
                 : "No available villa combination for this stay"}
             </strong>
-            <span>{formatDate(airbnbAvailability.check_in_date)} – {formatDate(airbnbAvailability.check_out_date)} · {airbnbAvailability.nights} {airbnbAvailability.nights === 1 ? "night" : "nights"}</span>
+            <span>{formatDate(airbnbAvailability.check_in_date)} at 3:00 PM – {formatDate(airbnbAvailability.check_out_date)} at 12:00 PM · 21 hours</span>
             <span>Availability checked {formatDateTime(airbnbAvailability.updated_at)} · The Villa calendar</span>
             <ul>
               {airbnbAvailability.villas.map((villa) => (
@@ -672,6 +700,8 @@ export default function ManualBooking({ apiRequest, onViewBookings, onBookingCre
           ) : <p>No active Airbnb holds or stays.</p>}
         </section>
       </section>
+      </div>
+      )}
 
       {bookingResult ? (
         <div className="manual-result-layout">

@@ -10,6 +10,8 @@ Each request records `villaId`, `kind` (`Repair` or `Inspection`) and `blocksBoo
 
 A blocking request cannot be moved to another villa or cleared while open. The administrator must verify the work or cancel with a reason. Availability follows the reservation calendar once the final blocking request closes. A pre-existing manual catalog maintenance flag is preserved and must be explicitly released in the villa editor. Editing prices while a derived block is active preserves the underlying manual status, preventing an accidental permanent block.
 
+If Villa 1 is marked under maintenance without an active blocking maintenance request, apply `migrations/20261030_villa1_availability_repair.sql` once. It restores that one catalog row to Available only when no open blocking request exists.
+
 The effective status is derived from durable open task records, avoiding a separate task/catalog write that could partially succeed. Public catalog responses expose counts only. Operational availability failures stop booking availability checks instead of silently treating the villa as ready.
 
 ## On-call flow

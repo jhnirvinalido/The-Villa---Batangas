@@ -160,8 +160,12 @@
   .manual-share-content textarea {min-height:147px;}
   .manual-copy-button {width:100%;min-width:0;min-height:44px;}
   .manual-share-panel .manual-panel-footnote {margin-top:auto;padding-top:14px;}
-  .manual-airbnb-check {margin-bottom:18px;}
-  .manual-airbnb-check-form {display:grid;grid-template-columns:repeat(3,minmax(0,1fr)) auto;gap:14px;align-items:end;}
+  .manual-airbnb-modal-backdrop {position:fixed;inset:0;z-index:10000;display:flex;align-items:center;justify-content:center;padding:20px;background:rgba(34,24,17,.62);backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);}
+  .manual-airbnb-check {width:min(100%,850px);max-height:min(90vh,900px);overflow:auto;margin:0;animation:manualDialogIn .2s ease-out;}
+  .manual-airbnb-check>.manual-panel-heading {position:relative;padding-right:42px;}
+  .manual-airbnb-modal-close {position:absolute;top:0;right:0;width:36px;height:36px;display:grid;place-items:center;border:1px solid var(--mb-border);border-radius:10px;background:var(--mb-surface);color:var(--mb-ink);}
+  .manual-airbnb-modal-close:hover {background:var(--mb-accent-soft);}
+  .manual-airbnb-check-form {display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr) auto;gap:14px;align-items:end;}
   .manual-airbnb-check-form .manual-btn-primary {min-height:45px;}
   .manual-airbnb-result {display:grid;gap:7px;margin-top:18px;padding:14px 16px;border:1px solid #cfe7d6;border-radius:11px;background:#eff9f1;color:#24683f;}
   .manual-airbnb-result.unavailable {border-color:#f0d7b6;background:#fff8ec;color:#815a25;}
@@ -212,7 +216,7 @@
   @media(prefers-reduced-motion:reduce){.manual-completion-card,.manual-processing-ring,.manual-progress-track>span,.manual-spin {animation:none!important;}}
   
   @media(max-width:1200px){.manual-workspace {grid-template-columns:minmax(0,1.35fr) minmax(310px,.8fr);}.manual-panel {padding:20px;}.manual-villa {flex-wrap:wrap;}.manual-villa-price {margin-left:31px;}}
-  @media(max-width:980px){.manual-workspace,.manual-result-layout {grid-template-columns:1fr;}.manual-summary {position:static;}.manual-villa {flex-wrap:nowrap;}.manual-villa-price {margin-left:0;}.manual-result-layout>.manual-panel {min-height:auto;}.manual-share-panel .manual-panel-footnote {margin-top:10px;}.manual-airbnb-check-form {grid-template-columns:repeat(2,minmax(0,1fr));}}
+  @media(max-width:980px){.manual-workspace,.manual-result-layout {grid-template-columns:1fr;}.manual-summary {position:static;}.manual-villa {flex-wrap:nowrap;}.manual-villa-price {margin-left:0;}.manual-result-layout>.manual-panel {min-height:auto;}.manual-share-panel .manual-panel-footnote {margin-top:10px;}}
   @media(max-width:580px){.manual-page-header {align-items:flex-start;flex-wrap:wrap;gap:13px;}.manual-header-mark {width:44px;height:44px;flex-basis:44px;}.manual-header-identity {gap:11px;}.manual-header-identity h1 {font-size:22px!important;}.manual-header-actions {width:100%;}.manual-header-actions .manual-btn-outline {width:100%;}.manual-panel {padding:18px;border-radius:13px;}.manual-fields,.manual-villas,.manual-airbnb-check-form {grid-template-columns:1fr;}.manual-payment-options,.manual-methods {grid-template-columns:1fr;}.manual-result-actions,.manual-airbnb-result ul {grid-template-columns:1fr;}.manual-airbnb-hold-action,.manual-airbnb-stay-list>li {align-items:stretch;flex-direction:column;}.manual-airbnb-hold-action .manual-btn-primary {width:100%;}.manual-airbnb-stay-actions {justify-content:stretch;}.manual-airbnb-stay-actions button {flex:1;}.manual-stay-strip {padding:12px;}.manual-wallet-label strong {font-size:12px;}.manual-completion-card {padding:32px 22px;border-radius:19px;}.manual-completion-card h2 {font-size:22px!important;}}
   
   /* Readable surfaces when the administrator enables the existing dark theme. */

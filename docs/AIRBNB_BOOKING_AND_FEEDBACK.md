@@ -17,9 +17,10 @@ Reference: https://www.airbnb.com/help/article/99
 
 ## Approval flow
 
-1. Before accepting an Airbnb request, check its dates and guest count on the
-   Manual Booking page. Only proceed when The Villa calendar shows enough
-   availability.
+1. Open **Check Airbnb dates** on the Manual Booking page and enter the
+   check-in date and guest count. The checker uses the standard 21-hour stay:
+   3:00 PM check-in and 12:00 PM checkout the next day. Only proceed when The
+   Villa calendar shows enough availability.
 2. Select the Villa(s) and create a 10-minute hold. This reserves the chosen
    dates inside The Villa while the admin accepts the request on Airbnb.
 3. After accepting it on Airbnb, confirm the hold in The Villa. The confirmed
