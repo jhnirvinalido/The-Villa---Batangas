@@ -2066,6 +2066,148 @@ function VillaAnalyticsCharts({ analytics }) {
   </div>)}</div>;
 }
 
+function SentimentAnalyticsDashboard({ apiRequest, onOpenReviews }) {
+  const [report, setReport] = React.useState(null);
+  const [error, setError] = React.useState("");
+  const [loading, setLoading] = React.useState(true);
+  const canvasRefs = React.useRef([]);
+  const load = React.useCallback(async (signal) => {
+    try {
+      const payload = await apiRequest("/admin/guest-feedback/analysis", {
+        signal,
+        cache: "no-store",
+      });
+      if (!signal?.aborted) {
+        setReport(payload);
+        setError("");
+      }
+    } catch (requestError) {
+      if (!signal?.aborted) {
+        setError(getUserFacingError(requestError, "Sentiment analysis could not be loaded."));
+      }
+    } finally {
+      if (!signal?.aborted) setLoading(false);
+    }
+  }, [apiRequest]);
+
+  React.useEffect(() => {
+    const controller = new AbortController();
+    const timer = setTimeout(() => load(controller.signal), 0);
+    return () => {
+      clearTimeout(timer);
+      controller.abort();
+    };
+  }, [load]);
+
+  useLiveUpdates({ domains: ["feedback"], onChange: () => load() });
+
+  React.useEffect(() => {
+    const summary = report?.summary;
+    if (!summary) return undefined;
+
+    const reducedMotion = window.matchMedia?.("(prefers-reduced-motion: reduce)")?.matches ?? false;
+    const animation = createChartEntranceAnimation(reducedMotion, 35);
+    const sentimentLabels = ["Positive", "Neutral", "Negative", "Unclassified"];
+    const sentimentKeys = ["positive", "neutral", "negative", "unclassified"];
+    const sentimentCounts = sentimentKeys.map((key) => Number(summary.phrase_sentiments?.[key] || 0));
+    const complaints = (summary.top_complaints || []).slice(0, 6);
+    const charts = [];
+
+    if (canvasRefs.current[0]) {
+      charts.push(new Chart(canvasRefs.current[0], {
+        type: "doughnut",
+        data: {
+          labels: sentimentLabels,
+          datasets: [{
+            data: sentimentCounts,
+            backgroundColor: ["#4b8f82", "#d7a64b", "#c66c62", "#a7a29b"],
+            borderWidth: 0,
+          }],
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          animation,
+          plugins: { legend: { position: "bottom" } },
+        },
+      }));
+    }
+
+    if (canvasRefs.current[1] && complaints.length) {
+      charts.push(new Chart(canvasRefs.current[1], {
+        type: "bar",
+        data: {
+          labels: complaints.map((item) => item.category),
+          datasets: [{
+            label: "Reviews with negative matching phrases",
+            data: complaints.map((item) => Number(item.negative_review_count || 0)),
+            backgroundColor: "#c66c62",
+          }],
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          indexAxis: "y",
+          animation,
+          scales: {
+            x: { beginAtZero: true, ticks: { precision: 0 } },
+            y: { grid: { display: false } },
+          },
+          plugins: { legend: { display: false } },
+        },
+      }));
+    }
+
+    return () => charts.forEach((chart) => chart.destroy());
+  }, [report]);
+
+  const sentimentCounts = report?.summary?.phrase_sentiments || {};
+  const phraseTotal = Object.values(sentimentCounts).reduce((total, count) => total + Number(count || 0), 0);
+
+  return (
+    <section className="sentiment-dashboard-panel" aria-labelledby="sentiment-dashboard-title">
+      <header className="sentiment-dashboard-header">
+        <div>
+          <h2 id="sentiment-dashboard-title">Guest sentiment analysis</h2>
+          <p>Phrase-level pilot predictions from analyzed guest reviews.</p>
+        </div>
+        <button type="button" className="admin-btn-outline" onClick={onOpenReviews}>
+          View guest feedback
+        </button>
+      </header>
+      <div className="sentiment-dashboard-disclaimer" role="note">
+        Pilot analysis only. Sentiment predictions and complaint categories require human review; they are not verified findings.
+      </div>
+      {error && <p className="sentiment-dashboard-error" role="alert">{formatUserFacingMessage(error)}</p>}
+      {loading && !report && <p className="sentiment-dashboard-status" role="status">Loading sentiment analysis…</p>}
+      {report && <>
+        <div className="sentiment-dashboard-summary">
+          <div><strong>{Number(report.summary?.total_reviews || 0)}</strong><span>reviews analyzed</span></div>
+          <div><strong>{phraseTotal}</strong><span>phrases classified</span></div>
+          <div><strong>{Number(sentimentCounts.unclassified || 0)}</strong><span>unclassified phrases</span></div>
+        </div>
+        <div className="analytics-grid sentiment-dashboard-charts">
+          <article className="chart-card">
+            <h3>Phrase sentiment distribution</h3>
+            <p>Model predictions; unclassified phrases are shown separately.</p>
+            {phraseTotal
+              ? <div className="chart-wrapper"><canvas ref={(node) => { canvasRefs.current[0] = node; }} aria-label="Phrase sentiment distribution" role="img" /></div>
+              : <p className="sentiment-dashboard-status">No analyzed phrases yet.</p>}
+          </article>
+          <article className="chart-card">
+            <h3>Top complaint categories</h3>
+            <p>Distinct reviews with a negative phrase matched to each category.</p>
+            {(report.summary?.top_complaints || []).length
+              ? <div className="chart-wrapper"><canvas ref={(node) => { canvasRefs.current[1] = node; }} aria-label="Top complaint categories" role="img" /></div>
+              : <p className="sentiment-dashboard-status">No matching complaints in this analysis.</p>}
+          </article>
+        </div>
+        <p className="sentiment-dashboard-model">Model: {report.model?.version || "Unavailable"} · Human review required</p>
+      </>}
+    </section>
+  );
+}
+
 // ============================================================
 // MAIN ADMIN DASHBOARD
 // ============================================================
@@ -4701,6 +4843,13 @@ Villas Under Maintenance
     analytics={analytics}
 />
 
+</section>
+
+<section className="admin-dashboard-grid sentiment-dashboard-grid">
+  <SentimentAnalyticsDashboard
+    apiRequest={apiRequest}
+    onOpenReviews={() => navigate("guestFeedback")}
+  />
 </section>
    
     
