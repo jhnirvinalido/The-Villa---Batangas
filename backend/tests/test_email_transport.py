@@ -3,7 +3,7 @@ import unittest
 from email.message import EmailMessage
 from unittest.mock import Mock, patch
 
-from email_transport import send_resend
+from email_transport import EmailProviderError, send_resend
 
 
 class EmailTransportTests(unittest.TestCase):
@@ -33,6 +33,17 @@ class EmailTransportTests(unittest.TestCase):
         message = EmailMessage()
         message["To"] = "guest@example.com"
         message.set_content("Test")
-        with self.assertRaisesRegex(RuntimeError, "HTTP 403"):
+        with self.assertRaisesRegex(EmailProviderError, "HTTP 403") as raised:
             send_resend(message, on_accepted=accepted)
+        self.assertEqual(raised.exception.status_code, 403)
         accepted.assert_not_called()
+
+    @patch.dict(os.environ, {"RESEND_API_KEY": "test-only", "RESEND_FROM": "bookings@example.com"})
+    @patch("email_transport.requests.post")
+    def test_invalid_provider_response_is_not_reported_as_accepted(self, post):
+        post.return_value = Mock(ok=True, status_code=200, json=lambda: {})
+        message = EmailMessage()
+        message["To"] = "guest@example.com"
+        message.set_content("Test")
+        with self.assertRaises(EmailProviderError):
+            send_resend(message)

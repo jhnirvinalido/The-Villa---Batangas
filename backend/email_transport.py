@@ -6,6 +6,12 @@ from email.utils import getaddresses
 import requests
 
 
+class EmailProviderError(RuntimeError):
+    def __init__(self, status_code):
+        self.status_code = status_code
+        super().__init__(f"Email provider did not accept the message (HTTP {status_code}).")
+
+
 def send_resend(message, *, on_sending=None, on_accepted=None):
     sender = os.getenv("RESEND_FROM", "").strip()
     if not sender:
@@ -42,8 +48,12 @@ def send_resend(message, *, on_sending=None, on_accepted=None):
         timeout=(3, 5),
     )
     # Do not put provider response bodies (which may contain addresses) in logs.
-    if not response.ok or not response.json().get("id"):
-        raise RuntimeError(f"Email provider did not accept the message (HTTP {response.status_code}).")
+    try:
+        accepted = response.ok and bool(response.json().get("id"))
+    except (TypeError, ValueError):
+        accepted = False
+    if not accepted:
+        raise EmailProviderError(response.status_code)
     if on_accepted:
         on_accepted({})
     return {}

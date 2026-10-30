@@ -109,6 +109,36 @@ def _smtp_configured() -> bool:
     )
 
 
+def _public_email_delivery_setup_error() -> str | None:
+    resend_key = os.getenv("RESEND_API_KEY", "").strip()
+    resend_sender = os.getenv("RESEND_FROM", "").strip()
+    if resend_key:
+        if not resend_sender:
+            return (
+                "The Villa's email service is missing its verified sender. "
+                "Please contact The Villa so email delivery can be configured."
+            )
+        return None
+
+    render_smtp_blocked = (
+        os.getenv("RENDER", "").lower() == "true"
+        and SMTP_PORT in {25, 465, 587}
+        and os.getenv("RENDER_SERVICE_TYPE", "web") == "web"
+        and os.getenv("SMTP_ALLOW_ON_RENDER", "false").lower() != "true"
+    )
+    if render_smtp_blocked:
+        return (
+            "The Villa's email service cannot send from this hosting setup. "
+            "Please contact The Villa so email delivery can be configured."
+        )
+    if not _smtp_configured():
+        return (
+            "The Villa's email service is not configured to send verification codes. "
+            "Please contact The Villa."
+        )
+    return None
+
+
 def _send_email_message(
     message: EmailMessage,
     *,
@@ -4326,10 +4356,11 @@ def request_public_email_verification(
     data: PublicEmailVerificationRequest,
     request: Request,
 ):
-    if not _smtp_configured():
+    delivery_setup_error = _public_email_delivery_setup_error()
+    if delivery_setup_error:
         raise HTTPException(
             status_code=503,
-            detail="Email verification is temporarily unavailable. Please contact The Villa.",
+            detail=delivery_setup_error,
         )
 
     email = str(data.email).strip().lower()
@@ -4393,13 +4424,28 @@ The Villa"""
     try:
         _send_email_message(message)
     except Exception as error:
-        logger.warning(
-            "Public email verification delivery failed (%s).",
-            type(error).__name__,
-        )
+        provider_status = getattr(error, "status_code", None)
+        if provider_status in {401, 403, 422}:
+            logger.warning(
+                "Public email verification provider rejected the message (HTTP %s).",
+                provider_status,
+            )
+            detail = (
+                "The Villa's email service rejected the message. "
+                "Please contact The Villa so the sender can be checked."
+            )
+        elif provider_status == 429:
+            logger.warning("Public email verification provider rate limit reached.")
+            detail = "Email delivery is temporarily busy. Wait a few minutes and try again."
+        else:
+            logger.warning(
+                "Public email verification delivery failed (%s).",
+                type(error).__name__,
+            )
+            detail = "We couldn't send the verification email. Please try again later."
         raise HTTPException(
             status_code=503,
-            detail="We couldn't send the verification email. Check the address or try again later.",
+            detail=detail,
         ) from None
 
     return {
