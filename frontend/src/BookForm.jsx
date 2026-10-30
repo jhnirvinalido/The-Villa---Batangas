@@ -642,6 +642,8 @@ function AvailabilityCalendar({
             !isPast &&
             Number(dayState?.total_available_capacity || 0) >= Number(guestCount || 1) &&
             preferredAvailable;
+          const unavailable =
+            !available && inMonth && !isPast && !loading && !error && Boolean(dayState);
 
           const selected = selectedDate === key;
 
@@ -652,14 +654,14 @@ function AvailabilityCalendar({
               className={`booking-calendar-day ${
                 !inMonth ? "outside" : ""
               } ${available ? "available" : "disabled"} ${
-                !available && inMonth && !isPast ? "full" : ""
+                unavailable ? "full" : ""
               } ${
                 selected ? "selected" : ""
               }`}
               disabled={!available || loading}
               onClick={() => onSelectDate(key)}
               title={
-                !available && inMonth && !isPast
+                unavailable
                   ? "Fully booked / unavailable"
                   : available
                     ? "Available date"
