@@ -247,130 +247,6 @@ def _valid_public_email_verification_token(
     return hmac.compare_digest(signature, expected_signature)
 
 
-@public_router.post("/email-verification/request")
-def request_public_email_verification(
-    data: PublicEmailVerificationRequest,
-    request: Request,
-):
-    if not _smtp_configured():
-        raise HTTPException(
-            status_code=503,
-            detail="Email verification is temporarily unavailable. Please contact The Villa.",
-        )
-
-    email = str(data.email).strip().lower()
-    client_ip = request.client.host if request.client else "unknown"
-    code = f"{secrets.randbelow(1_000_000):06d}"
-    now = datetime.now(timezone.utc)
-    service = _service()
-    result = service.rpc("issue_public_email_verification", {
-        "p_email_hash": _public_email_verification_hash(email, "email"),
-        "p_code_hash": _public_email_verification_hash(
-            f"{email}:{code}", "code"
-        ),
-        "p_ip_hash": _public_email_verification_hash(client_ip, "ip"),
-        "p_now": now.isoformat(),
-        "p_expires_at": (now + timedelta(minutes=10)).isoformat(),
-    }).execute()
-    state = _attr(result, "data", None)
-    if state in {"cooldown", "email_rate_limited", "ip_rate_limited"}:
-        raise HTTPException(
-            status_code=429,
-            detail="A verification code could not be sent right now. If you recently requested one, check your inbox or wait before trying again.",
-        )
-    if state != "sent":
-        logger.error("Public email verification issuance returned an unexpected result.")
-        raise HTTPException(
-            status_code=503,
-            detail="The verification code could not be sent. Please try again.",
-        )
-
-    message = EmailMessage()
-    message["Subject"] = "Verify your email | The Villa"
-    message["From"] = (
-        f"{SMTP_FROM_NAME} <{SMTP_FROM}>"
-        if SMTP_FROM
-        else SMTP_FROM_NAME
-    )
-    if os.getenv("RESEND_API_KEY", "").strip():
-        message.replace_header(
-            "From",
-            os.getenv("RESEND_FROM", "").strip(),
-        )
-    message["To"] = email
-    message.set_content(
-        f"""Hello,
-
-Your The Villa booking verification code is {code}.
-
-Enter this code in the booking form within 10 minutes. If you did not request it, you can ignore this email.
-
-The Villa"""
-    )
-    try:
-        _send_email_message(message)
-    except Exception as error:
-        logger.warning(
-            "Public email verification delivery failed (%s).",
-            type(error).__name__,
-        )
-        raise HTTPException(
-            status_code=503,
-            detail="We couldn't send the verification email. Check the address or try again later.",
-        ) from None
-
-    return {
-        "sent": True,
-        "message": "A verification code was sent. Check your inbox and spam folder.",
-        "expires_at": (now + timedelta(minutes=10)).isoformat(),
-    }
-
-
-@public_router.post("/email-verification/confirm")
-def confirm_public_email_verification(data: PublicEmailVerificationConfirmRequest):
-    email = str(data.email).strip().lower()
-    now = datetime.now(timezone.utc)
-    result = _service().rpc("verify_public_email_verification", {
-        "p_email_hash": _public_email_verification_hash(email, "email"),
-        "p_code_hash": _public_email_verification_hash(
-            f"{email}:{data.code}", "code"
-        ),
-        "p_now": now.isoformat(),
-    }).execute()
-    state = _attr(result, "data", None)
-    if state == "verified":
-        service = _service()
-        email_hash = _public_email_verification_hash(email, "email")
-        record = _first(
-            service.table("public_email_verifications")
-            .select("verified_at,expires_at")
-            .eq("email_hash", email_hash)
-            .limit(1)
-            .execute()
-        )
-        if record and record.get("verified_at"):
-            expires_at = datetime.fromisoformat(
-                str(record["expires_at"]).replace("Z", "+00:00")
-            )
-            if expires_at > now:
-                return {
-                    "verified": True,
-                    "email_verification_token": _create_public_email_verification_token(
-                        email, expires_at
-                    ),
-                    "message": "Email address verified.",
-                }
-        logger.error("Verified email record was missing or expired after code confirmation.")
-        raise HTTPException(
-            status_code=503,
-            detail="Email verification could not be completed. Request a new code.",
-        )
-    raise HTTPException(
-        status_code=422,
-        detail="That code could not be verified. Request a new code and try again.",
-    )
-
-
 def _require_verified_public_email(
     service,
     email: str,
@@ -4443,6 +4319,130 @@ class PublicEmailVerificationRequest(BaseModel):
 class PublicEmailVerificationConfirmRequest(BaseModel):
     email: EmailStr
     code: str = Field(pattern=r"^\d{6}$")
+
+
+@public_router.post("/email-verification/request")
+def request_public_email_verification(
+    data: PublicEmailVerificationRequest,
+    request: Request,
+):
+    if not _smtp_configured():
+        raise HTTPException(
+            status_code=503,
+            detail="Email verification is temporarily unavailable. Please contact The Villa.",
+        )
+
+    email = str(data.email).strip().lower()
+    client_ip = request.client.host if request.client else "unknown"
+    code = f"{secrets.randbelow(1_000_000):06d}"
+    now = datetime.now(timezone.utc)
+    service = _service()
+    result = service.rpc("issue_public_email_verification", {
+        "p_email_hash": _public_email_verification_hash(email, "email"),
+        "p_code_hash": _public_email_verification_hash(
+            f"{email}:{code}", "code"
+        ),
+        "p_ip_hash": _public_email_verification_hash(client_ip, "ip"),
+        "p_now": now.isoformat(),
+        "p_expires_at": (now + timedelta(minutes=10)).isoformat(),
+    }).execute()
+    state = _attr(result, "data", None)
+    if state in {"cooldown", "email_rate_limited", "ip_rate_limited"}:
+        raise HTTPException(
+            status_code=429,
+            detail="A verification code could not be sent right now. If you recently requested one, check your inbox or wait before trying again.",
+        )
+    if state != "sent":
+        logger.error("Public email verification issuance returned an unexpected result.")
+        raise HTTPException(
+            status_code=503,
+            detail="The verification code could not be sent. Please try again.",
+        )
+
+    message = EmailMessage()
+    message["Subject"] = "Verify your email | The Villa"
+    message["From"] = (
+        f"{SMTP_FROM_NAME} <{SMTP_FROM}>"
+        if SMTP_FROM
+        else SMTP_FROM_NAME
+    )
+    if os.getenv("RESEND_API_KEY", "").strip():
+        message.replace_header(
+            "From",
+            os.getenv("RESEND_FROM", "").strip(),
+        )
+    message["To"] = email
+    message.set_content(
+        f"""Hello,
+
+Your The Villa booking verification code is {code}.
+
+Enter this code in the booking form within 10 minutes. If you did not request it, you can ignore this email.
+
+The Villa"""
+    )
+    try:
+        _send_email_message(message)
+    except Exception as error:
+        logger.warning(
+            "Public email verification delivery failed (%s).",
+            type(error).__name__,
+        )
+        raise HTTPException(
+            status_code=503,
+            detail="We couldn't send the verification email. Check the address or try again later.",
+        ) from None
+
+    return {
+        "sent": True,
+        "message": "A verification code was sent. Check your inbox and spam folder.",
+        "expires_at": (now + timedelta(minutes=10)).isoformat(),
+    }
+
+
+@public_router.post("/email-verification/confirm")
+def confirm_public_email_verification(data: PublicEmailVerificationConfirmRequest):
+    email = str(data.email).strip().lower()
+    now = datetime.now(timezone.utc)
+    result = _service().rpc("verify_public_email_verification", {
+        "p_email_hash": _public_email_verification_hash(email, "email"),
+        "p_code_hash": _public_email_verification_hash(
+            f"{email}:{data.code}", "code"
+        ),
+        "p_now": now.isoformat(),
+    }).execute()
+    state = _attr(result, "data", None)
+    if state == "verified":
+        service = _service()
+        email_hash = _public_email_verification_hash(email, "email")
+        record = _first(
+            service.table("public_email_verifications")
+            .select("verified_at,expires_at")
+            .eq("email_hash", email_hash)
+            .limit(1)
+            .execute()
+        )
+        if record and record.get("verified_at"):
+            expires_at = datetime.fromisoformat(
+                str(record["expires_at"]).replace("Z", "+00:00")
+            )
+            if expires_at > now:
+                return {
+                    "verified": True,
+                    "email_verification_token": _create_public_email_verification_token(
+                        email, expires_at
+                    ),
+                    "message": "Email address verified.",
+                }
+        logger.error("Verified email record was missing or expired after code confirmation.")
+        raise HTTPException(
+            status_code=503,
+            detail="Email verification could not be completed. Request a new code.",
+        )
+    raise HTTPException(
+        status_code=422,
+        detail="That code could not be verified. Request a new code and try again.",
+    )
 
 
 class PublicCheckoutRequest(BaseModel):
