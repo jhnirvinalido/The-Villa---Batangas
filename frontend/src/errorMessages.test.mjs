@@ -14,6 +14,8 @@ test("network failures use a clear connection message", () => {
 
 test("generic server failures do not expose framework wording", () => {
   assert.match(formatUserFacingMessage("Internal Server Error"), /couldn't complete that request/i);
+  assert.match(formatUserFacingMessage("Method Not Allowed"), /couldn't complete that request/i);
+  assert.match(getApiErrorMessage({ detail: "Method Not Allowed" }, 405), /couldn't complete that request/i);
   assert.doesNotMatch(
     getApiErrorMessage({ detail: "Database migration failed in Supabase RPC." }, 500),
     /database|migration|supabase|rpc/i,
