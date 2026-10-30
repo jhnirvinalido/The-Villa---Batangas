@@ -4,6 +4,7 @@ import hashlib
 import hmac
 import logging
 import os
+import re
 import secrets
 import smtplib
 import time
@@ -196,6 +197,215 @@ def _booking_email_logo() -> tuple[str, bytes | None]:
         "or set EMAIL_LOGO_PATH in backend/.env."
     )
     return "", None
+
+
+def _public_email_verification_hash(email: str, purpose: str) -> str:
+    normalized = str(email).strip().lower()
+    message = f"public-email-verification:{purpose}:{normalized}".encode()
+    return hmac.new(
+        SUPABASE_SERVICE_ROLE_KEY.encode(),
+        message,
+        hashlib.sha256,
+    ).hexdigest()
+
+
+def _create_public_email_verification_token(email: str, expires_at: datetime) -> str:
+    email_hash = _public_email_verification_hash(email, "email")
+    expiry = int(expires_at.timestamp())
+    nonce = secrets.token_urlsafe(24)
+    payload = f"{email_hash}:{expiry}:{nonce}"
+    signature = hmac.new(
+        SUPABASE_SERVICE_ROLE_KEY.encode(),
+        f"public-email-verification:booking-token:{payload}".encode(),
+        hashlib.sha256,
+    ).hexdigest()
+    return f"{payload}:{signature}"
+
+
+def _valid_public_email_verification_token(
+    email: str,
+    token: str,
+    now: datetime,
+) -> bool:
+    try:
+        email_hash, expiry_text, nonce, signature = str(token).split(":")
+        expiry = int(expiry_text)
+    except (TypeError, ValueError):
+        return False
+
+    if not nonce or expiry <= int(now.timestamp()):
+        return False
+    expected_email_hash = _public_email_verification_hash(email, "email")
+    if not hmac.compare_digest(email_hash, expected_email_hash):
+        return False
+    payload = f"{email_hash}:{expiry}:{nonce}"
+    expected_signature = hmac.new(
+        SUPABASE_SERVICE_ROLE_KEY.encode(),
+        f"public-email-verification:booking-token:{payload}".encode(),
+        hashlib.sha256,
+    ).hexdigest()
+    return hmac.compare_digest(signature, expected_signature)
+
+
+@public_router.post("/email-verification/request")
+def request_public_email_verification(
+    data: PublicEmailVerificationRequest,
+    request: Request,
+):
+    if not _smtp_configured():
+        raise HTTPException(
+            status_code=503,
+            detail="Email verification is temporarily unavailable. Please contact The Villa.",
+        )
+
+    email = str(data.email).strip().lower()
+    client_ip = request.client.host if request.client else "unknown"
+    code = f"{secrets.randbelow(1_000_000):06d}"
+    now = datetime.now(timezone.utc)
+    service = _service()
+    result = service.rpc("issue_public_email_verification", {
+        "p_email_hash": _public_email_verification_hash(email, "email"),
+        "p_code_hash": _public_email_verification_hash(
+            f"{email}:{code}", "code"
+        ),
+        "p_ip_hash": _public_email_verification_hash(client_ip, "ip"),
+        "p_now": now.isoformat(),
+        "p_expires_at": (now + timedelta(minutes=10)).isoformat(),
+    }).execute()
+    state = _attr(result, "data", None)
+    if state in {"cooldown", "email_rate_limited", "ip_rate_limited"}:
+        raise HTTPException(
+            status_code=429,
+            detail="A verification code could not be sent right now. If you recently requested one, check your inbox or wait before trying again.",
+        )
+    if state != "sent":
+        logger.error("Public email verification issuance returned an unexpected result.")
+        raise HTTPException(
+            status_code=503,
+            detail="The verification code could not be sent. Please try again.",
+        )
+
+    message = EmailMessage()
+    message["Subject"] = "Verify your email | The Villa"
+    message["From"] = (
+        f"{SMTP_FROM_NAME} <{SMTP_FROM}>"
+        if SMTP_FROM
+        else SMTP_FROM_NAME
+    )
+    if os.getenv("RESEND_API_KEY", "").strip():
+        message.replace_header(
+            "From",
+            os.getenv("RESEND_FROM", "").strip(),
+        )
+    message["To"] = email
+    message.set_content(
+        f"""Hello,
+
+Your The Villa booking verification code is {code}.
+
+Enter this code in the booking form within 10 minutes. If you did not request it, you can ignore this email.
+
+The Villa"""
+    )
+    try:
+        _send_email_message(message)
+    except Exception as error:
+        logger.warning(
+            "Public email verification delivery failed (%s).",
+            type(error).__name__,
+        )
+        raise HTTPException(
+            status_code=503,
+            detail="We couldn't send the verification email. Check the address or try again later.",
+        ) from None
+
+    return {
+        "sent": True,
+        "message": "A verification code was sent. Check your inbox and spam folder.",
+        "expires_at": (now + timedelta(minutes=10)).isoformat(),
+    }
+
+
+@public_router.post("/email-verification/confirm")
+def confirm_public_email_verification(data: PublicEmailVerificationConfirmRequest):
+    email = str(data.email).strip().lower()
+    now = datetime.now(timezone.utc)
+    result = _service().rpc("verify_public_email_verification", {
+        "p_email_hash": _public_email_verification_hash(email, "email"),
+        "p_code_hash": _public_email_verification_hash(
+            f"{email}:{data.code}", "code"
+        ),
+        "p_now": now.isoformat(),
+    }).execute()
+    state = _attr(result, "data", None)
+    if state == "verified":
+        service = _service()
+        email_hash = _public_email_verification_hash(email, "email")
+        record = _first(
+            service.table("public_email_verifications")
+            .select("verified_at,expires_at")
+            .eq("email_hash", email_hash)
+            .limit(1)
+            .execute()
+        )
+        if record and record.get("verified_at"):
+            expires_at = datetime.fromisoformat(
+                str(record["expires_at"]).replace("Z", "+00:00")
+            )
+            if expires_at > now:
+                return {
+                    "verified": True,
+                    "email_verification_token": _create_public_email_verification_token(
+                        email, expires_at
+                    ),
+                    "message": "Email address verified.",
+                }
+        logger.error("Verified email record was missing or expired after code confirmation.")
+        raise HTTPException(
+            status_code=503,
+            detail="Email verification could not be completed. Request a new code.",
+        )
+    raise HTTPException(
+        status_code=422,
+        detail="That code could not be verified. Request a new code and try again.",
+    )
+
+
+def _require_verified_public_email(
+    service,
+    email: str,
+    verification_token: str,
+) -> None:
+    normalized = str(email).strip().lower()
+    if not _valid_public_email_verification_token(
+        normalized,
+        verification_token,
+        datetime.now(timezone.utc),
+    ):
+        raise HTTPException(
+            status_code=403,
+            detail="Verify your email address before creating a booking.",
+        )
+    record = _first(
+        service.table("public_email_verifications")
+        .select("verified_at,expires_at")
+        .eq("email_hash", _public_email_verification_hash(normalized, "email"))
+        .limit(1)
+        .execute()
+    )
+    if not record or not record.get("verified_at"):
+        raise HTTPException(
+            status_code=403,
+            detail="Verify your email address before creating a booking.",
+        )
+    expires_at = datetime.fromisoformat(
+        str(record["expires_at"]).replace("Z", "+00:00")
+    )
+    if expires_at <= datetime.now(timezone.utc):
+        raise HTTPException(
+            status_code=410,
+            detail="Your email verification expired. Verify your email again.",
+        )
 
 
 def _send_booking_confirmation_email(
@@ -4190,11 +4400,26 @@ async def paymongo_webhook(
 # =========================================================
 # PUBLIC MODERN BOOKING FORM ENDPOINTS
 # =========================================================
+def validate_public_booking_phone(value: str) -> str:
+    phone = str(value or "").strip()
+    if not phone or not re.fullmatch(r"[0-9+\s().-]+", phone):
+        raise ValueError(
+            "Enter a Philippine mobile number using digits only; spaces, +, hyphens, and parentheses are allowed."
+        )
+
+    compact = re.sub(r"[\s().-]", "", phone)
+    if not re.fullmatch(r"(?:\+?63)?9\d{9}|09\d{9}", compact):
+        raise ValueError("Enter a valid Philippine mobile number, such as 09123456789.")
+    return phone
+
+
 class PublicBookingCreateRequest(BaseModel):
     _validate_names = field_validator('first_name', 'last_name')(validate_person_name)
+    _validate_phone = field_validator('phone')(validate_public_booking_phone)
     first_name: str = Field(min_length=1, max_length=100)
     last_name: str = Field(min_length=1, max_length=100)
     email: EmailStr
+    email_verification_token: str = Field(min_length=32, max_length=512)
     phone: str = Field(min_length=10, max_length=20)
     villa_id: str = Field(min_length=1, max_length=50)
     villa_ids: list[str] | None = None
@@ -4211,6 +4436,15 @@ class PublicBookingCreateRequest(BaseModel):
     ] = "gcash"
 
 
+class PublicEmailVerificationRequest(BaseModel):
+    email: EmailStr
+
+
+class PublicEmailVerificationConfirmRequest(BaseModel):
+    email: EmailStr
+    code: str = Field(pattern=r"^\d{6}$")
+
+
 class PublicCheckoutRequest(BaseModel):
     payment_method: Literal[
         "gcash",
@@ -4222,11 +4456,7 @@ class PublicCheckoutRequest(BaseModel):
 
 
 def _normalize_phone(value: str) -> str:
-    digits = "".join(
-        character
-        for character in str(value or "")
-        if character.isdigit()
-    )
+    digits = re.sub(r"\D", "", validate_public_booking_phone(value))
 
     if len(digits) == 10 and digits.startswith("9"):
         return f"+63{digits}"
@@ -4547,6 +4777,11 @@ def public_booking_calendar_availability(
 
 @public_router.post("")
 def create_public_booking(data: PublicBookingCreateRequest):
+    _require_verified_public_email(
+        _service(),
+        str(data.email),
+        data.email_verification_token,
+    )
     creation = _prepare_public_booking(data, draft_only=True)
     booking = creation["booking"]
     _service().table("public_booking_checkouts").insert({
@@ -5021,7 +5256,13 @@ def create_public_booking_checkout(
         draft_booking=booking if draft else None,
     )
     if draft:
-        _service().table("public_booking_checkouts").update({"booking_payload": booking}).eq("id", booking_id).execute()
+        _service().table("public_booking_checkouts").update({
+            "booking_payload": booking,
+            "paymongo_checkout_session_id": booking.get(
+                "paymongo_checkout_session_id"
+            ),
+            "next_check_at": datetime.now(timezone.utc).isoformat(),
+        }).eq("id", booking_id).execute()
     return result
 
 
@@ -5602,6 +5843,69 @@ check();listen();fallback=setInterval(check,30000);</script></body></html>"""
 
 def _public_checkout_draft(service, booking_id):
     return _first(service.table("public_booking_checkouts").select("*").eq("id", booking_id).limit(1).execute())
+
+
+def process_public_checkout_reconciliation(service=None, limit=25):
+    service = service or _service()
+    now = datetime.now(timezone.utc)
+    now_iso = now.isoformat()
+    next_check_iso = (now + timedelta(minutes=2)).isoformat()
+    response = (
+        service.table("public_booking_checkouts")
+        .select("id,booking_payload,paymongo_checkout_session_id,next_check_at")
+        .not_.is_("paymongo_checkout_session_id", "null")
+        .lte("next_check_at", now_iso)
+        .order("next_check_at")
+        .limit(limit)
+        .execute()
+    )
+    drafts = _attr(response, "data", None) or []
+    checked = 0
+
+    for candidate in drafts:
+        try:
+            claimed = (
+                service.table("public_booking_checkouts")
+                .update({"next_check_at": next_check_iso})
+                .eq("id", candidate["id"])
+                .eq("next_check_at", candidate["next_check_at"])
+                .select("id")
+                .execute()
+            )
+            if not (_attr(claimed, "data", None) or []):
+                continue
+
+            draft = _public_checkout_draft(service, candidate["id"])
+            if not draft:
+                continue
+            booking = draft.get("booking_payload") or {}
+            if (
+                booking.get("paymongo_checkout_session_id")
+                != candidate.get("paymongo_checkout_session_id")
+            ):
+                logger.error(
+                    "Public checkout reconciliation found a mismatched session reference."
+                )
+                continue
+
+            result = _sync_public_checkout_draft(service, draft)
+            if result.get("state") == "expired":
+                service.table("public_booking_checkouts").update({
+                    "paymongo_checkout_session_id": None,
+                    "next_check_at": None,
+                }).eq("id", candidate["id"]).execute()
+            checked += 1
+        except HTTPException as error:
+            logger.warning(
+                "Public checkout reconciliation could not verify a payment (HTTP %s); it will retry.",
+                error.status_code,
+            )
+        except Exception:
+            logger.exception(
+                "Public checkout reconciliation failed; it will retry."
+            )
+
+    return checked
 
 
 def _sync_public_checkout_draft(service, draft):

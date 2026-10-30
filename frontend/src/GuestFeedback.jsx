@@ -1,5 +1,6 @@
 import { AlertMessage, LoadingScreen } from "./SystemFeedback";
 import { feedbackFetch as fetch } from "./requestFeedback.mjs";
+import { getApiErrorMessage, getUserFacingError } from "./errorMessages.mjs";
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { FaCheck, FaChevronLeft, FaHome, FaSpinner, FaStar } from "react-icons/fa";
@@ -14,14 +15,8 @@ const API_URL = (
 function readApiError(response) {
   return response
     .json()
-    .then((payload) => {
-      if (typeof payload?.detail === "string") return payload.detail;
-      if (Array.isArray(payload?.detail)) {
-        return payload.detail.map((item) => item?.msg || "Invalid value.").join(" ");
-      }
-      return payload?.message || "The request could not be completed.";
-    })
-    .catch(() => "The server returned an unreadable response.");
+    .then((payload) => getApiErrorMessage(payload, response.status))
+    .catch(() => getApiErrorMessage({}, response.status));
 }
 
 async function apiRequest(path, options = {}) {
@@ -133,9 +128,7 @@ export default function GuestFeedback() {
       } catch (requestError) {
         if (!active) return;
         setError(
-          requestError instanceof Error
-            ? requestError.message
-            : "This feedback link could not be opened."
+          getUserFacingError(requestError, "This feedback link could not be opened.")
         );
       } finally {
         if (active) setLoading(false);
@@ -195,11 +188,7 @@ export default function GuestFeedback() {
         setBooking((current) => current || {});
       }
     } catch (requestError) {
-      setError(
-        requestError instanceof Error
-          ? requestError.message
-          : "Your feedback could not be submitted."
-      );
+      setError(getUserFacingError(requestError, "Your feedback could not be submitted."));
     } finally {
       setSubmitting(false);
     }
@@ -212,7 +201,7 @@ export default function GuestFeedback() {
         method: "POST", body: JSON.stringify({ token }),
       });
       setInvitations(result.invitations || []);
-    } catch (requestError) { setInviteError(requestError.message); }
+    } catch (requestError) { setInviteError(getUserFacingError(requestError, "Feedback invitations could not be created.")); }
     finally { setInviting(false); }
   }
 

@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { AlertCircle, CalendarClock, CheckCircle2, ChevronRight, LoaderCircle, Wrench } from 'lucide-react';
 import useLiveUpdates from './useLiveUpdates';
+import { formatUserFacingMessage, getUserFacingError } from './errorMessages.mjs';
 import VillaMaintenance from './VillaMaintenance';
 import './StaffVillaOperations.css';
 
@@ -18,7 +19,7 @@ export default function StaffVillaOperations({ apiRequest, onChanged, initialVil
       setReports(result.data?.reports || []);
       setError('');
     } catch (failure) {
-      setError(failure.message || 'Maintenance workspace could not be loaded.');
+      setError(getUserFacingError(failure, 'Maintenance workspace could not be loaded.'));
     } finally {
       setLoading(false);
     }
@@ -51,7 +52,7 @@ export default function StaffVillaOperations({ apiRequest, onChanged, initialVil
         <div className="staff-maintenance-header-icon" aria-hidden="true"><Wrench size={24}/></div>
       </header>
 
-      {error && <p role="alert" className="staff-maintenance-message is-error"><AlertCircle size={18}/>{error}</p>}
+      {error && <p role="alert" className="staff-maintenance-message is-error"><AlertCircle size={18}/>{formatUserFacingMessage(error)}</p>}
 
       <section className="staff-maintenance-inbox" aria-label="Incoming maintenance requests">
         {loading ? <p className="staff-maintenance-loading" role="status"><LoaderCircle size={18} className="staff-maintenance-spinner"/>Loading requests…</p> : requests.length ? (

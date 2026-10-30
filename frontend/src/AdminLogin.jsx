@@ -1,5 +1,6 @@
 import { AlertMessage } from "./SystemFeedback";
 import { feedbackFetch as fetch } from "./requestFeedback.mjs";
+import { getApiErrorMessage, getUserFacingError } from "./errorMessages.mjs";
 import { staffLoginReturnPath } from "./staffNotificationFeed.mjs";
 import { useState } from "react";
 import {
@@ -377,9 +378,7 @@ export default function VillaLogin() {
       clearOldPortalSessions();
 
       setErrorMessage(
-        error instanceof Error
-          ? error.message
-          : "Unable to sign in."
+        getUserFacingError(error, "Unable to sign in.")
       );
     } finally {
       setIsSubmitting(false);
@@ -404,10 +403,10 @@ export default function VillaLogin() {
         body: JSON.stringify({ email: normalizedEmail }),
       });
       const data = await response.json().catch(() => ({}));
-      if (!response.ok) throw new Error(data.detail || "Unable to request password recovery.");
+      if (!response.ok) throw new Error(getApiErrorMessage(data, response.status));
       setSuccessMessage(data.message || "Check your email for the password reset link.");
     } catch (error) {
-      setErrorMessage(error instanceof Error ? error.message : "Unable to request password recovery.");
+      setErrorMessage(getUserFacingError(error, "Unable to request password recovery."));
     } finally {
       setIsResetting(false);
     }

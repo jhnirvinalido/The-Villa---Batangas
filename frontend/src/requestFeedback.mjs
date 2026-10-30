@@ -1,3 +1,5 @@
+import { getApiErrorMessage } from './errorMessages.mjs';
+
 const pending = new Map();
 let sequence = 0;
 const failures = new Map();
@@ -21,7 +23,7 @@ export async function feedbackFetch(url, options = {}) {
     // Session refresh and background reads own their retry/error behavior.
     if (tracked && !response.ok && response.status !== 401) {
       const data = await response.clone().json().catch(() => ({}));
-      const message = typeof data.detail === 'string' ? data.detail : typeof data.message === 'string' ? data.message : 'The action could not be completed. Please check your details and try again.';
+      const message = getApiErrorMessage(data, response.status);
       if (Date.now() - (failures.get(message) || 0) > 30000) {
         failures.set(message, Date.now()); reportFeedback(message);
       }

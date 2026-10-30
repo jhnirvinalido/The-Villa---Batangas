@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { AlertCircle, CheckCircle2, Clock3, LoaderCircle, Wrench } from 'lucide-react';
 import { arrivalInput, arrivalTimestamp } from './maintenanceModel.mjs';
+import { formatUserFacingMessage, getApiErrorMessage, getUserFacingError } from './errorMessages.mjs';
 import './MaintenanceResponse.css';
 
 const API_URL = ((typeof window !== 'undefined' && window.__THE_VILLA_API_BASE__) || import.meta.env.VITE_API_URL || 'http://127.0.0.1:8000').replace(/\/$/, '');
@@ -26,8 +27,8 @@ export default function MaintenanceResponse() {
       ...options, cache: 'no-store', credentials: 'omit', referrerPolicy: 'no-referrer',
       headers: { Accept: 'application/json', 'X-Maintenance-Token': credentials.token, ...(options.body ? { 'Content-Type': 'application/json' } : {}) },
     });
-    const payload = await response.json();
-    if (!response.ok) throw new Error(typeof payload.detail === 'string' ? payload.detail : payload.detail?.map(item => item.msg).join(' ') || 'Your response could not be recorded. Try again or contact the administrator.');
+    const payload = await response.json().catch(() => ({}));
+    if (!response.ok) throw new Error(getApiErrorMessage(payload, response.status));
     return payload;
   }, [credentials]);
 
@@ -37,7 +38,7 @@ export default function MaintenanceResponse() {
     const robots = document.createElement('meta'); robots.name = 'robots'; robots.content = 'noindex, nofollow';
     document.head.append(referrer, robots);
     apiRequest().then(result => { if (active) setRequest(result.data); })
-      .catch(failure => { if (active) setError(failure.message || 'The request could not be loaded. Contact the administrator.'); })
+      .catch(failure => { if (active) setError(getUserFacingError(failure, 'The request could not be loaded. Contact the administrator.')); })
       .finally(() => { if (active) setLoading(false); });
     return () => { active = false; referrer.remove(); robots.remove(); };
   }, [apiRequest]);
@@ -48,14 +49,14 @@ export default function MaintenanceResponse() {
     try {
       const result = await apiRequest({ method: 'POST', body: JSON.stringify({ decision, expectedArrival: decision === 'Unavailable' ? null : arrivalTimestamp(arrival), notes }) });
       setRequest(previous => ({ ...previous, ...result.data, canRespond: false })); setSuccess(true);
-    } catch (failure) { setError(failure.message || 'Your reply could not be saved. Contact the administrator.'); }
+    } catch (failure) { setError(getUserFacingError(failure, 'Your reply could not be saved. Contact the administrator.')); }
     finally { setBusy(false); }
   }
 
   return <main className="maintenance-response-page"><div className="maintenance-response-card">
     <header><span className="maintenance-response-brand">THE VILLA</span><div className="maintenance-response-icon"><Wrench size={25}/></div><p>On-call maintenance</p><h1>{success ? 'Response recorded' : 'Can you attend this repair?'}</h1><span>Confirm your availability and arrival time for the administrator.</span></header>
     {loading && <p className="maintenance-response-loading" role="status"><LoaderCircle size={20}/>Loading request…</p>}
-    {error && <p className="maintenance-response-error" role="alert"><AlertCircle size={20}/>{error}</p>}
+    {error && <p className="maintenance-response-error" role="alert"><AlertCircle size={20}/>{formatUserFacingMessage(error)}</p>}
     {request && <><section className="maintenance-response-issue" aria-label="Repair request"><small>{request.reference} · {request.priority} priority</small><h2>{request.title}</h2><p>{request.location}{request.equipment ? ` · ${request.equipment}` : ''}</p><p className="maintenance-response-description">{request.description}</p></section>
       {request.canRespond ? <form onSubmit={submit}><fieldset disabled={busy}><legend>Your availability</legend>
         {[['Accepted', 'I can attend', 'Confirm your estimated arrival.'], ['Unavailable', 'I am unavailable', 'The administrator will arrange another contact.'], ['Proposed time', 'Suggest another time', 'The administrator will review your proposed arrival.']].map(([value, label, help]) => <label className={`maintenance-response-choice ${decision === value ? 'selected' : ''}`} key={value}><input type="radio" name="decision" value={value} checked={decision === value} onChange={() => setDecision(value)}/><span><strong>{label}</strong><small>{help}</small></span></label>)}

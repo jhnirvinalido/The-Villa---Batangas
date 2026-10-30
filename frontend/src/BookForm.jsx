@@ -1,5 +1,7 @@
 import { AlertMessage, LoadingScreen } from "./SystemFeedback";
 import { feedbackFetch as fetch } from "./requestFeedback.mjs";
+import { getApiErrorMessage, getUserFacingError } from "./errorMessages.mjs";
+import { isValidEmailAddress, normalizePhilippinePhone } from "./contactValidation.mjs";
 import useLiveUpdates from "./useLiveUpdates";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
@@ -255,24 +257,6 @@ function formatDate(value) {
   }).format(parsed);
 }
 
-function normalizePhone(value) {
-  const digits = String(value || "").replace(/\D/g, "");
-
-  if (digits.length === 10 && digits.startsWith("9")) {
-    return `+63${digits}`;
-  }
-
-  if (digits.length === 11 && digits.startsWith("09")) {
-    return `+63${digits.slice(1)}`;
-  }
-
-  if (digits.length === 12 && digits.startsWith("639")) {
-    return `+${digits}`;
-  }
-
-  return "";
-}
-
 function flattenAmenities(value) {
   if (!Array.isArray(value)) {
     return [];
@@ -333,24 +317,9 @@ function normalizeCatalog(rows) {
 async function readApiError(response) {
   try {
     const payload = await response.json();
-
-    if (typeof payload?.detail === "string") {
-      return payload.detail;
-    }
-
-    if (Array.isArray(payload?.detail)) {
-      return payload.detail
-        .map((item) => item?.msg || "Invalid value.")
-        .join(" ");
-    }
-
-    return (
-      payload?.detail?.message ||
-      payload?.message ||
-      "The request could not be completed."
-    );
+    return getApiErrorMessage(payload, response.status);
   } catch {
-    return "The server returned an unreadable response.";
+    return getApiErrorMessage({}, response.status);
   }
 }
 
@@ -549,11 +518,7 @@ function AvailabilityCalendar({
         }
 
         setDays({});
-        setError(
-          requestError instanceof Error
-            ? requestError.message
-            : "Unable to load available dates."
-        );
+        setError(getUserFacingError(requestError, "Unable to load available dates."));
       } finally {
         if (active) {
           setLoading(false);
@@ -763,7 +728,7 @@ function MessageModal({ message, onClose }) {
     return () => { node.close(); previous?.focus(); };
   }, [open]);
   if (!open) return null;
-  return <dialog ref={dialog} role="alertdialog" aria-label="Please check your details" onCancel={event=>{event.preventDefault();onClose();}} className="m-auto w-[calc(100%-2rem)] max-w-md rounded-2xl border border-stone-200 bg-white p-6 shadow-2xl backdrop:bg-stone-950/40 backdrop:backdrop-blur-sm"><h2 className="mb-4 text-lg font-bold text-stone-900">Please check your details</h2><AlertMessage message={message}/><button type="button" autoFocus onClick={onClose} className="mt-5 rounded-xl border border-amber-900 bg-amber-900 px-5 py-3 text-sm font-semibold text-white">OK</button></dialog>;
+  return <dialog ref={dialog} role="alertdialog" aria-label="We couldn't complete this step" onCancel={event=>{event.preventDefault();onClose();}} className="m-auto w-[calc(100%-2rem)] max-w-md rounded-2xl border border-stone-200 bg-white p-6 shadow-2xl backdrop:bg-stone-950/40 backdrop:backdrop-blur-sm"><h2 className="mb-4 text-lg font-bold text-stone-900">We couldn't complete this step</h2><AlertMessage message={message}/><button type="button" autoFocus onClick={onClose} className="mt-5 rounded-xl border border-amber-900 bg-amber-900 px-5 py-3 text-sm font-semibold text-white">OK</button></dialog>;
 }
 
 /** A bare spinner in the Villa's bronze palette. */
@@ -833,6 +798,17 @@ export default function BookForm() {
   const [stepTransition, setStepTransition] = useState({ active: false, message: "" });
   const stepTransitionLock = useRef(false);
   const [message, setMessage] = useState("");
+  const [personalInfoErrors, setPersonalInfoErrors] = useState({});
+  const [emailVerification, setEmailVerification] = useState({
+    sentEmail: "",
+    verifiedEmail: "",
+    token: "",
+    expiresAt: 0,
+    code: "",
+    status: "",
+    error: "",
+  });
+  const [emailVerificationBusy, setEmailVerificationBusy] = useState(false);
   const [pendingGuestCount, setPendingGuestCount] = useState(null);
   const [guestOptionsOpen, setGuestOptionsOpen] = useState(false);
   const [activeGuestOption, setActiveGuestOption] = useState(0);
@@ -1102,11 +1078,7 @@ export default function BookForm() {
         }
 
         setAvailability(null);
-        setMessage(
-          requestError instanceof Error
-            ? requestError.message
-            : "Unable to check availability."
-        );
+        setMessage(getUserFacingError(requestError, "Unable to check availability."));
       } finally {
         if (active) {
           setAvailabilityLoading(false);
@@ -1190,10 +1162,7 @@ export default function BookForm() {
         .catch((error) => {
           setPaymentResult({
             state: "cancelled",
-            message:
-              error instanceof Error
-                ? error.message
-                : "Payment was cancelled.",
+            message: getUserFacingError(error, "Payment was cancelled."),
           });
         })
         .finally(() => {
@@ -1250,9 +1219,7 @@ export default function BookForm() {
         if (active) {
           setPaymentResult({
             state: "pending",
-            message: error instanceof Error
-              ? error.message
-              : "We could not verify the payment yet.",
+            message: getUserFacingError(error, "We could not verify the payment yet."),
           });
         }
       } finally {
@@ -1300,53 +1267,39 @@ export default function BookForm() {
   }
 
   function updatePersonName(field, value) {
-    if (/\p{N}/u.test(value)) {
-      setMessage("Names must not contain numbers.");
-      return;
-    }
-    setMessage("");
     updateForm(field, value);
+    setPersonalInfoErrors((current) => ({
+      ...current,
+      [field]: value.trim()
+        ? /\p{N}/u.test(value)
+          ? "Names must not contain numbers."
+          : ""
+        : current[field]
+          ? `Enter the guest's ${field === "firstName" ? "first" : "last"} name.`
+          : "",
+    }));
   }
 
   function validatePersonalInfo() {
-    if (/\p{N}/u.test(`${form.firstName} ${form.lastName}`)) {
-      setMessage("Names must not contain numbers.");
-      return false;
-    }
-    const emailReady =
-      /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(
-        form.email.trim()
-      );
-
+    const errors = {};
     if (!form.firstName.trim()) {
-      setMessage(
-        "Please enter the guest's first name."
-      );
-      return false;
+      errors.firstName = "Enter the guest's first name.";
+    } else if (/\p{N}/u.test(form.firstName)) {
+      errors.firstName = "Names must not contain numbers.";
     }
-
     if (!form.lastName.trim()) {
-      setMessage(
-        "Please enter the guest's last name."
-      );
-      return false;
+      errors.lastName = "Enter the guest's last name.";
+    } else if (/\p{N}/u.test(form.lastName)) {
+      errors.lastName = "Names must not contain numbers.";
     }
-
-    if (!emailReady) {
-      setMessage(
-        "Please enter a valid email address."
-      );
-      return false;
+    if (!isValidEmailAddress(form.email)) {
+      errors.email = "Enter a valid email address, such as name@example.com.";
     }
-
-    if (!normalizePhone(form.phone)) {
-      setMessage(
-        "Please enter a valid Philippine mobile number, for example 09123456789."
-      );
-      return false;
+    if (!normalizePhilippinePhone(form.phone)) {
+      errors.phone = "Enter a valid Philippine mobile number, e.g. 0912 345 6789.";
     }
-
-    return true;
+    setPersonalInfoErrors(errors);
+    return Object.keys(errors).length === 0;
   }
 
   async function refreshExactAvailability() {
@@ -1390,7 +1343,7 @@ export default function BookForm() {
         new Promise((resolve) => window.setTimeout(resolve, 480)),
       ]);
       if (result.status === "rejected") {
-        setMessage(result.reason instanceof Error ? result.reason.message : fallback);
+        setMessage(getUserFacingError(result.reason, fallback));
       } else if (result.value !== false) {
         setStep(targetStep);
       }
@@ -1402,7 +1355,101 @@ export default function BookForm() {
 
   function continueFromPersonalInfo() {
     if (!validatePersonalInfo()) return;
+    const email = form.email.trim().toLowerCase();
+    if (
+      emailVerification.verifiedEmail === email &&
+      (emailVerification.expiresAt <= Date.now() || !emailVerification.token)
+    ) {
+      setEmailVerification((current) => ({
+        ...current,
+        verifiedEmail: "",
+        token: "",
+        code: "",
+        status: "",
+        error: "Verify your email again before continuing.",
+      }));
+      return;
+    }
+    if (emailVerification.verifiedEmail !== email || !emailVerification.token) {
+      if (emailVerification.sentEmail === email) return;
+      sendEmailVerificationCode(email);
+      return;
+    }
     runStepTransition(4, "Preparing your reservation and payment details…");
+  }
+
+  async function sendEmailVerificationCode(email = form.email.trim().toLowerCase()) {
+    if (!isValidEmailAddress(email) || emailVerificationBusy) return;
+    setEmailVerificationBusy(true);
+    setEmailVerification((current) => ({ ...current, error: "" }));
+    try {
+      const result = await apiRequest("/public-bookings/email-verification/request", {
+        method: "POST",
+        body: JSON.stringify({ email }),
+      });
+      setEmailVerification({
+        sentEmail: email,
+        verifiedEmail: "",
+        token: "",
+        expiresAt: Date.parse(result?.expires_at) || Date.now() + 10 * 60 * 1000,
+        code: "",
+        status: result?.message || "A verification code was sent. Check your inbox and spam folder.",
+        error: "",
+      });
+    } catch (error) {
+      setEmailVerification((current) => ({
+        ...current,
+        sentEmail: email,
+        status: "",
+        error: getUserFacingError(error, "We couldn't send a verification code. Please try again."),
+      }));
+    } finally {
+      setEmailVerificationBusy(false);
+    }
+  }
+
+  async function verifyEmailCode() {
+    const email = form.email.trim().toLowerCase();
+    if (emailVerification.expiresAt && emailVerification.expiresAt <= Date.now()) {
+      setEmailVerification((current) => ({
+        ...current,
+        error: "Your verification code expired. Request a new code.",
+      }));
+      return;
+    }
+    if (!/^\d{6}$/.test(emailVerification.code)) {
+      setEmailVerification((current) => ({
+        ...current,
+        error: "Enter the 6-digit code from your email.",
+      }));
+      return;
+    }
+    if (emailVerificationBusy) return;
+    setEmailVerificationBusy(true);
+    setEmailVerification((current) => ({ ...current, error: "" }));
+    try {
+      const result = await apiRequest("/public-bookings/email-verification/confirm", {
+        method: "POST",
+        body: JSON.stringify({ email, code: emailVerification.code }),
+      });
+      if (!result?.email_verification_token) {
+        throw new Error("Email verification could not be completed. Please try again.");
+      }
+      setEmailVerification((current) => ({
+        ...current,
+        verifiedEmail: email,
+        token: result?.email_verification_token || "",
+        status: result?.message || "Email address verified.",
+        error: "",
+      }));
+    } catch (error) {
+      setEmailVerification((current) => ({
+        ...current,
+        error: getUserFacingError(error, "That code could not be verified. Check it and try again."),
+      }));
+    } finally {
+      setEmailVerificationBusy(false);
+    }
   }
 
   async function continueFromAvailability() {
@@ -1488,6 +1535,23 @@ export default function BookForm() {
       return;
     }
 
+    if (
+      emailVerification.verifiedEmail !== form.email.trim().toLowerCase() ||
+      emailVerification.expiresAt <= Date.now() ||
+      !emailVerification.token
+    ) {
+      setEmailVerification((current) => ({
+        ...current,
+        verifiedEmail: "",
+        token: "",
+        status: "",
+        error: "Your email verification expired. Verify your email again to continue.",
+      }));
+      setStep(3);
+      setMessage("Verify your email address again before continuing to payment.");
+      return;
+    }
+
     if (!acceptedPolicy) {
       setMessage(
         "Please confirm the booking details and reservation policy."
@@ -1527,8 +1591,9 @@ export default function BookForm() {
               form.email
                 .trim()
                 .toLowerCase(),
+            email_verification_token: emailVerification.token,
             phone:
-              normalizePhone(form.phone),
+              normalizePhilippinePhone(form.phone),
             villa_id: selectedVillaIds[0],
             villa_ids: selectedVillaIds,
             check_in_date:
@@ -1592,11 +1657,7 @@ export default function BookForm() {
         checkoutResult.checkout_url
       );
     } catch (error) {
-      setMessage(
-        error instanceof Error
-          ? error.message
-          : "Unable to create the booking."
-      );
+      setMessage(getUserFacingError(error, "Unable to create the booking."));
     } finally {
       setLoading(false);
       setLoadingMessage("");
@@ -1626,6 +1687,7 @@ export default function BookForm() {
     setCreatedBooking(null);
     setPaymentResult(null);
     setAvailability(null);
+    setPersonalInfoErrors({});
 
     setForm({
       firstName: "",
@@ -2076,8 +2138,11 @@ export default function BookForm() {
                   required
                 >
                   <input
+                    id="booking-first-name"
                     type="text"
                     autoComplete="given-name"
+                    aria-invalid={Boolean(personalInfoErrors.firstName)}
+                    aria-describedby={personalInfoErrors.firstName ? "booking-first-name-error" : undefined}
                     value={form.firstName}
                     onChange={(event) =>
                       updatePersonName(
@@ -2087,6 +2152,7 @@ export default function BookForm() {
                     }
                     placeholder="First name"
                   />
+                  {personalInfoErrors.firstName && <small id="booking-first-name-error" className="booking-field-error" role="alert">{personalInfoErrors.firstName}</small>}
                 </Field>
 
                 <Field
@@ -2095,8 +2161,11 @@ export default function BookForm() {
                   required
                 >
                   <input
+                    id="booking-last-name"
                     type="text"
                     autoComplete="family-name"
+                    aria-invalid={Boolean(personalInfoErrors.lastName)}
+                    aria-describedby={personalInfoErrors.lastName ? "booking-last-name-error" : undefined}
                     value={form.lastName}
                     onChange={(event) =>
                       updatePersonName(
@@ -2106,6 +2175,7 @@ export default function BookForm() {
                     }
                     placeholder="Last name"
                   />
+                  {personalInfoErrors.lastName && <small id="booking-last-name-error" className="booking-field-error" role="alert">{personalInfoErrors.lastName}</small>}
                 </Field>
 
                 <Field
@@ -2114,18 +2184,99 @@ export default function BookForm() {
                   required
                 >
                   <input
+                    id="booking-email"
                     type="email"
                     autoComplete="email"
+                    aria-invalid={Boolean(personalInfoErrors.email)}
+                    aria-describedby={personalInfoErrors.email ? "booking-email-error" : undefined}
                     value={form.email}
-                    onChange={(event) =>
-                      updateForm(
-                        "email",
-                        event.target.value
-                      )
-                    }
+                    onBlur={() => {
+                      if (form.email.trim()) {
+                        setPersonalInfoErrors((current) => ({
+                          ...current,
+                          email: isValidEmailAddress(form.email)
+                            ? ""
+                            : "Enter a valid email address, such as name@example.com.",
+                        }));
+                      }
+                    }}
+                    onChange={(event) => {
+                      const value = event.target.value;
+                      updateForm("email", value);
+                      if (value.trim().toLowerCase() !== emailVerification.sentEmail) {
+                        setEmailVerification({
+                          sentEmail: "",
+                          verifiedEmail: "",
+                          token: "",
+                          expiresAt: 0,
+                          code: "",
+                          status: "",
+                          error: "",
+                        });
+                      }
+                      if (personalInfoErrors.email) {
+                        setPersonalInfoErrors((current) => ({
+                          ...current,
+                          email: isValidEmailAddress(value)
+                            ? ""
+                            : "Enter a valid email address, such as name@example.com.",
+                        }));
+                      }
+                    }}
                     placeholder="you@example.com"
                   />
+                  {personalInfoErrors.email && <small id="booking-email-error" className="booking-field-error" role="alert">{personalInfoErrors.email}</small>}
                 </Field>
+
+                {emailVerification.sentEmail === form.email.trim().toLowerCase() &&
+                  emailVerification.verifiedEmail !== form.email.trim().toLowerCase() && (
+                    <Field label="Email verification code" icon={FaShieldAlt} required>
+                      <div className="booking-email-verification">
+                        <input
+                          id="booking-email-verification-code"
+                          type="text"
+                          inputMode="numeric"
+                          autoComplete="one-time-code"
+                          maxLength={6}
+                          pattern="[0-9]{6}"
+                          aria-label="6-digit email verification code"
+                          aria-invalid={Boolean(emailVerification.error)}
+                          value={emailVerification.code}
+                          onChange={(event) => setEmailVerification((current) => ({
+                            ...current,
+                            code: event.target.value.replace(/\D/g, "").slice(0, 6),
+                            error: "",
+                          }))}
+                          placeholder="Enter 6-digit code"
+                        />
+                        <button
+                          type="button"
+                          className="booking-verify-email-button"
+                          disabled={emailVerificationBusy || emailVerification.code.length !== 6}
+                          onClick={verifyEmailCode}
+                        >
+                          {emailVerificationBusy ? "Checking…" : "Verify"}
+                        </button>
+                      </div>
+                      <small>{emailVerification.status}</small>
+                      {emailVerification.error && <small className="booking-field-error" role="alert">{emailVerification.error}</small>}
+                      <button
+                        type="button"
+                        className="booking-resend-email-button"
+                        disabled={emailVerificationBusy}
+                        onClick={() => sendEmailVerificationCode()}
+                      >
+                        Resend code
+                      </button>
+                    </Field>
+                  )}
+                {emailVerification.verifiedEmail === form.email.trim().toLowerCase() &&
+                  Boolean(emailVerification.token) &&
+                  emailVerification.expiresAt > Date.now() && (
+                  <p className="booking-email-verified" role="status">
+                    <FaCheckCircle aria-hidden="true" /> Email address verified.
+                  </p>
+                )}
 
                 <Field
                   label="Mobile number"
@@ -2134,17 +2285,35 @@ export default function BookForm() {
                   helper="Philippine mobile number, e.g. 09123456789"
                 >
                   <input
+                    id="booking-phone"
                     type="tel"
                     autoComplete="tel"
+                    aria-invalid={Boolean(personalInfoErrors.phone)}
+                    aria-describedby={personalInfoErrors.phone ? "booking-phone-error" : undefined}
                     value={form.phone}
-                    onChange={(event) =>
-                      updateForm(
-                        "phone",
-                        event.target.value
-                      )
-                    }
+                    onBlur={() => {
+                      if (!normalizePhilippinePhone(form.phone)) {
+                        setPersonalInfoErrors((current) => ({
+                          ...current,
+                          phone: "Enter a valid Philippine mobile number, e.g. 0912 345 6789.",
+                        }));
+                      }
+                    }}
+                    onChange={(event) => {
+                      const value = event.target.value;
+                      updateForm("phone", value);
+                      setPersonalInfoErrors((current) => ({
+                        ...current,
+                        phone: value && !normalizePhilippinePhone(value)
+                          ? "Use a valid Philippine mobile number with digits only (spaces, +, hyphens, and parentheses are allowed)."
+                          : current.phone && !value
+                            ? "Enter a valid Philippine mobile number, e.g. 0912 345 6789."
+                            : "",
+                      }));
+                    }}
                     placeholder="0912 345 6789"
                   />
+                  {personalInfoErrors.phone && <small id="booking-phone-error" className="booking-field-error" role="alert">{personalInfoErrors.phone}</small>}
                 </Field>
               </div>
 
@@ -2433,8 +2602,7 @@ export default function BookForm() {
                   paymentResult?.state ===
                   "paid"
                     ? "success"
-                    : paymentResult?.state ===
-                        "cancelled"
+                    : ["cancelled", "failed", "expired"].includes(paymentResult?.state)
                       ? "warning"
                       : ""
                 }`}
@@ -2442,8 +2610,7 @@ export default function BookForm() {
                 {paymentResult?.state ===
                 "paid" ? (
                   <FaCheck />
-                ) : paymentResult?.state ===
-                  "cancelled" ? (
+                ) : ["cancelled", "failed", "expired"].includes(paymentResult?.state) ? (
                   <FaExclamationTriangle />
                 ) : (
                   <FaClock />
@@ -2457,6 +2624,10 @@ export default function BookForm() {
                   : paymentResult?.state ===
                       "cancelled"
                     ? "Payment cancelled"
+                    : paymentResult?.state === "failed"
+                      ? "Payment not completed"
+                      : paymentResult?.state === "expired"
+                        ? "Checkout expired"
                     : "Payment status"}
               </span>
 
@@ -2467,6 +2638,10 @@ export default function BookForm() {
                   : paymentResult?.state ===
                       "cancelled"
                     ? "Your reservation was released."
+                    : paymentResult?.state === "failed"
+                      ? "Your payment was not completed."
+                      : paymentResult?.state === "expired"
+                        ? "This payment link has expired."
                     : "We are checking your reservation."}
               </h2>
 
@@ -2586,10 +2761,16 @@ export default function BookForm() {
                 disabled={
                   !selectionValid ||
                   availabilityLoading ||
-                  stepTransition.active || loading
+                  stepTransition.active || loading || emailVerificationBusy
                 }
               >
-                Continue
+                {emailVerification.verifiedEmail === form.email.trim().toLowerCase() &&
+                  Boolean(emailVerification.token) &&
+                  emailVerification.expiresAt > Date.now()
+                  ? "Continue"
+                  : emailVerification.sentEmail === form.email.trim().toLowerCase()
+                    ? "Verify your email below"
+                    : "Send verification code"}
                 <FaArrowRight />
               </button>
             )}

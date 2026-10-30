@@ -1,5 +1,6 @@
 import {useCallback,useEffect,useState} from 'react';
 import {CheckCircle2,Sparkles} from 'lucide-react';
+import { formatUserFacingMessage, getUserFacingError } from './errorMessages.mjs';
 
 export default function FeedbackAnalysisPanel({apiRequest,refreshKey}) {
   const [report,setReport]=useState(null);
@@ -10,7 +11,7 @@ export default function FeedbackAnalysisPanel({apiRequest,refreshKey}) {
       const next=await apiRequest('/admin/guest-feedback/analysis',{signal});
       if(!signal?.aborted){setReport(next);setError('');}
     } catch(failure) {
-      if(!signal?.aborted)setError(failure.message || 'Recommendations could not be loaded.');
+      if(!signal?.aborted)setError(getUserFacingError(failure, 'Recommendations could not be loaded.'));
     }
   },[apiRequest]);
   useEffect(()=>{
@@ -20,7 +21,7 @@ export default function FeedbackAnalysisPanel({apiRequest,refreshKey}) {
   async function approve(id) {
     setBusy(true);setError('');
     try {await apiRequest(`/admin/guest-feedback/recommendations/${id}/approve`,{method:'POST'});await load();}
-    catch(failure){setError(failure.message || 'The recommendations could not be approved.');}
+    catch(failure){setError(getUserFacingError(failure, 'The recommendations could not be approved.'));}
     finally{setBusy(false);}
   }
   const draft=report?.recommendation_reports?.[0];
@@ -37,7 +38,7 @@ export default function FeedbackAnalysisPanel({apiRequest,refreshKey}) {
   return <section className="feedback-recommendations-section" aria-label="Recommended improvements">
     <div className="guest-feedback-toolbar"><div><h3><Sparkles size={18}/>Recommended improvements</h3><p>Updated automatically as feedback changes. Review suggestions before approving.</p></div>{draft && <span className={`feedback-report-status ${draft.status}`}>{draft.status==='approved'?'Approved':'For review'}</span>}</div>
     <div className="feedback-recommendations-scroll" role="region" aria-label="Scrollable recommendations" tabIndex={0}>
-    {error && <p className="guest-feedback-error" role="alert">{error}</p>}
+    {error && <p className="guest-feedback-error" role="alert">{formatUserFacingMessage(error)}</p>}
     {!draft && <p className="feedback-auto-status" role="status">{status}</p>}
     {draft && <>
       <div className="feedback-action-list">{draft.recommendation.actions.map((action,index)=><article className="feedback-action" key={action.category}><span className="feedback-action-number">{index+1}</span><div><h4>{action.category}</h4><p>{action.action}</p><details><summary>{action.negative_review_count} review{action.negative_review_count===1?'':'s'} · View supporting feedback</summary><p>{action.rationale}</p>{(action.evidence || []).map((text,i)=><blockquote key={i}>{text}</blockquote>)}</details></div></article>)}</div>

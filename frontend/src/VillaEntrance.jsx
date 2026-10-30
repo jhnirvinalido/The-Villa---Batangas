@@ -1,15 +1,18 @@
 import { useEffect, useState } from "react";
 import "./VillaEntrance.css";
 
-const SESSION_KEY = "theVillaHeroEntranceSeen:v14";
+const SESSION_KEY = "theVillaHeroEntranceSeen:v15";
 const INTRO_DURATION = 3600;
+const STATIC_INTRO_DURATION = 2400;
 
 function initialPhase() {
+  const phase = window.matchMedia("(prefers-reduced-motion: reduce)").matches
+    ? "static"
+    : "playing";
   try {
-    return window.matchMedia("(prefers-reduced-motion: no-preference)").matches
-      && !window.sessionStorage.getItem(SESSION_KEY) ? "preparing" : "complete";
+    return window.sessionStorage.getItem(SESSION_KEY) ? "complete" : phase;
   } catch {
-    return "complete";
+    return phase;
   }
 }
 
@@ -24,45 +27,32 @@ export default function VillaEntrance({ photoSrc }) {
     const handleKey = (event) => {
       if (event.key === "Escape" || event.key === "Tab") finish();
     };
-    motion.addEventListener("change", finish);
+    const handleMotionChange = () => {
+      if (motion.matches) {
+        setPhase((current) => current === "playing" ? "static" : current);
+      }
+    };
+    motion.addEventListener("change", handleMotionChange);
     window.addEventListener("keydown", handleKey);
-    if (motion.matches) finish();
     return () => {
-      motion.removeEventListener("change", finish);
+      motion.removeEventListener("change", handleMotionChange);
       window.removeEventListener("keydown", handleKey);
     };
   }, [phase]);
 
   useEffect(() => {
-    if (phase !== "preparing") return undefined;
-    let cancelled = false;
+    if (phase === "complete") return undefined;
     try {
       window.sessionStorage.setItem(SESSION_KEY, "1");
     } catch {
-      // Playback and dismissal never depend on storage writes succeeding.
+      // Playback and dismissal never depend on storage being available.
     }
-    // Decode before starting motion; a slow or broken photo skips the intro.
-    const photo = new Image();
-    const finish = () => { if (!cancelled) setPhase("complete"); };
-    const timer = window.setTimeout(finish, 700);
-    photo.onload = async () => {
-      try {
-        if (photo.decode) await photo.decode();
-        if (!cancelled) {
-          window.clearTimeout(timer);
-          setPhase("playing");
-        }
-      } catch { finish(); }
-    };
-    photo.onerror = finish;
-    photo.src = photoSrc;
-    return () => {
-      cancelled = true;
-      window.clearTimeout(timer);
-      photo.onload = null;
-      photo.onerror = null;
-    };
-  }, [phase, photoSrc]);
+    const timer = window.setTimeout(
+      () => setPhase("complete"),
+      phase === "static" ? STATIC_INTRO_DURATION : INTRO_DURATION + 100
+    );
+    return () => window.clearTimeout(timer);
+  }, [phase]);
 
   useEffect(() => {
     if (phase !== "playing") return undefined;
@@ -79,7 +69,7 @@ export default function VillaEntrance({ photoSrc }) {
         if (event.target === event.currentTarget && event.animationName === "villa-intro-dissolve") setPhase("complete");
       }}>
       <div className="villa-intro-film" aria-hidden="true">
-        <img className="villa-intro-photo" src={photoSrc} alt="" />
+        <img className="villa-intro-photo" src={photoSrc} alt="" fetchPriority="high" />
         <div className="villa-intro-shade" />
       </div>
       <div className="villa-intro-frame" aria-hidden="true" />

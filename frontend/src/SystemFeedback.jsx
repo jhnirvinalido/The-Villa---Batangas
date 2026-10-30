@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom';
 import { useLocation } from 'react-router-dom';
 import { AlertCircle, CheckCircle2, LoaderCircle, LogOut, X } from 'lucide-react';
 import { activeRequests } from './requestFeedback.mjs';
+import { formatUserFacingMessage } from './errorMessages.mjs';
 
 export function LoadingScreen({ message = 'Please wait…' }) {
   return createPortal(<div className="pointer-events-none fixed inset-x-0 top-0 z-[30000] h-1 overflow-hidden bg-transparent" role="status" aria-live="polite" aria-busy="true"><span className="block h-full w-1/3 rounded-full bg-amber-800 animate-[villa-feedback-loading_1.2s_ease-in-out_infinite] motion-reduce:animate-none" aria-hidden="true"/><span className="sr-only">{message}</span></div>, document.body);
@@ -11,7 +12,7 @@ export function LoadingScreen({ message = 'Please wait…' }) {
 export function AlertMessage({ message, type = 'error', dismiss }) {
   const success = type === 'success';
   const Icon = success ? CheckCircle2 : AlertCircle;
-  return <div role={success ? 'status' : 'alert'} className={`flex items-start gap-3 rounded-xl border p-4 text-sm shadow-sm ${success ? 'border-emerald-200 bg-emerald-50 text-emerald-900' : 'border-red-200 bg-red-50 text-red-900'}`}><Icon className="h-5 w-5 shrink-0" aria-hidden="true"/><span className="min-w-0 flex-1 whitespace-pre-wrap break-words">{message}</span>{dismiss && <button type="button" aria-label="Dismiss alert" className="rounded-md bg-transparent p-1 text-inherit focus-visible:outline-2" onClick={dismiss}><X size={18}/></button>}</div>;
+  return <div role={success ? 'status' : 'alert'} className={`flex items-start gap-3 rounded-xl border p-4 text-sm shadow-sm ${success ? 'border-emerald-200 bg-emerald-50 text-emerald-900' : 'border-red-200 bg-red-50 text-red-900'}`}><Icon className="h-5 w-5 shrink-0" aria-hidden="true"/><span className="min-w-0 flex-1 whitespace-pre-wrap break-words">{formatUserFacingMessage(message)}</span>{dismiss && <button type="button" aria-label="Dismiss alert" className="rounded-md bg-transparent p-1 text-inherit focus-visible:outline-2" onClick={dismiss}><X size={18}/></button>}</div>;
 }
 
 export function ConfirmAction({ open, busy = false, cancel, confirm, titleText = 'Sign out?', message = 'You’ll need to sign in again to access your workspace.', confirmLabel = 'Sign out', cancelLabel = 'Stay signed in' }) {

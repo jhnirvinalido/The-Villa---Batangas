@@ -417,6 +417,63 @@ button {
   line-height: 1.4;
 }
 
+.booking-field small.booking-field-error {
+  color: var(--booking-danger);
+  font-size: 11px;
+}
+
+.booking-email-verification {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 8px;
+}
+
+.booking-email-verification input {
+  min-width: 0;
+  letter-spacing: 0.12em;
+}
+
+.booking-verify-email-button {
+  min-width: 76px;
+  padding: 0 14px;
+  border: 0;
+  border-radius: 9px;
+  color: #fff;
+  background: var(--booking-primary);
+  font-size: 11px;
+  font-weight: 750;
+}
+
+.booking-verify-email-button:disabled,
+.booking-resend-email-button:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+
+.booking-resend-email-button {
+  justify-self: start;
+  padding: 0;
+  border: 0;
+  color: var(--booking-primary-dark);
+  background: transparent;
+  font-size: 10px;
+  font-weight: 700;
+}
+
+.booking-email-verified {
+  margin: 0;
+  color: var(--booking-success);
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.booking-field input[aria-invalid="true"] {
+  border-color: var(--booking-danger);
+}
+
 .booking-preselected-villa {
   min-height: 72px;
   margin-bottom: 17px;

@@ -5112,6 +5112,41 @@ async def stop_booking_assignment_worker():
         _booking_assignment_worker_task = None
 
 
+_public_checkout_reconciliation_task = None
+
+async def public_checkout_reconciliation_worker():
+    from booking import process_public_checkout_reconciliation
+    while True:
+        try:
+            await asyncio.to_thread(process_public_checkout_reconciliation)
+        except asyncio.CancelledError:
+            raise
+        except Exception:
+            logging.getLogger("thevilla.public_checkout").exception(
+                "Public payment reconciliation could not run; retrying in 60 seconds."
+            )
+        await asyncio.sleep(60)
+
+@app.on_event("startup")
+async def start_public_checkout_reconciliation_worker():
+    global _public_checkout_reconciliation_task
+    if os.getenv("PUBLIC_CHECKOUT_RECONCILIATION_ENABLED", "true").lower() in {"true", "1", "yes"}:
+        _public_checkout_reconciliation_task = asyncio.create_task(
+            public_checkout_reconciliation_worker()
+        )
+
+@app.on_event("shutdown")
+async def stop_public_checkout_reconciliation_worker():
+    global _public_checkout_reconciliation_task
+    if _public_checkout_reconciliation_task:
+        _public_checkout_reconciliation_task.cancel()
+        try:
+            await _public_checkout_reconciliation_task
+        except asyncio.CancelledError:
+            pass
+        _public_checkout_reconciliation_task = None
+
+
 # Persistent outbox state lives in Supabase; each API process may safely run a
 # worker because claims use FOR UPDATE SKIP LOCKED and a database lease.
 _feedback_analysis_task = None

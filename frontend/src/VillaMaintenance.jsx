@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { AlertCircle, ArrowLeft, CheckCircle2, Clock3, Mail, Wrench } from 'lucide-react';
 import useLiveUpdates from './useLiveUpdates';
+import { formatUserFacingMessage, getUserFacingError } from './errorMessages.mjs';
 import { arrivalInput, arrivalTimestamp, conflictsWithBooking as arrivalConflictsWithBooking, isClosed, maintenanceForm, maintenancePayload } from './maintenanceModel.mjs';
 import './VillaMaintenance.css';
 
@@ -95,7 +96,7 @@ export default function VillaMaintenance({ villa, apiRequest, role = 'admin', st
         setBookedPeriods(result.data?.bookedPeriods || []);
       }
       setLoadError('');
-    } catch (failure) { if (version === loadVersion.current) setLoadError(failure.message || 'Maintenance could not be loaded.'); }
+    } catch (failure) { if (version === loadVersion.current) setLoadError(getUserFacingError(failure, 'Maintenance could not be loaded.')); }
     finally { if (version === loadVersion.current) setLoading(false); }
   }, [apiRequest, admin, villa.id]);
   useEffect(() => { const timer = setTimeout(load, 0); return () => clearTimeout(timer); }, [load]);
@@ -126,7 +127,7 @@ export default function VillaMaintenance({ villa, apiRequest, role = 'admin', st
       const result = await apiRequest(path, { method, body: JSON.stringify(body) });
       setRequesting(false); setSelected(result.data?.id || row?.id || '');
       await load(); await onChanged?.(); setNotice(message);
-    } catch (failure) { setError(failure.message || 'This update could not be saved.'); }
+    } catch (failure) { setError(getUserFacingError(failure, 'This update could not be saved.')); }
     finally { setBusy(false); }
   }
   function create(form) {
@@ -148,8 +149,8 @@ export default function VillaMaintenance({ villa, apiRequest, role = 'admin', st
   const content = <div className="villa-maintenance-page">
     <button className="villa-maintenance-back" disabled={busy} onClick={onBack}>{modal ? <><ArrowLeft size={17}/>Close villa view</> : <><ArrowLeft size={17}/>Back to villas</>}</button>
     <header className="villa-maintenance-heading"><div><span>Villa maintenance</span><h2>{villa.title}</h2></div><span className={`villa-maintenance-badge ${underMaintenance ? 'paused' : 'available'}`}>{underMaintenance ? 'Under Maintenance' : active.length ? 'Schedule pending · bookings open' : 'Available · bookings open'}</span></header>
-    {error && <p className="villa-maintenance-alert" role="alert"><AlertCircle size={18}/>{error}</p>}{notice && <p className="villa-maintenance-success" role="status"><CheckCircle2 size={18}/>{notice}</p>}
-    {loading ? <p role="status">Loading villa maintenance…</p> : loadError ? <p className="villa-maintenance-alert" role="alert">{loadError}<button onClick={load}>Retry</button></p> : showRequest ? <section className="villa-maintenance-panel"><RequestForm busy={busy} submit={create}/></section> : row && <>
+    {error && <p className="villa-maintenance-alert" role="alert"><AlertCircle size={18}/>{formatUserFacingMessage(error)}</p>}{notice && <p className="villa-maintenance-success" role="status"><CheckCircle2 size={18}/>{notice}</p>}
+    {loading ? <p role="status">Loading villa maintenance…</p> : loadError ? <p className="villa-maintenance-alert" role="alert">{formatUserFacingMessage(loadError)}<button onClick={load}>Retry</button></p> : showRequest ? <section className="villa-maintenance-panel"><RequestForm busy={busy} submit={create}/></section> : row && <>
       {records.length > 1 && <label className="villa-maintenance-history">Maintenance history<select value={row.id} onChange={event => { setSelected(event.target.value); setError(''); setNotice(''); }}>{records.map(item => <option key={item.id} value={item.id}>{item.title} · {statusLabel(item)}</option>)}</select></label>}
       <section className="villa-maintenance-panel"><div className="villa-maintenance-job-heading"><div><span>{row.taskCode || 'Maintenance request'} · {row.maintenance?.kind || 'Repair'}</span><h3>{row.title}</h3></div><span className="villa-maintenance-badge">{statusLabel(row)}</span></div><p className="villa-maintenance-description">{row.description}</p>
         <dl className="villa-maintenance-facts"><div><dt>Technician</dt><dd>{row.assignedToMe ? 'Assigned to you' : row.assignedTo || 'Maintenance staff'}</dd></div><div><dt>Email</dt><dd>{row.technicianEmail || (row.assignedToMe ? 'Your account email' : 'No email on file')}</dd></div><div><dt>Availability</dt><dd>{onCall.state || 'Contacting technician'}</dd></div><div><dt>Expected arrival</dt><dd>{dateTime(onCall.expectedArrival)}</dd></div><div><dt>Progress</dt><dd>{row.progress || 0}%</dd></div></dl>

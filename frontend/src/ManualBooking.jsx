@@ -1,6 +1,7 @@
 import { AlertMessage } from "./SystemFeedback";
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import useLiveUpdates from "./useLiveUpdates";
+import { formatUserFacingMessage, getUserFacingError } from "./errorMessages.mjs";
 import {
   CalendarDays,
   Check,
@@ -175,7 +176,7 @@ export default function ManualBooking({ apiRequest, onViewBookings, onBookingCre
       setAirbnbStays(response?.data || []);
       setAirbnbError("");
     } catch (requestError) {
-      setAirbnbError(requestError?.message || "Airbnb stay records could not be loaded.");
+      setAirbnbError(getUserFacingError(requestError, "Airbnb stay records could not be loaded."));
     } finally {
       setAirbnbStaysLoading(false);
     }
@@ -245,7 +246,7 @@ export default function ManualBooking({ apiRequest, onViewBookings, onBookingCre
         `/admin/manual-bookings/airbnb-availability?${params.toString()}`
       ));
     } catch (requestError) {
-      setAirbnbError(requestError?.message || "Unable to check availability for this stay.");
+      setAirbnbError(getUserFacingError(requestError, "Unable to check availability for this stay."));
     } finally {
       setAirbnbChecking(false);
     }
@@ -278,7 +279,7 @@ export default function ManualBooking({ apiRequest, onViewBookings, onBookingCre
       setSelectedAirbnbVillaIds([]);
       await refreshAirbnbStays();
     } catch (requestError) {
-      setAirbnbError(requestError?.message || "The Airbnb availability hold could not be created.");
+      setAirbnbError(getUserFacingError(requestError, "The Airbnb availability hold could not be created."));
     } finally {
       setAirbnbSaving("");
     }
@@ -300,7 +301,7 @@ export default function ManualBooking({ apiRequest, onViewBookings, onBookingCre
       setAirbnbNotice(result?.message || "Airbnb stay updated.");
       await refreshAirbnbStays();
     } catch (requestError) {
-      setAirbnbError(requestError?.message || "The Airbnb stay could not be updated.");
+      setAirbnbError(getUserFacingError(requestError, "The Airbnb stay could not be updated."));
     } finally {
       setAirbnbSaving("");
     }
@@ -327,7 +328,7 @@ export default function ManualBooking({ apiRequest, onViewBookings, onBookingCre
         if (active) setAvailability(response);
       })
       .catch((requestError) => {
-        if (active) setError(requestError?.message || "Unable to check villa availability.");
+        if (active) setError(getUserFacingError(requestError, "Unable to check villa availability."));
       })
       .finally(() => {
         if (active) setLoadingVillas(false);
@@ -417,7 +418,7 @@ export default function ManualBooking({ apiRequest, onViewBookings, onBookingCre
         }));
       } catch { /* Auto-sync works without sessionStorage. */ }
     } catch (requestError) {
-      setError(requestError?.message || "Could not create manual booking.");
+      setError(getUserFacingError(requestError, "Could not create manual booking."));
     } finally {
       setSaving(false);
     }
@@ -459,7 +460,7 @@ export default function ManualBooking({ apiRequest, onViewBookings, onBookingCre
         if (["expired", "cancelled"].includes(String(updated?.booking_status || "").toLowerCase())) return;
       } catch (failure) {
         if (!active) return;
-        setPaymentSyncError(failure?.message || "Payment verification could not complete. It will retry automatically.");
+        setPaymentSyncError(getUserFacingError(failure, "Payment verification could not complete. It will retry automatically."));
       } finally {
         busy = false;
         if (active) setCheckingPayment(false);
@@ -732,7 +733,7 @@ export default function ManualBooking({ apiRequest, onViewBookings, onBookingCre
               <div><dt>Received</dt><dd>{peso(paymentAmount)}</dd></div>
               <div><dt>Balance</dt><dd>{peso(latestPayment?.balance_amount ?? bookingResult.total_amount)}</dd></div>
             </dl>
-            {paymentSyncError && !confirmed && <p className="manual-sync-warning"><AlertCircle size={15} />{paymentSyncError}</p>}
+            {paymentSyncError && !confirmed && <p className="manual-sync-warning"><AlertCircle size={15} />{formatUserFacingMessage(paymentSyncError)}</p>}
             {error && <AlertMessage message={error}/>}
             <div className="manual-result-actions">
               {confirmed && <button className="manual-btn-outline" type="button" onClick={() => onViewBookings?.()}><ExternalLink size={15} /> View bookings</button>}

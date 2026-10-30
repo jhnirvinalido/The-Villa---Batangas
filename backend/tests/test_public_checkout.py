@@ -3,7 +3,7 @@ import ast
 import hashlib
 import hmac
 import unittest
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from decimal import Decimal
 from pathlib import Path
 from types import SimpleNamespace
@@ -17,13 +17,15 @@ class PublicCheckoutTests(unittest.TestCase):
         self.env = load_functions()
         tree = ast.parse((Path(__file__).parents[1] / 'booking.py').read_text())
         names = {'create_public_booking', '_sync_public_checkout_draft',
-                 'cancel_public_booking', '_require_booking_token'}
+                 'cancel_public_booking', '_require_booking_token',
+                 '_public_checkout_draft', 'process_public_checkout_reconciliation'}
         nodes = [node for node in tree.body if isinstance(node, ast.FunctionDef) and node.name in names]
         for node in nodes:
             node.decorator_list = []
         self.env.update(Header=lambda **_: None, hmac=hmac,
                         _token_hash=lambda token: hashlib.sha256(token.encode()).hexdigest(),
-                        _safe_public_booking=lambda row: {k:v for k,v in row.items() if not k.endswith('_hash')})
+                        _safe_public_booking=lambda row: {k:v for k,v in row.items() if not k.endswith('_hash')},
+                        timedelta=timedelta, logger=MagicMock())
         exec(compile(ast.fix_missing_locations(ast.Module(body=[ast.ImportFrom(module='__future__', names=[ast.alias(name='annotations')], level=0)] + nodes, type_ignores=[])), 'booking.py', 'exec'), self.env)
         self.client = MagicMock()
         self.client.table.return_value.select.return_value.eq.return_value.limit.return_value.execute.return_value = SimpleNamespace(data=[])
@@ -37,16 +39,32 @@ class PublicCheckoutTests(unittest.TestCase):
         self.env.update(_service=lambda:self.client,
                         _public_checkout_draft=lambda *_:self.draft,
                         _paymongo_request=MagicMock(return_value={'data':self.session}),
-                        _send_booking_confirmation_email=MagicMock())
+                        _send_booking_confirmation_email=MagicMock(),
+                        _require_verified_public_email=MagicMock())
 
     def test_creation_stores_only_checkout_draft_and_no_email(self):
         self.env['_prepare_public_booking'] = MagicMock(return_value={'booking':self.booking,'booking_access_token':'secret'})
-        result = self.env['create_public_booking'](object())
+        result = self.env['create_public_booking'](
+            SimpleNamespace(email='guest@example.com', email_verification_token='valid-token')
+        )
         self.assertEqual(result['booking_access_token'],'secret')
         self.assertEqual([c.args[0] for c in self.client.table.call_args_list],['public_booking_checkouts'])
+        self.env['_require_verified_public_email'].assert_called_once_with(
+            self.client, 'guest@example.com', 'valid-token'
+        )
         self.env['_prepare_public_booking'].assert_called_once()
         self.assertTrue(self.env['_prepare_public_booking'].call_args.kwargs['draft_only'])
         self.env['_send_booking_confirmation_email'].assert_not_called()
+
+    def test_creation_stops_when_email_is_not_verified(self):
+        self.env['_prepare_public_booking'] = MagicMock()
+        self.env['_require_verified_public_email'].side_effect = HTTPError(403, 'Email not verified')
+        with self.assertRaises(HTTPError):
+            self.env['create_public_booking'](
+                SimpleNamespace(email='guest@example.com', email_verification_token='invalid-token')
+            )
+        self.env['_prepare_public_booking'].assert_not_called()
+        self.client.table.assert_not_called()
 
     def test_pending_failed_expired_do_not_create_booking(self):
         for state in ('pending','failed','expired'):
@@ -111,6 +129,36 @@ class PublicCheckoutTests(unittest.TestCase):
         self.assertEqual(self.env['_require_booking_token']('draft-id',token),self.booking)
         with self.assertRaises(HTTPError):
             self.env['_require_booking_token']('draft-id','b'*40)
+
+    def test_reconciliation_worker_rechecks_active_checkout_without_guest_return(self):
+        candidate = {
+            'id': 'draft-id',
+            'booking_payload': self.booking,
+            'paymongo_checkout_session_id': 'cs_1',
+            'next_check_at': '2026-10-30T00:00:00+00:00',
+        }
+        query = MagicMock()
+        self.client.table.return_value = query
+        query.select.return_value = query
+        query.not_.is_.return_value = query
+        query.lte.return_value = query
+        query.order.return_value = query
+        query.limit.return_value = query
+        query.update.return_value = query
+        query.eq.return_value = query
+        query.execute.side_effect = [
+            SimpleNamespace(data=[candidate]),
+            SimpleNamespace(data=[{'id': 'draft-id'}]),
+        ]
+        self.env['_public_checkout_draft'] = MagicMock(return_value=self.draft)
+        self.env['_sync_public_checkout_draft'] = MagicMock()
+
+        checked = self.env['process_public_checkout_reconciliation'](self.client)
+
+        self.assertEqual(checked, 1)
+        self.env['_sync_public_checkout_draft'].assert_called_once_with(
+            self.client, self.draft
+        )
 
 
 if __name__ == '__main__':

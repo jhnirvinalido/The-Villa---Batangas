@@ -7,7 +7,7 @@
   overflow: hidden;
   display: grid;
   place-items: center;
-  background: #fbfaf8;
+  background: #211914;
   pointer-events: none;
 }
 .villa-intro-film, .villa-intro-photo, .villa-intro-shade { position: absolute; inset: 0; width: 100%; height: 100%; }
@@ -49,7 +49,12 @@
 .villa-intro-skip > span { margin-left: 12px; color: #d6bb8c; }
 .villa-intro-skip:hover { background: #211914a0; }
 .villa-intro-skip:focus-visible { outline: 2px solid #d6bb8c; outline-offset: 4px; }
-.villa-intro.is-preparing .villa-intro-skip { color: #654c3b; border-color: #816d5240; background: transparent; }
+.villa-intro.is-static .villa-intro-film { opacity: 1; }
+.villa-intro.is-static .villa-intro-lockup { opacity: 1; }
+.villa-intro.is-static .villa-intro-frame { opacity: 1; }
+.villa-intro.is-static .villa-intro-arch { opacity: .7; }
+.villa-intro.is-static .villa-intro-progress span { transform: scaleX(1); }
+.villa-intro.is-static .villa-intro-skip { color: #fff4e4; border-color: #fff5; background: #21191470; }
 .villa-intro.is-playing { animation: villa-intro-dissolve 1s 2.6s ease-in-out both; }
 .villa-intro.is-playing .villa-intro-film { animation: villa-intro-photo-in .9s ease-out both; }
 .villa-intro.is-playing .villa-intro-photo { animation: villa-intro-push 3.6s cubic-bezier(.2,.4,.4,1) both; }
@@ -70,7 +75,6 @@
 }
 @media (max-width: 400px) { .villa-intro-place { font-size: 7px; letter-spacing: .14em; } }
 @media (prefers-reduced-motion: reduce) {
-  .villa-intro { display: none; }
   .villa-intro, .villa-intro * { animation: none !important; }
 }
 

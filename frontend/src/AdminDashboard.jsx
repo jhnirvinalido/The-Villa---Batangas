@@ -1,6 +1,7 @@
 import { bookingAnalytics } from "./bookingAnalytics.mjs";
 import { AlertMessage, ConfirmSignOut, LoadingScreen } from "./SystemFeedback";
 import { feedbackFetch as fetch } from "./requestFeedback.mjs";
+import { formatUserFacingMessage, getApiErrorMessage, getUserFacingError } from "./errorMessages.mjs";
 import { singleFlightRefresh } from "./liveTransport.mjs";
 import useLiveUpdates from "./useLiveUpdates";
 import { snapshotRows } from "./dashboardSnapshot.mjs";
@@ -977,13 +978,18 @@ async function apiRequest(
           {}),
       };
 
-      return fetch(
-        `${API_BASE_URL}${path}`,
-        {
-          ...options,
-          headers,
-        }
-      );
+      try {
+        return await fetch(
+          `${API_BASE_URL}${path}`,
+          {
+            ...options,
+            headers,
+          }
+        );
+      } catch (error) {
+        if (error?.name === "AbortError") throw error;
+        throw new Error(getUserFacingError(error, "We couldn't connect to The Villa. Please try again."));
+      }
     };
 
   let response =
@@ -1011,31 +1017,7 @@ async function apiRequest(
       clearPortalAuth();
     }
 
-    const validationMessage =
-      Array.isArray(
-        payload?.detail
-      )
-        ? payload.detail
-            .map(
-              (item) =>
-                item?.msg
-            )
-            .filter(Boolean)
-            .join(" ")
-        : payload?.errors
-        ? Object.values(
-            payload.errors
-          )
-            .flat()
-            .find(Boolean)
-        : "";
-
-    throw new Error(
-      validationMessage ||
-        payload?.detail ||
-        payload?.message ||
-        `Request failed with status ${response.status}.`
-    );
+    throw new Error(getApiErrorMessage(payload, response.status));
   }
 
   return payload;
@@ -4900,7 +4882,7 @@ Villas Under Maintenance
                 {(isCheckin || isCheckout) && <section className="admin-ops-section admin-ops-confirm"><span className="admin-ops-confirm-icon"><ShieldCheck size={26}/></span><h3>{isCheckin ? "Ready to welcome the guest?" : "Ready to complete the stay?"}</h3><p>{isCheckin ? "Confirm the guest's arrival and mark this reservation as checked in." : "This reservation is fully paid. Confirm departure to check out the guest and begin turnover."}</p>{isCheckin && selected.balanceAmount > 0 && settlementForm.paymentTiming === "check_out" && <p className="admin-ops-deferred">Remaining {formatPeso(selected.balanceAmount)} scheduled for check-out.</p>}</section>}
               </>
             )}
-            {settlementError && operationsMode !== "queue" && <div className="admin-ops-error" role="alert"><AlertCircle size={17}/>{settlementError}</div>}
+            {settlementError && operationsMode !== "queue" && <div className="admin-ops-error" role="alert"><AlertCircle size={17}/>{formatUserFacingMessage(settlementError)}</div>}
           </div>
           {operationsMode !== "queue" && <footer className="admin-ops-footer">
             <button type="button" className="admin-btn-ghost" disabled={busy || settlementChargesLocked} onClick={() => { if (isPayment && operationsStage === "methods") {setOperationsStage("timing");resetQrPhPayment();} else {setOperationsMode("queue");setOperationsBookingId("");setSettlementError("");} }}><ChevronLeft size={15}/> Back</button>
@@ -4918,7 +4900,7 @@ Villas Under Maintenance
     return (
       <div className="admin-page admin-bookings-page">
         {bookingDataError && <div className="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-900" role="alert">
-          <span>{bookingDataError}</span>
+          <span>{formatUserFacingMessage(bookingDataError)}</span>
           <button type="button" className="admin-btn-secondary" onClick={() => loadAdminData()}>Retry bookings</button>
         </div>}
         <div className="admin-bookings-controls">
@@ -5701,7 +5683,7 @@ Villas Under Maintenance
               {settlementError && (
                 <div className="admin-fdx-error" role="alert">
                   <AlertCircle size={16} />
-                  <span>{settlementError}</span>
+                  <span>{formatUserFacingMessage(settlementError)}</span>
                 </div>
               )}
 
@@ -6011,7 +5993,7 @@ Villas Under Maintenance
               {settlementError && (
                 <div className="admin-fdx-error" role="alert">
                   <AlertCircle size={16} />
-                  <span>{settlementError}</span>
+                  <span>{formatUserFacingMessage(settlementError)}</span>
                 </div>
               )}
 
@@ -6940,7 +6922,7 @@ Villas Under Maintenance
               size={18}
             />
             <span>
-              {villaCatalogError}
+              {formatUserFacingMessage(villaCatalogError)}
             </span>
           </div>
         )}
@@ -7245,9 +7227,7 @@ Villas Under Maintenance
                     <AlertCircle
                       size={17}
                     />
-                    {
-                      villaEditorError
-                    }
+                    {formatUserFacingMessage(villaEditorError)}
                   </div>
                 )}
 
@@ -8824,7 +8804,7 @@ Villas Under Maintenance
                   <AlertCircle size={18} />
                   <div>
                     <strong>Account could not be saved</strong>
-                    <p>{staffAccountError}</p>
+                    <p>{formatUserFacingMessage(staffAccountError)}</p>
                   </div>
                 </div>
               )}

@@ -2,6 +2,7 @@ import { useEffect, useId, useMemo, useRef, useState } from 'react';
 import { Bell, CheckCheck, ChevronRight, ClipboardList, LoaderCircle, X } from 'lucide-react';
 import { newUnreadNotifications, notificationId, staffNotificationTime } from './staffNotificationFeed.mjs';
 import { playStaffNotificationSound, showStaffBrowserNotification } from './staffBrowserNotifications.mjs';
+import { formatUserFacingMessage, getUserFacingError } from './errorMessages.mjs';
 import './StaffNotifications.css';
 
 export default function StaffNotifications({ staffId, notifications, apiRequest, openTask, refresh, popupsEnabled = true, setNotifications }) {
@@ -98,9 +99,9 @@ export default function StaffNotifications({ staffId, notifications, apiRequest,
       setAlerts(current => current.filter(item => !ids.includes(item.id)));
       refresh();
       return true;
-    } catch {
+    } catch (failure) {
       setLocallyRead(current => new Set([...current].filter(id => !ids.includes(id))));
-      setError('Could not mark notifications as read. Please try again.');
+      setError(getUserFacingError(failure, 'Could not mark notifications as read. Please try again.'));
       return false;
     } finally { pendingRead.current = false; setReading(false); }
   }
@@ -121,7 +122,7 @@ export default function StaffNotifications({ staffId, notifications, apiRequest,
     {open && <section id={panelId} className="staff-alert-panel" aria-label="Staff notifications">
       <header><div><h2>Notifications</h2><p>{unread ? `${unread} unread update${unread === 1 ? '' : 's'}` : 'You’re all caught up'}</p></div><button type="button" className="staff-alert-close" aria-label="Close notifications" onClick={() => setOpen(false)}><X size={18} /></button></header>
       <div className="staff-alert-toolbar"><span>Assignments and updates</span><button type="button" disabled={!unread || reading} onClick={() => read(feed, true)}>{reading ? <LoaderCircle className="staff-alert-spin" size={14} /> : <CheckCheck size={14} />} Mark all read</button></div>
-      {error && <p className="staff-alert-error" role="alert">{error}</p>}
+      {error && <p className="staff-alert-error" role="alert">{formatUserFacingMessage(error)}</p>}
       <div className="staff-alert-feed">{feed.length ? feed.slice(0, 100).map(item => <button type="button" disabled={reading} key={item.id} className={`staff-alert-item${item.unread ? ' unread' : ''}`} onClick={() => activate(item)}>
         <span className="staff-alert-icon"><ClipboardList size={18} /></span><span className="staff-alert-copy"><strong>{item.title || 'Staff update'}</strong><span>{item.message}</span><time dateTime={item.timestamp || undefined}>{staffNotificationTime(item.timestamp)}</time></span>{item.unread && <i aria-label="Unread" />}
       </button>) : <div className="staff-alert-empty"><Bell size={30} /><strong>No notifications yet</strong><p>Your assignments and updates will appear here.</p></div>}</div>

@@ -1,5 +1,6 @@
 import { AlertMessage, ConfirmSignOut, LoadingScreen } from "./SystemFeedback";
 import { feedbackFetch as fetch } from "./requestFeedback.mjs";
+import { formatUserFacingMessage, getApiErrorMessage, getUserFacingError } from "./errorMessages.mjs";
 import { singleFlightRefresh } from "./liveTransport.mjs";
 import useLiveUpdates from "./useLiveUpdates";
 import { snapshotRows } from "./dashboardSnapshot.mjs";
@@ -536,14 +537,19 @@ async function staffApiRequest(
       ...(options.headers || {}),
     };
 
-    return fetch(
-      `${API_BASE_URL}${path}`,
-      {
-        credentials: "include",
-        ...options,
-        headers,
-      }
-    );
+    try {
+      return await fetch(
+        `${API_BASE_URL}${path}`,
+        {
+          credentials: "include",
+          ...options,
+          headers,
+        }
+      );
+    } catch (error) {
+      if (error?.name === "AbortError") throw error;
+      throw new Error(getUserFacingError(error, "We couldn't connect to The Villa. Please try again."));
+    }
   };
 
   let response = await performRequest();
@@ -568,23 +574,8 @@ async function staffApiRequest(
     .catch(() => ({}));
 
   if (!response.ok) {
-    const validationMessage =
-      Array.isArray(payload?.detail)
-        ? payload.detail
-            .map((item) => item?.msg)
-            .filter(Boolean)
-            .join(" ")
-        : payload?.errors
-        ? Object.values(payload.errors)
-            .flat()
-            .find(Boolean)
-        : "";
-
     throw new Error(
-      validationMessage ||
-        payload?.detail ||
-        payload?.message ||
-        `Request failed with status ${response.status}.`
+      getApiErrorMessage(payload, response.status)
     );
   }
 
@@ -1573,7 +1564,7 @@ async function signOut() {
             <label>Personal email<input required type="email" autoComplete="email" maxLength={254} value={profileForm.personalEmail} onChange={event => setProfileForm(current => ({...current, personalEmail: event.target.value}))} /></label>
             <label>Nickname<input maxLength={80} value={profileForm.nickname} onChange={(event) => setProfileForm((current) => ({...current, nickname: event.target.value}))} /></label>
           </fieldset>
-          {profileError && <p className="staff-profile-error" role="alert">{profileError}</p>}
+          {profileError && <p className="staff-profile-error" role="alert">{formatUserFacingMessage(profileError)}</p>}
           <footer><button type="button" disabled={profileSaving} onClick={() => setProfileOpen(false)}>Cancel</button><button type="submit" disabled={profileSaving}>{profileSaving ? "Saving…" : "Save changes"}</button></footer>
         </form>
       </dialog>
