@@ -2050,6 +2050,9 @@ function VillaAnalyticsCharts({ analytics }) {
       new Chart(canvasRefs.current[6], {type:'line', data:{labels:analytics.months, datasets:[
         {label:'Collected revenue',data:analytics.monthlyRevenue,borderColor:'#4b8f82',backgroundColor:'rgba(75,143,130,.12)',tension:0,fill:true}
       ]}, options:{...options,scales:{y:{beginAtZero:true,ticks:{callback:value=>`PHP ${Number(value).toLocaleString()}`}}},plugins:{tooltip:{callbacks:{label:context=>`Collected: ${formatPeso(context.parsed.y)}`}}}}}),
+      new Chart(canvasRefs.current[7], {type:'bar', data:{labels:[...analytics.villaChart].sort((a,b)=>b.revenue-a.revenue).map(v=>v.name), datasets:[
+        {label:'Collected revenue',data:[...analytics.villaChart].sort((a,b)=>b.revenue-a.revenue).map(v=>v.revenue),backgroundColor:'#4b8f82'}
+      ]}, options:{...options,indexAxis:'y',scales:{x:{beginAtZero:true,ticks:{callback:value=>`PHP ${Number(value).toLocaleString()}`}},y:{grid:{display:false}}},plugins:{legend:{display:false},tooltip:{callbacks:{label:context=>`Collected: ${formatPeso(context.parsed.x)}`}}}}}),
     ];
     return () => charts.forEach(chart=>chart.destroy());
   }, [analytics]);
@@ -2061,6 +2064,7 @@ function VillaAnalyticsCharts({ analytics }) {
     ['Booking Channel', `Airbnb vs. The Villa bookings by check-in year · ${analytics.year}`],
     ['Staff Assignment Progress', 'Current assignment status, including overdue tasks'],
     ['Monthly Revenue', `Recorded successful payments by receipt month · ${analytics.year}`],
+    ['Revenue by Villa', 'Recorded successful The Villa payments · Airbnb excluded'],
   ].map(([title,description],index)=><div className="chart-card" key={title}>
     <h3>{title}</h3><p>{description}</p><div className="chart-wrapper"><canvas ref={(node) => { canvasRefs.current[index] = node; }}/></div>
   </div>)}</div>;
