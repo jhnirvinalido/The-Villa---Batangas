@@ -16410,6 +16410,14 @@
   gap: 20px;
 }
 
+.admin-dashboard-shell .admin-stat-detail {
+  display: block;
+  margin-top: 4px;
+  color: #89796c;
+  font-size: 12px;
+  line-height: 1.4;
+}
+
 .admin-dashboard-shell .chart-card {
   width: 100%;
   min-width: 0;

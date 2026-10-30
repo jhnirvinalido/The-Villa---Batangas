@@ -16,7 +16,8 @@ test('months do not combine years or count cancelled stays as confirmed',()=>{
   const data=bookingAnalytics([reservation,{...reservation,id:'old',checkIn:'2025-10-30'},
     {...reservation,id:'cancel',bookingStatus:'Cancelled'}],villas,2026);
   assert.equal(data.monthlyBookings[9],1);
-  assert.equal(data.bookingStatus.Cancelled,1);
+  assert.equal(data.bookingStatus.Cancelled,undefined);
+  assert.equal(data.totalBookings,1);
   assert.equal(data.paymentStatus.Partial,1);
 });
 test('payment totals use receipt month, not total booking price or stay date',()=>{
@@ -80,9 +81,29 @@ test('booking total is defined and cancelled bookings do not inflate pending pay
     {...reservation,id:'cancelled',bookingStatus:'Cancelled',amountPaid:0},
     {...reservation,id:'pending',bookingStatus:'Pending Payment',amountPaid:0},
   ],villas,2026);
-  assert.equal(data.totalBookings,3);
+  assert.equal(data.totalBookings,2);
+  assert.deepEqual(data.bookingStatus,{Pending:1,Confirmed:1,'Checked In':0,Completed:0});
   assert.deepEqual(data.paymentStatus,{Paid:0,Partial:1,Unpaid:1});
+  assert.equal(data.pendingPaymentCount,2);
   assert.equal(data.monthlyBookings[9],1);
+});
+
+test('pending payment counts outstanding balances and channel totals exclude cancelled bookings',()=>{
+  const data=bookingAnalytics([
+    {...reservation,id:'airbnb',bookingChannel:'airbnb',amountPaid:0,totalAmount:5000,balanceAmount:0},
+    {...reservation,id:'cancelled-airbnb',bookingChannel:'airbnb',bookingStatus:'Cancelled'},
+    {...reservation,id:'paid',amountPaid:1000,balanceAmount:0},
+    {...reservation,id:'partial',amountPaid:500,balanceAmount:500},
+    {...reservation,id:'unpaid',bookingStatus:'Pending Payment',amountPaid:0,balanceAmount:1000},
+    {...reservation,id:'expired',bookingStatus:'Expired',amountPaid:0},
+  ],villas,2026,[],{pending:2,inProgress:1,review:1,overdue:1,completed:3});
+  assert.equal(data.totalBookings,4);
+  assert.deepEqual(data.bookingChannel,{Airbnb:1,'The Villa':3});
+  assert.equal(data.pendingPaymentCount,2);
+  assert.deepEqual(data.paymentStatus,{Paid:1,Partial:1,Unpaid:1});
+  assert.deepEqual(data.assignmentProgress,{
+    Pending:2,'In Progress':1,'Pending Review':1,Overdue:1,Completed:3,
+  });
 });
 
 test('bookings without stable contact details do not merge into one guest',()=>{

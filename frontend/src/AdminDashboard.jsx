@@ -1263,6 +1263,7 @@ function daysUntil(dateString) {
 }
 
 function displayAssignmentStatus(assignment) {
+  if (["cancelled", "canceled"].includes(String(assignment.status || "").toLowerCase())) return "Cancelled";
   if (assignment.status === "Completed") return "Completed";
   if (assignment.status === "Pending Review") return "Pending Review";
   if (assignment.dueDate && daysUntil(assignment.dueDate) < 0) return "Overdue";
@@ -2019,7 +2020,7 @@ function createChartRiseAnimation(reducedMotion, stagger = 45) {
 }
 
 function VillaAnalyticsCharts({ analytics }) {
-  const refs = [React.useRef(null), React.useRef(null), React.useRef(null), React.useRef(null)];
+  const canvasRefs = React.useRef([]);
   React.useEffect(() => {
     const reducedMotion = window.matchMedia?.("(prefers-reduced-motion: reduce)")?.matches ?? false;
     const options = {
@@ -2028,28 +2029,40 @@ function VillaAnalyticsCharts({ analytics }) {
       animation: createChartEntranceAnimation(reducedMotion, 35),
     };
     const charts = [
-      new Chart(refs[0].current, {type:'line', data:{labels:analytics.months, datasets:[
+      new Chart(canvasRefs.current[0], {type:'line', data:{labels:analytics.months, datasets:[
         {label:'Confirmed reservations', data:analytics.monthlyBookings, borderColor:'#7b5037', tension:0, fill:false}
       ]}, options:{...options, ...createChartRiseAnimation(reducedMotion), scales:{y:{beginAtZero:true,ticks:{precision:0}}}}}),
-      new Chart(refs[1].current, {type:'bar', data:{labels:analytics.villaChart.map(v=>v.name), datasets:[
+      new Chart(canvasRefs.current[1], {type:'bar', data:{labels:analytics.villaChart.map(v=>v.name), datasets:[
         {label:'Confirmed villa reservations', data:analytics.villaChart.map(v=>v.value), backgroundColor:'#7b5037'}
       ]}, options:{...options, ...createChartRiseAnimation(reducedMotion), scales:{y:{beginAtZero:true,ticks:{precision:0}}}}}),
-      new Chart(refs[2].current, {type:'doughnut', data:{labels:Object.keys(analytics.bookingStatus), datasets:[
-        {data:Object.values(analytics.bookingStatus),backgroundColor:['#d7c7b8','#5b9c77','#5c88b0','#8067a5','#c66c62']}
+      new Chart(canvasRefs.current[2], {type:'doughnut', data:{labels:Object.keys(analytics.bookingStatus), datasets:[
+        {data:Object.values(analytics.bookingStatus),backgroundColor:['#d7a64b','#5b9c77','#5c88b0','#8067a5']}
       ]}, options}),
-      new Chart(refs[3].current, {type:'polarArea', data:{labels:Object.keys(analytics.paymentStatus), datasets:[
+      new Chart(canvasRefs.current[3], {type:'polarArea', data:{labels:Object.keys(analytics.paymentStatus), datasets:[
         {data:Object.values(analytics.paymentStatus),backgroundColor:['#5b9c77','#d6a45d','#c66c62']}
       ]}, options:{...options, scales:{r:{beginAtZero:true,ticks:{precision:0}}}}}),
+      new Chart(canvasRefs.current[4], {type:'doughnut', data:{labels:Object.keys(analytics.bookingChannel), datasets:[
+        {data:Object.values(analytics.bookingChannel),backgroundColor:['#e17b52','#4b8f82']}
+      ]}, options}),
+      new Chart(canvasRefs.current[5], {type:'bar', data:{labels:Object.keys(analytics.assignmentProgress), datasets:[
+        {label:'Staff assignments',data:Object.values(analytics.assignmentProgress),backgroundColor:['#d7a64b','#4b8f82','#5c88b0','#c66c62','#8067a5']}
+      ]}, options:{...options,indexAxis:'y',scales:{x:{beginAtZero:true,ticks:{precision:0}},y:{grid:{display:false}}},plugins:{legend:{display:false}}}}),
+      new Chart(canvasRefs.current[6], {type:'line', data:{labels:analytics.months, datasets:[
+        {label:'Collected revenue',data:analytics.monthlyRevenue,borderColor:'#4b8f82',backgroundColor:'rgba(75,143,130,.12)',tension:0,fill:true}
+      ]}, options:{...options,scales:{y:{beginAtZero:true,ticks:{callback:value=>`PHP ${Number(value).toLocaleString()}`}}},plugins:{tooltip:{callbacks:{label:context=>`Collected: ${formatPeso(context.parsed.y)}`}}}}}),
     ];
     return () => charts.forEach(chart=>chart.destroy());
   }, [analytics]);
   return <div className="analytics-grid">{[
     ['Monthly Booking Trend', `Confirmed stays by check-in month · ${analytics.year}`],
     ['Villa Performance', `Confirmed reservations per villa · ${analytics.year}`],
-    ['Reservation Status', `All reservations by check-in year · ${analytics.year}`],
-    ['Payment Status', `Paid, partial and unpaid active reservations · ${analytics.year}`],
+    ['Reservation Status', `Non-cancelled reservations by check-in year · ${analytics.year}`],
+    ['Payment Status', `Paid, partial and unpaid The Villa bookings · ${analytics.year}; Airbnb excluded`],
+    ['Booking Channel', `Airbnb vs. The Villa bookings by check-in year · ${analytics.year}`],
+    ['Staff Assignment Progress', 'Current assignment status, including overdue tasks'],
+    ['Monthly Revenue', `Recorded successful payments by receipt month · ${analytics.year}`],
   ].map(([title,description],index)=><div className="chart-card" key={title}>
-    <h3>{title}</h3><p>{description}</p><div className="chart-wrapper"><canvas ref={refs[index]}/></div>
+    <h3>{title}</h3><p>{description}</p><div className="chart-wrapper"><canvas ref={(node) => { canvasRefs.current[index] = node; }}/></div>
   </div>)}</div>;
 }
 
@@ -4414,6 +4427,7 @@ async function resetStaffPassword(staffId) {
       villaCatalog,
       Number(today.slice(0, 4)),
       paymentTransactions,
+      assignmentStats,
     );
   }
   // ============================================================
@@ -4625,20 +4639,23 @@ Repeat Guests
 <div>
 
 <span>
-Pending Payments
+Pending payments this year
 </span>
 
 
 <strong>
 
 {
-analytics.paymentStatus.Unpaid
+analytics.pendingPaymentCount
 }
 
 </strong>
 
 
 </div>
+<small className="admin-stat-detail">
+{formatPeso(analytics.totalOutstandingBalance)} outstanding
+</small>
 
 
 </div>

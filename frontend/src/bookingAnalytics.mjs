@@ -15,10 +15,19 @@ const dayNumber = value => {
 const isSuccessfulPayment = value =>
   ['paid','completed','succeeded','success','settled'].includes(String(value || '').trim().toLowerCase());
 
-export function bookingAnalytics(bookings, villas, year, frontDeskPayments = []) {
+export function bookingAnalytics(bookings, villas, year, frontDeskPayments = [], assignmentSummary = {}) {
   const monthlyBookings = Array(12).fill(0), monthlyRevenue = Array(12).fill(0);
-  const bookingStatus = {Pending:0, Confirmed:0, 'Checked In':0, Completed:0, Cancelled:0};
+  const bookingStatus = {Pending:0, Confirmed:0, 'Checked In':0, Completed:0};
   const paymentStatus = {Paid:0, Partial:0, Unpaid:0};
+  const bookingChannel = {Airbnb:0, 'The Villa':0};
+  const assignmentProgress = {
+    Pending: Number(assignmentSummary.pending) || 0,
+    'In Progress': Number(assignmentSummary.inProgress) || 0,
+    'Pending Review': Number(assignmentSummary.review) || 0,
+    Overdue: Number(assignmentSummary.overdue) || 0,
+    Completed: Number(assignmentSummary.completed) || 0,
+  };
+  let pendingPaymentCount = 0, totalOutstandingBalance = 0;
   const performance = new Map(villas.map(v => [v.id, {name:v.title || v.name, value:0, revenue:0}]));
   const guests = new Map(), nights = new Set(), seenPayments = new Set();
   const start = Date.UTC(year,0,1)/86400000, end = Date.UTC(year+1,0,1)/86400000;
@@ -56,13 +65,27 @@ export function bookingAnalytics(bookings, villas, year, frontDeskPayments = [])
         for (const id of ids) if (performance.has(id)) nights.add(`${id}:${day}`);
       }
     }
-    if (!(checkIn >= start && checkIn < end)) continue;
-    const bucket = cancelled ? 'Cancelled' : /checked.?in/.test(status) ? 'Checked In'
+    if (cancelled || !(checkIn >= start && checkIn < end)) continue;
+    const bucket = /checked.?in/.test(status) ? 'Checked In'
       : /complet|checked.?out/.test(status) ? 'Completed' : confirmed ? 'Confirmed' : 'Pending';
     bookingStatus[bucket]++;
-    if (!cancelled && String(b.bookingChannel ?? b.booking_channel ?? '').toLowerCase() !== 'airbnb') {
-      const paid = Number(b.amountPaid)||0, total=Number(b.totalAmount)||0;
-      paymentStatus[paid>0 && total>0 && paid>=total ? 'Paid' : paid>0 ? 'Partial' : 'Unpaid']++;
+    if (external) {
+      bookingChannel.Airbnb++;
+    } else {
+      bookingChannel['The Villa']++;
+      const paid = Number(b.amountPaid ?? b.amount_paid) || 0;
+      const total = Number(b.totalAmount ?? b.total_amount) || 0;
+      const storedBalance = Number(b.balanceAmount ?? b.balance_amount);
+      const balance = Math.max(
+        Number.isFinite(storedBalance) ? storedBalance : 0,
+        total - paid,
+        0,
+      );
+      paymentStatus[balance <= 0 && paid > 0 ? 'Paid' : paid > 0 ? 'Partial' : 'Unpaid']++;
+      if (balance > 0) {
+        pendingPaymentCount++;
+        totalOutstandingBalance += balance;
+      }
     }
     if (!confirmed) continue;
     monthlyBookings[new Date(checkIn*86400000).getUTCMonth()]++;
@@ -87,6 +110,7 @@ export function bookingAnalytics(bookings, villas, year, frontDeskPayments = [])
   const villaChart=[...performance.values()].sort((a,b)=>b.value-a.value);
   return {year, months:MONTHS, monthlyBookings, monthlyRevenue, totalRevenue:monthlyRevenue.reduce((total, amount)=>total+amount,0),
     totalBookings:Object.values(bookingStatus).reduce((total, count)=>total+count,0), villaChart, bookingStatus, paymentStatus,
+    bookingChannel, assignmentProgress, pendingPaymentCount, totalOutstandingBalance,
     totalGuests:guests.size, repeatGuests:[...guests.values()].filter(n=>n>1).length,
     occupancyRate:villas.length ? Math.round(nights.size/((end-start)*villas.length)*100) : 0,
     mostBookedVilla:villaChart.some(v=>v.value>0) ? villaChart[0].name : '-',
