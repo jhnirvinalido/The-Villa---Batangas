@@ -728,7 +728,7 @@ function MessageModal({ message, onClose }) {
     return () => { node.close(); previous?.focus(); };
   }, [open]);
   if (!open) return null;
-  return <dialog ref={dialog} role="alertdialog" aria-label="We couldn't complete this step" onCancel={event=>{event.preventDefault();onClose();}} className="m-auto w-[calc(100%-2rem)] max-w-md rounded-2xl border border-stone-200 bg-white p-6 shadow-2xl backdrop:bg-stone-950/40 backdrop:backdrop-blur-sm"><h2 className="mb-4 text-lg font-bold text-stone-900">We couldn't complete this step</h2><AlertMessage message={message}/><button type="button" autoFocus onClick={onClose} className="mt-5 rounded-xl border border-amber-900 bg-amber-900 px-5 py-3 text-sm font-semibold text-white">OK</button></dialog>;
+  return <dialog ref={dialog} role="alertdialog" aria-label="We couldn't complete this step" onCancel={event=>{event.preventDefault();onClose();}} className="m-auto w-[calc(100%-2rem)] max-w-md rounded-2xl border border-stone-200 bg-white p-6 shadow-2xl backdrop:bg-stone-950/40 backdrop:backdrop-blur-sm"><h2 className="mb-4 text-lg font-bold text-stone-900">We couldn't complete this step</h2><AlertMessage message={message}/><button type="button" autoFocus onClick={onClose} className="mx-auto mt-5 block rounded-xl border border-amber-900 bg-amber-900 px-5 py-3 text-sm font-semibold text-white">OK</button></dialog>;
 }
 
 /** A bare spinner in the Villa's bronze palette. */

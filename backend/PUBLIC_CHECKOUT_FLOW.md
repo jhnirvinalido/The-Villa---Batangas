@@ -1,6 +1,6 @@
 Public booking payment setup
 
-Apply migrations/20261022_public_checkout_drafts.sql in the Supabase SQL Editor before restarting the backend with this change. It requires the existing bookings and booking_payments tables. The configured service role can access the staging table and finalization RPC; anonymous and signed-in clients cannot.
+Apply migrations/20261022_public_checkout_drafts.sql and migrations/20261030_public_checkout_reconciliation.sql in the Supabase SQL Editor before deploying the public checkout backend. The first migration requires the existing bookings and booking_payments tables; the second adds the reconciliation fields used when creating payment checkouts. The configured service role can access the staging table and finalization RPC; anonymous and signed-in clients cannot.
 
 Guest email addresses are checked for valid syntax, but email-code verification is not required to continue booking. Guests are reminded to enter an address they can access for booking updates.
 
