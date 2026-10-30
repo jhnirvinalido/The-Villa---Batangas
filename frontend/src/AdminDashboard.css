@@ -16421,7 +16421,7 @@
 .admin-dashboard-shell .sentiment-dashboard-panel {
   width: 100%;
   min-width: 0;
-  padding: 24px;
+  padding: 20px;
   border: 1px solid #eee6dd;
   border-radius: 18px;
   background: #fff;
@@ -16440,22 +16440,23 @@
   font-size: 18px;
 }
 
-.admin-dashboard-shell .sentiment-dashboard-header p,
 .admin-dashboard-shell .sentiment-dashboard-status,
-.admin-dashboard-shell .sentiment-dashboard-model {
+.admin-dashboard-shell .sentiment-dashboard-summary small {
   margin: 5px 0 0;
   color: #89796c;
-  font-size: 12px;
+  font-size: 11px;
   line-height: 1.5;
 }
 
 .admin-dashboard-shell .sentiment-dashboard-disclaimer {
-  margin-top: 16px;
-  padding: 10px 12px;
+  display: inline-block;
+  margin-top: 12px;
+  padding: 6px 9px;
   border-left: 3px solid #d7a64b;
+  border-radius: 3px;
   background: #fff8e8;
   color: #6f5630;
-  font-size: 12px;
+  font-size: 11px;
   line-height: 1.5;
 }
 
@@ -16485,6 +16486,12 @@
   border-right: 0;
 }
 
+.admin-dashboard-shell .sentiment-dashboard-summary small {
+  color: #89796c;
+  font-size: 11px;
+  line-height: 1.4;
+}
+
 .admin-dashboard-shell .sentiment-dashboard-summary strong {
   color: #392b22;
   font-size: 22px;
@@ -16496,12 +16503,19 @@
 }
 
 .admin-dashboard-shell .sentiment-dashboard-charts {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   margin-top: 16px;
 }
 
-.admin-dashboard-shell .sentiment-dashboard-model {
-  overflow-wrap: anywhere;
-  margin-top: 12px;
+.admin-dashboard-shell .sentiment-dashboard-charts .chart-card {
+  height: 340px;
+  padding: 18px;
+}
+
+@media (max-width: 1100px) {
+  .admin-dashboard-shell .sentiment-dashboard-charts {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
 }
 
 .admin-dashboard-shell .chart-card {
@@ -16574,6 +16588,15 @@
 
   .admin-dashboard-shell .sentiment-dashboard-summary strong {
     font-size: 19px;
+  }
+
+  .admin-dashboard-shell .sentiment-dashboard-charts {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .admin-dashboard-shell .sentiment-dashboard-charts .chart-card {
+    height: 300px;
+    padding: 16px;
   }
 
   .admin-dashboard-shell .chart-card {

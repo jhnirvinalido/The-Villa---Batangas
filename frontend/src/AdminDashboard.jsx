@@ -2111,6 +2111,7 @@ function SentimentAnalyticsDashboard({ apiRequest, onOpenReviews }) {
     const sentimentKeys = ["positive", "neutral", "negative", "unclassified"];
     const sentimentCounts = sentimentKeys.map((key) => Number(summary.phrase_sentiments?.[key] || 0));
     const complaints = (summary.top_complaints || []).slice(0, 6);
+    const ratingCounts = ["1", "2", "3", "4", "5"].map((rating) => Number(summary.rating_distribution?.[rating] || 0));
     const charts = [];
 
     if (canvasRefs.current[0]) {
@@ -2158,51 +2159,86 @@ function SentimentAnalyticsDashboard({ apiRequest, onOpenReviews }) {
       }));
     }
 
+    if (canvasRefs.current[2] && ratingCounts.some(Boolean)) {
+      charts.push(new Chart(canvasRefs.current[2], {
+        type: "bar",
+        data: {
+          labels: ["1 star", "2 stars", "3 stars", "4 stars", "5 stars"],
+          datasets: [{
+            label: "Reviews",
+            data: ratingCounts,
+            backgroundColor: "#d7a64b",
+          }],
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          animation,
+          scales: {
+            y: { beginAtZero: true, ticks: { precision: 0 } },
+          },
+          plugins: { legend: { display: false } },
+        },
+      }));
+    }
+
     return () => charts.forEach((chart) => chart.destroy());
   }, [report]);
 
   const sentimentCounts = report?.summary?.phrase_sentiments || {};
   const phraseTotal = Object.values(sentimentCounts).reduce((total, count) => total + Number(count || 0), 0);
+  const hasRatingData = ["1", "2", "3", "4", "5"].some((rating) => Number(report?.summary?.rating_distribution?.[rating] || 0) > 0);
+  const sourceCounts = report?.summary?.source_counts || {};
+  const historicalReviewCount = Number(sourceCounts.historical_dataset || 0);
+  const currentReviewCount = Object.entries(sourceCounts)
+    .filter(([source]) => source !== "historical_dataset")
+    .reduce((total, [, count]) => total + Number(count || 0), 0);
 
   return (
     <section className="sentiment-dashboard-panel" aria-labelledby="sentiment-dashboard-title">
       <header className="sentiment-dashboard-header">
         <div>
-          <h2 id="sentiment-dashboard-title">Guest sentiment analysis</h2>
-          <p>Phrase-level pilot predictions from analyzed guest reviews.</p>
+          <h2 id="sentiment-dashboard-title">Sentiment</h2>
         </div>
         <button type="button" className="admin-btn-outline" onClick={onOpenReviews}>
-          View guest feedback
+          Guest feedback
         </button>
       </header>
       <div className="sentiment-dashboard-disclaimer" role="note">
-        Pilot analysis only. Sentiment predictions and complaint categories require human review; they are not verified findings.
+        Pilot predictions · Human review required
       </div>
       {error && <p className="sentiment-dashboard-error" role="alert">{formatUserFacingMessage(error)}</p>}
       {loading && !report && <p className="sentiment-dashboard-status" role="status">Loading sentiment analysis…</p>}
       {report && <>
         <div className="sentiment-dashboard-summary">
-          <div><strong>{Number(report.summary?.total_reviews || 0)}</strong><span>reviews analyzed</span></div>
-          <div><strong>{phraseTotal}</strong><span>phrases classified</span></div>
+          <div title="Full review records. Multiple excerpts from one review are not counted as separate reviews.">
+            <strong>{Number(report.summary?.total_reviews || 0)}</strong>
+            <span>source reviews</span>
+            <small>{historicalReviewCount} historical · {currentReviewCount} current</small>
+          </div>
+          <div><strong>{phraseTotal}</strong><span>phrases analyzed</span></div>
           <div><strong>{Number(sentimentCounts.unclassified || 0)}</strong><span>unclassified phrases</span></div>
         </div>
         <div className="analytics-grid sentiment-dashboard-charts">
           <article className="chart-card">
-            <h3>Phrase sentiment distribution</h3>
-            <p>Model predictions; unclassified phrases are shown separately.</p>
+            <h3>Phrase sentiment</h3>
             {phraseTotal
               ? <div className="chart-wrapper"><canvas ref={(node) => { canvasRefs.current[0] = node; }} aria-label="Phrase sentiment distribution" role="img" /></div>
               : <p className="sentiment-dashboard-status">No analyzed phrases yet.</p>}
           </article>
           <article className="chart-card">
-            <h3>Top complaint categories</h3>
-            <p>Distinct reviews with a negative phrase matched to each category.</p>
+            <h3>Top complaints</h3>
             {(report.summary?.top_complaints || []).length
               ? <div className="chart-wrapper"><canvas ref={(node) => { canvasRefs.current[1] = node; }} aria-label="Top complaint categories" role="img" /></div>
               : <p className="sentiment-dashboard-status">No matching complaints in this analysis.</p>}
           </article>
+          <article className="chart-card">
+            <h3>Star ratings</h3>
+            {hasRatingData
+              ? <div className="chart-wrapper"><canvas ref={(node) => { canvasRefs.current[2] = node; }} aria-label="Guest star rating distribution" role="img" /></div>
+              : <p className="sentiment-dashboard-status">No ratings available.</p>}
+          </article>
         </div>
-        <p className="sentiment-dashboard-model">Model: {report.model?.version || "Unavailable"} · Human review required</p>
       </>}
     </section>
   );
