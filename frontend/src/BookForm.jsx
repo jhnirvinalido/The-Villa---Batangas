@@ -1353,8 +1353,9 @@ export default function BookForm() {
     }
   }
 
-  function continueFromPersonalInfo() {
+  async function continueFromPersonalInfo() {
     if (!validatePersonalInfo()) return;
+    setMessage("");
     const email = form.email.trim().toLowerCase();
     if (
       emailVerification.verifiedEmail === email &&
@@ -1371,8 +1372,14 @@ export default function BookForm() {
       return;
     }
     if (emailVerification.verifiedEmail !== email || !emailVerification.token) {
-      if (emailVerification.sentEmail === email) return;
-      sendEmailVerificationCode(email);
+      if (emailVerification.sentEmail === email) {
+        const verified = await verifyEmailCode();
+        if (verified) {
+          runStepTransition(4, "Email verified. Preparing your reservation and payment details…");
+        }
+      } else {
+        await sendEmailVerificationCode(email);
+      }
       return;
     }
     runStepTransition(4, "Preparing your reservation and payment details…");
@@ -1380,6 +1387,7 @@ export default function BookForm() {
 
   async function sendEmailVerificationCode(email = form.email.trim().toLowerCase()) {
     if (!isValidEmailAddress(email) || emailVerificationBusy) return;
+    setMessage("");
     setEmailVerificationBusy(true);
     setEmailVerification((current) => ({ ...current, error: "" }));
     try {
@@ -1399,7 +1407,6 @@ export default function BookForm() {
     } catch (error) {
       setEmailVerification((current) => ({
         ...current,
-        sentEmail: email,
         status: "",
         error: getUserFacingError(error, "We couldn't send a verification code. Please try again."),
       }));
@@ -1409,22 +1416,23 @@ export default function BookForm() {
   }
 
   async function verifyEmailCode() {
+    setMessage("");
     const email = form.email.trim().toLowerCase();
     if (emailVerification.expiresAt && emailVerification.expiresAt <= Date.now()) {
       setEmailVerification((current) => ({
         ...current,
         error: "Your verification code expired. Request a new code.",
       }));
-      return;
+      return false;
     }
     if (!/^\d{6}$/.test(emailVerification.code)) {
       setEmailVerification((current) => ({
         ...current,
         error: "Enter the 6-digit code from your email.",
       }));
-      return;
+      return false;
     }
-    if (emailVerificationBusy) return;
+    if (emailVerificationBusy) return false;
     setEmailVerificationBusy(true);
     setEmailVerification((current) => ({ ...current, error: "" }));
     try {
@@ -1442,11 +1450,13 @@ export default function BookForm() {
         status: result?.message || "Email address verified.",
         error: "",
       }));
+      return true;
     } catch (error) {
       setEmailVerification((current) => ({
         ...current,
         error: getUserFacingError(error, "That code could not be verified. Check it and try again."),
       }));
+      return false;
     } finally {
       setEmailVerificationBusy(false);
     }
@@ -2187,8 +2197,17 @@ export default function BookForm() {
                     id="booking-email"
                     type="email"
                     autoComplete="email"
-                    aria-invalid={Boolean(personalInfoErrors.email)}
-                    aria-describedby={personalInfoErrors.email ? "booking-email-error" : undefined}
+                    aria-invalid={Boolean(
+                      personalInfoErrors.email ||
+                      (emailVerification.error &&
+                        emailVerification.sentEmail !== form.email.trim().toLowerCase())
+                    )}
+                    aria-describedby={[
+                      personalInfoErrors.email && "booking-email-error",
+                      emailVerification.error &&
+                        emailVerification.sentEmail !== form.email.trim().toLowerCase() &&
+                        "booking-email-verification-request-error",
+                    ].filter(Boolean).join(" ") || undefined}
                     value={form.email}
                     onBlur={() => {
                       if (form.email.trim()) {
@@ -2226,11 +2245,24 @@ export default function BookForm() {
                     placeholder="you@example.com"
                   />
                   {personalInfoErrors.email && <small id="booking-email-error" className="booking-field-error" role="alert">{personalInfoErrors.email}</small>}
+                  {emailVerification.error &&
+                    emailVerification.sentEmail !== form.email.trim().toLowerCase() && (
+                      <small
+                        id="booking-email-verification-request-error"
+                        className="booking-field-error"
+                        role="alert"
+                      >
+                        {emailVerification.error}
+                      </small>
+                    )}
                 </Field>
 
                 {emailVerification.sentEmail === form.email.trim().toLowerCase() &&
                   emailVerification.verifiedEmail !== form.email.trim().toLowerCase() && (
                     <Field label="Email verification code" icon={FaShieldAlt} required>
+                      <p className="booking-email-verification-help">
+                        Enter the code sent to <strong>{form.email.trim()}</strong>. It expires in 10 minutes.
+                      </p>
                       <div className="booking-email-verification">
                         <input
                           id="booking-email-verification-code"
@@ -2249,14 +2281,6 @@ export default function BookForm() {
                           }))}
                           placeholder="Enter 6-digit code"
                         />
-                        <button
-                          type="button"
-                          className="booking-verify-email-button"
-                          disabled={emailVerificationBusy || emailVerification.code.length !== 6}
-                          onClick={verifyEmailCode}
-                        >
-                          {emailVerificationBusy ? "Checking…" : "Verify"}
-                        </button>
                       </div>
                       <small>{emailVerification.status}</small>
                       {emailVerification.error && <small className="booking-field-error" role="alert">{emailVerification.error}</small>}
@@ -2761,16 +2785,23 @@ export default function BookForm() {
                 disabled={
                   !selectionValid ||
                   availabilityLoading ||
-                  stepTransition.active || loading || emailVerificationBusy
+                  stepTransition.active || loading || emailVerificationBusy ||
+                  (emailVerification.sentEmail === form.email.trim().toLowerCase() &&
+                    emailVerification.verifiedEmail !== form.email.trim().toLowerCase() &&
+                    emailVerification.code.length !== 6)
                 }
               >
-                {emailVerification.verifiedEmail === form.email.trim().toLowerCase() &&
+                {emailVerificationBusy
+                  ? emailVerification.sentEmail === form.email.trim().toLowerCase()
+                    ? "Verifying code…"
+                    : "Sending code…"
+                  : emailVerification.verifiedEmail === form.email.trim().toLowerCase() &&
                   Boolean(emailVerification.token) &&
                   emailVerification.expiresAt > Date.now()
-                  ? "Continue"
-                  : emailVerification.sentEmail === form.email.trim().toLowerCase()
-                    ? "Verify your email below"
-                    : "Send verification code"}
+                    ? "Continue"
+                    : emailVerification.sentEmail === form.email.trim().toLowerCase()
+                      ? "Verify email and continue"
+                      : "Send verification code"}
                 <FaArrowRight />
               </button>
             )}

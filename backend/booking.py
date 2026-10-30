@@ -4336,16 +4336,25 @@ def request_public_email_verification(
     client_ip = request.client.host if request.client else "unknown"
     code = f"{secrets.randbelow(1_000_000):06d}"
     now = datetime.now(timezone.utc)
-    service = _service()
-    result = service.rpc("issue_public_email_verification", {
-        "p_email_hash": _public_email_verification_hash(email, "email"),
-        "p_code_hash": _public_email_verification_hash(
-            f"{email}:{code}", "code"
-        ),
-        "p_ip_hash": _public_email_verification_hash(client_ip, "ip"),
-        "p_now": now.isoformat(),
-        "p_expires_at": (now + timedelta(minutes=10)).isoformat(),
-    }).execute()
+    try:
+        service = _service()
+        result = service.rpc("issue_public_email_verification", {
+            "p_email_hash": _public_email_verification_hash(email, "email"),
+            "p_code_hash": _public_email_verification_hash(
+                f"{email}:{code}", "code"
+            ),
+            "p_ip_hash": _public_email_verification_hash(client_ip, "ip"),
+            "p_now": now.isoformat(),
+            "p_expires_at": (now + timedelta(minutes=10)).isoformat(),
+        }).execute()
+    except Exception:
+        logger.exception(
+            "Public email verification issuance failed. Confirm the email-verification migration is applied."
+        )
+        raise HTTPException(
+            status_code=503,
+            detail="Email verification is temporarily unavailable. The verification database may need setup; please contact The Villa.",
+        ) from None
     state = _attr(result, "data", None)
     if state in {"cooldown", "email_rate_limited", "ip_rate_limited"}:
         raise HTTPException(
@@ -4404,24 +4413,52 @@ The Villa"""
 def confirm_public_email_verification(data: PublicEmailVerificationConfirmRequest):
     email = str(data.email).strip().lower()
     now = datetime.now(timezone.utc)
-    result = _service().rpc("verify_public_email_verification", {
-        "p_email_hash": _public_email_verification_hash(email, "email"),
-        "p_code_hash": _public_email_verification_hash(
-            f"{email}:{data.code}", "code"
-        ),
-        "p_now": now.isoformat(),
-    }).execute()
-    state = _attr(result, "data", None)
-    if state == "verified":
+    try:
         service = _service()
-        email_hash = _public_email_verification_hash(email, "email")
-        record = _first(
-            service.table("public_email_verifications")
-            .select("verified_at,expires_at")
-            .eq("email_hash", email_hash)
-            .limit(1)
-            .execute()
+        result = service.rpc("verify_public_email_verification", {
+            "p_email_hash": _public_email_verification_hash(email, "email"),
+            "p_code_hash": _public_email_verification_hash(
+                f"{email}:{data.code}", "code"
+            ),
+            "p_now": now.isoformat(),
+        }).execute()
+    except Exception:
+        logger.exception(
+            "Public email verification confirmation RPC failed. Confirm the email-verification migration is applied."
         )
+        raise HTTPException(
+            status_code=503,
+            detail="Email verification is temporarily unavailable. The verification database may need setup; please contact The Villa.",
+        ) from None
+    state = _attr(result, "data", None)
+    if state == "locked":
+        raise HTTPException(
+            status_code=429,
+            detail="Too many incorrect codes were entered. Request a new code.",
+        )
+    if state == "expired":
+        raise HTTPException(
+            status_code=410,
+            detail="This verification code expired. Request a new code.",
+        )
+    if state == "verified":
+        email_hash = _public_email_verification_hash(email, "email")
+        try:
+            record = _first(
+                service.table("public_email_verifications")
+                .select("verified_at,expires_at")
+                .eq("email_hash", email_hash)
+                .limit(1)
+                .execute()
+            )
+        except Exception:
+            logger.exception(
+                "Could not load a confirmed public email verification record."
+            )
+            raise HTTPException(
+                status_code=503,
+                detail="Email verification could not be completed. Please try again.",
+            ) from None
         if record and record.get("verified_at"):
             expires_at = datetime.fromisoformat(
                 str(record["expires_at"]).replace("Z", "+00:00")
