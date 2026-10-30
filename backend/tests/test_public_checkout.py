@@ -39,32 +39,16 @@ class PublicCheckoutTests(unittest.TestCase):
         self.env.update(_service=lambda:self.client,
                         _public_checkout_draft=lambda *_:self.draft,
                         _paymongo_request=MagicMock(return_value={'data':self.session}),
-                        _send_booking_confirmation_email=MagicMock(),
-                        _require_verified_public_email=MagicMock())
+                        _send_booking_confirmation_email=MagicMock())
 
     def test_creation_stores_only_checkout_draft_and_no_email(self):
         self.env['_prepare_public_booking'] = MagicMock(return_value={'booking':self.booking,'booking_access_token':'secret'})
-        result = self.env['create_public_booking'](
-            SimpleNamespace(email='guest@example.com', email_verification_token='valid-token')
-        )
+        result = self.env['create_public_booking'](SimpleNamespace(email='guest@example.com'))
         self.assertEqual(result['booking_access_token'],'secret')
         self.assertEqual([c.args[0] for c in self.client.table.call_args_list],['public_booking_checkouts'])
-        self.env['_require_verified_public_email'].assert_called_once_with(
-            self.client, 'guest@example.com', 'valid-token'
-        )
         self.env['_prepare_public_booking'].assert_called_once()
         self.assertTrue(self.env['_prepare_public_booking'].call_args.kwargs['draft_only'])
         self.env['_send_booking_confirmation_email'].assert_not_called()
-
-    def test_creation_stops_when_email_is_not_verified(self):
-        self.env['_prepare_public_booking'] = MagicMock()
-        self.env['_require_verified_public_email'].side_effect = HTTPError(403, 'Email not verified')
-        with self.assertRaises(HTTPError):
-            self.env['create_public_booking'](
-                SimpleNamespace(email='guest@example.com', email_verification_token='invalid-token')
-            )
-        self.env['_prepare_public_booking'].assert_not_called()
-        self.client.table.assert_not_called()
 
     def test_pending_failed_expired_do_not_create_booking(self):
         for state in ('pending','failed','expired'):

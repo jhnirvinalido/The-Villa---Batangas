@@ -2,7 +2,7 @@ Public booking payment setup
 
 Apply migrations/20261022_public_checkout_drafts.sql in the Supabase SQL Editor before restarting the backend with this change. It requires the existing bookings and booking_payments tables. The configured service role can access the staging table and finalization RPC; anonymous and signed-in clients cannot.
 
-Also apply migrations/20261030_public_email_verification.sql. Guest bookings require a six-digit email code before checkout; codes expire after 10 minutes and requests are limited by email and IP. The migration stores only keyed hashes, keeps the verification table service-role-only, and provides the issuance and confirmation RPCs used by the backend. The confirmation response returns a signed, email-bound verification token; include it as `email_verification_token` when calling `POST /public-bookings`.
+Guest email addresses are checked for valid syntax, but email-code verification is not required to continue booking. Guests are reminded to enter an address they can access for booking updates.
 
 Also apply migrations/20261030_public_checkout_reconciliation.sql. The backend periodically checks due, active checkout sessions directly with PayMongo, so a paid reservation can be finalized and acknowledged even if the guest closes the browser before returning and PayMongo's webhook is delayed or missed. The webhook remains the primary notification path. Checks are rate-limited per checkout, limited to 25 due drafts per worker pass, and can be disabled with `PUBLIC_CHECKOUT_RECONCILIATION_ENABLED=false`. Payment is still recorded only after PayMongo confirms the session, amount, and currency.
 

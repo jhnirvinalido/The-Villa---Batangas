@@ -12,7 +12,7 @@ export function LoadingScreen({ message = 'Please wait…' }) {
 export function AlertMessage({ message, type = 'error', dismiss }) {
   const success = type === 'success';
   const Icon = success ? CheckCircle2 : AlertCircle;
-  return <div role={success ? 'status' : 'alert'} className={`flex items-start gap-3 rounded-xl border p-4 text-sm shadow-sm ${success ? 'border-emerald-200 bg-emerald-50 text-emerald-900' : 'border-red-200 bg-red-50 text-red-900'}`}><Icon className="h-5 w-5 shrink-0" aria-hidden="true"/><span className="min-w-0 flex-1 whitespace-pre-wrap break-words">{formatUserFacingMessage(message)}</span>{dismiss && <button type="button" aria-label="Dismiss alert" className="rounded-md bg-transparent p-1 text-inherit focus-visible:outline-2" onClick={dismiss}><X size={18}/></button>}</div>;
+  return <div role={success ? 'status' : 'alert'} className={`flex items-start gap-2 rounded-lg border px-3 py-2.5 text-xs shadow-md ${success ? 'border-emerald-200 bg-emerald-50 text-emerald-900' : 'border-stone-200 bg-white text-stone-700'}`}><Icon className={`mt-0.5 h-4 w-4 shrink-0 ${success ? '' : 'text-amber-800'}`} aria-hidden="true"/><span className="min-w-0 flex-1 whitespace-pre-wrap break-words">{formatUserFacingMessage(message)}</span>{dismiss && <button type="button" aria-label="Dismiss alert" className="rounded-md bg-transparent p-1 text-inherit focus-visible:outline-2" onClick={dismiss}><X size={16}/></button>}</div>;
 }
 
 export function ConfirmAction({ open, busy = false, cancel, confirm, titleText = 'Sign out?', message = 'You’ll need to sign in again to access your workspace.', confirmLabel = 'Sign out', cancelLabel = 'Stay signed in' }) {

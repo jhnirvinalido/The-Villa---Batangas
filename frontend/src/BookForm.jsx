@@ -799,16 +799,6 @@ export default function BookForm() {
   const stepTransitionLock = useRef(false);
   const [message, setMessage] = useState("");
   const [personalInfoErrors, setPersonalInfoErrors] = useState({});
-  const [emailVerification, setEmailVerification] = useState({
-    sentEmail: "",
-    verifiedEmail: "",
-    token: "",
-    expiresAt: 0,
-    code: "",
-    status: "",
-    error: "",
-  });
-  const [emailVerificationBusy, setEmailVerificationBusy] = useState(false);
   const [pendingGuestCount, setPendingGuestCount] = useState(null);
   const [guestOptionsOpen, setGuestOptionsOpen] = useState(false);
   const [activeGuestOption, setActiveGuestOption] = useState(0);
@@ -1353,121 +1343,13 @@ export default function BookForm() {
     }
   }
 
-  async function continueFromPersonalInfo() {
+  function continueFromPersonalInfo() {
     if (!validatePersonalInfo()) return;
-    setMessage("");
-    const email = form.email.trim().toLowerCase();
-    if (
-      emailVerification.verifiedEmail === email &&
-      (emailVerification.expiresAt <= Date.now() || !emailVerification.token)
-    ) {
-      setEmailVerification((current) => ({
-        ...current,
-        verifiedEmail: "",
-        token: "",
-        code: "",
-        status: "",
-        error: "Verify your email again before continuing.",
-      }));
-      return;
-    }
-    if (emailVerification.verifiedEmail !== email || !emailVerification.token) {
-      if (emailVerification.sentEmail === email) {
-        const verified = await verifyEmailCode();
-        if (verified) {
-          if (!selectionValid) {
-            setMessage("Your villa selection is no longer available. Go back and choose an available villa.");
-          } else {
-            runStepTransition(4, "Email verified. Preparing your reservation and payment details…");
-          }
-        }
-      } else {
-        await sendEmailVerificationCode(email);
-      }
-      return;
-    }
     if (!selectionValid) {
       setMessage("Your villa selection is no longer available. Go back and choose an available villa.");
       return;
     }
     runStepTransition(4, "Preparing your reservation and payment details…");
-  }
-
-  async function sendEmailVerificationCode(email = form.email.trim().toLowerCase()) {
-    if (!isValidEmailAddress(email) || emailVerificationBusy) return;
-    setMessage("");
-    setEmailVerificationBusy(true);
-    setEmailVerification((current) => ({ ...current, error: "" }));
-    try {
-      const result = await apiRequest("/public-bookings/email-verification/request", {
-        method: "POST",
-        body: JSON.stringify({ email }),
-      });
-      setEmailVerification({
-        sentEmail: email,
-        verifiedEmail: "",
-        token: "",
-        expiresAt: Date.parse(result?.expires_at) || Date.now() + 10 * 60 * 1000,
-        code: "",
-        status: result?.message || "A verification code was sent. Check your inbox and spam folder.",
-        error: "",
-      });
-    } catch (error) {
-      setEmailVerification((current) => ({
-        ...current,
-        status: "",
-        error: getUserFacingError(error, "We couldn't send a verification code. Please try again."),
-      }));
-    } finally {
-      setEmailVerificationBusy(false);
-    }
-  }
-
-  async function verifyEmailCode() {
-    setMessage("");
-    const email = form.email.trim().toLowerCase();
-    if (emailVerification.expiresAt && emailVerification.expiresAt <= Date.now()) {
-      setEmailVerification((current) => ({
-        ...current,
-        error: "Your verification code expired. Request a new code.",
-      }));
-      return false;
-    }
-    if (!/^\d{6}$/.test(emailVerification.code)) {
-      setEmailVerification((current) => ({
-        ...current,
-        error: "Enter the 6-digit code from your email.",
-      }));
-      return false;
-    }
-    if (emailVerificationBusy) return false;
-    setEmailVerificationBusy(true);
-    setEmailVerification((current) => ({ ...current, error: "" }));
-    try {
-      const result = await apiRequest("/public-bookings/email-verification/confirm", {
-        method: "POST",
-        body: JSON.stringify({ email, code: emailVerification.code }),
-      });
-      if (!result?.email_verification_token) {
-        throw new Error("Email verification could not be completed. Please try again.");
-      }
-      setEmailVerification((current) => ({
-        ...current,
-        verifiedEmail: email,
-        token: result?.email_verification_token || "",
-        status: result?.message || "Email address verified.",
-        error: "",
-      }));
-      return true;
-    } catch (error) {
-      setEmailVerification((current) => ({
-        ...current,
-        error: getUserFacingError(error, "That code could not be verified. Check it and try again."),
-      }));
-      return false;
-    } finally {
-      setEmailVerificationBusy(false);
-    }
   }
 
   async function continueFromAvailability() {
@@ -1556,23 +1438,6 @@ export default function BookForm() {
       return;
     }
 
-    if (
-      emailVerification.verifiedEmail !== form.email.trim().toLowerCase() ||
-      emailVerification.expiresAt <= Date.now() ||
-      !emailVerification.token
-    ) {
-      setEmailVerification((current) => ({
-        ...current,
-        verifiedEmail: "",
-        token: "",
-        status: "",
-        error: "Your email verification expired. Verify your email again to continue.",
-      }));
-      setStep(3);
-      setMessage("Verify your email address again before continuing to payment.");
-      return;
-    }
-
     if (!acceptedPolicy) {
       setMessage(
         "Please confirm the booking details and reservation policy."
@@ -1612,7 +1477,6 @@ export default function BookForm() {
               form.email
                 .trim()
                 .toLowerCase(),
-            email_verification_token: emailVerification.token,
             phone:
               normalizePhilippinePhone(form.phone),
             villa_id: selectedVillaIds[0],
@@ -2208,17 +2072,8 @@ export default function BookForm() {
                     id="booking-email"
                     type="email"
                     autoComplete="email"
-                    aria-invalid={Boolean(
-                      personalInfoErrors.email ||
-                      (emailVerification.error &&
-                        emailVerification.sentEmail !== form.email.trim().toLowerCase())
-                    )}
-                    aria-describedby={[
-                      personalInfoErrors.email && "booking-email-error",
-                      emailVerification.error &&
-                        emailVerification.sentEmail !== form.email.trim().toLowerCase() &&
-                        "booking-email-verification-request-error",
-                    ].filter(Boolean).join(" ") || undefined}
+                    aria-invalid={Boolean(personalInfoErrors.email)}
+                    aria-describedby={personalInfoErrors.email ? "booking-email-error" : undefined}
                     value={form.email}
                     onBlur={() => {
                       if (form.email.trim()) {
@@ -2233,17 +2088,6 @@ export default function BookForm() {
                     onChange={(event) => {
                       const value = event.target.value;
                       updateForm("email", value);
-                      if (value.trim().toLowerCase() !== emailVerification.sentEmail) {
-                        setEmailVerification({
-                          sentEmail: "",
-                          verifiedEmail: "",
-                          token: "",
-                          expiresAt: 0,
-                          code: "",
-                          status: "",
-                          error: "",
-                        });
-                      }
                       if (personalInfoErrors.email) {
                         setPersonalInfoErrors((current) => ({
                           ...current,
@@ -2256,62 +2100,10 @@ export default function BookForm() {
                     placeholder="you@example.com"
                   />
                   {personalInfoErrors.email && <small id="booking-email-error" className="booking-field-error" role="alert">{personalInfoErrors.email}</small>}
-                  {emailVerification.error &&
-                    emailVerification.sentEmail !== form.email.trim().toLowerCase() && (
-                      <small
-                        id="booking-email-verification-request-error"
-                        className="booking-field-error"
-                        role="alert"
-                      >
-                        {emailVerification.error}
-                      </small>
-                    )}
+                  <small className="booking-email-reminder">
+                    Enter a valid email address that you can access so we can send your booking updates.
+                  </small>
                 </Field>
-
-                {emailVerification.sentEmail === form.email.trim().toLowerCase() &&
-                  emailVerification.verifiedEmail !== form.email.trim().toLowerCase() && (
-                    <Field label="Email verification code" icon={FaShieldAlt} required>
-                      <p className="booking-email-verification-help">
-                        Enter the code sent to <strong>{form.email.trim()}</strong>. It expires in 10 minutes.
-                      </p>
-                      <div className="booking-email-verification">
-                        <input
-                          id="booking-email-verification-code"
-                          type="text"
-                          inputMode="numeric"
-                          autoComplete="one-time-code"
-                          maxLength={6}
-                          pattern="[0-9]{6}"
-                          aria-label="6-digit email verification code"
-                          aria-invalid={Boolean(emailVerification.error)}
-                          value={emailVerification.code}
-                          onChange={(event) => setEmailVerification((current) => ({
-                            ...current,
-                            code: event.target.value.replace(/\D/g, "").slice(0, 6),
-                            error: "",
-                          }))}
-                          placeholder="Enter 6-digit code"
-                        />
-                      </div>
-                      <small>{emailVerification.status}</small>
-                      {emailVerification.error && <small className="booking-field-error" role="alert">{emailVerification.error}</small>}
-                      <button
-                        type="button"
-                        className="booking-resend-email-button"
-                        disabled={emailVerificationBusy}
-                        onClick={() => sendEmailVerificationCode()}
-                      >
-                        Resend code
-                      </button>
-                    </Field>
-                  )}
-                {emailVerification.verifiedEmail === form.email.trim().toLowerCase() &&
-                  Boolean(emailVerification.token) &&
-                  emailVerification.expiresAt > Date.now() && (
-                  <p className="booking-email-verified" role="status">
-                    <FaCheckCircle aria-hidden="true" /> Email address verified.
-                  </p>
-                )}
 
                 <Field
                   label="Mobile number"
@@ -2795,23 +2587,10 @@ export default function BookForm() {
                 }
                 disabled={
                   availabilityLoading ||
-                  stepTransition.active || loading || emailVerificationBusy ||
-                  (emailVerification.sentEmail === form.email.trim().toLowerCase() &&
-                    emailVerification.verifiedEmail !== form.email.trim().toLowerCase() &&
-                    emailVerification.code.length !== 6)
+                  stepTransition.active || loading
                 }
               >
-                {emailVerificationBusy
-                  ? emailVerification.sentEmail === form.email.trim().toLowerCase()
-                    ? "Verifying code…"
-                    : "Sending code…"
-                  : emailVerification.verifiedEmail === form.email.trim().toLowerCase() &&
-                  Boolean(emailVerification.token) &&
-                  emailVerification.expiresAt > Date.now()
-                    ? "Continue"
-                    : emailVerification.sentEmail === form.email.trim().toLowerCase()
-                      ? "Verify email and continue"
-                      : "Send verification code"}
+                Continue
                 <FaArrowRight />
               </button>
             )}
@@ -2837,7 +2616,7 @@ export default function BookForm() {
       </section>
 
       <MessageModal
-        message={emailVerification.error ? "" : message}
+        message={message}
         onClose={() =>
           setMessage("")
         }

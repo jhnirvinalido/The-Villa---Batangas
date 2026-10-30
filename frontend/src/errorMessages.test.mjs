@@ -13,14 +13,30 @@ test("network failures use a clear connection message", () => {
 });
 
 test("generic server failures do not expose framework wording", () => {
-  assert.match(formatUserFacingMessage("Internal Server Error"), /server couldn't complete this request/i);
+  assert.match(formatUserFacingMessage("Internal Server Error"), /couldn't complete that request/i);
+  assert.doesNotMatch(
+    getApiErrorMessage({ detail: "Database migration failed in Supabase RPC." }, 500),
+    /database|migration|supabase|rpc/i,
+  );
+  assert.doesNotMatch(
+    formatUserFacingMessage("The Villa's email service cannot send from this hosting setup."),
+    /email service|hosting setup/i,
+  );
+  assert.doesNotMatch(
+    getUserFacingError(new Error("TypeError: Cannot read properties of undefined."), "Please try again."),
+    /typeerror|cannot read properties|undefined/i,
+  );
 });
 
 test("specific validation details remain actionable", () => {
   assert.equal(formatUserFacingMessage("Email address is required."), "Email address is required.");
-  assert.equal(getApiErrorMessage({
-    detail: [{ loc: ["body", "first_name"], msg: "Field required" }],
-  }, 422), "First name is required.");
+  assert.equal(
+    getApiErrorMessage({
+      detail: [{ loc: ["body", "first_name"], msg: "Field required" }],
+    }, 422),
+    "Please check the information you entered and try again.",
+  );
+  assert.equal(getApiErrorMessage({ detail: "Email address is required." }, 422), "Email address is required.");
   assert.match(getApiErrorMessage({}, 409), /latest information has changed/i);
 });
 
