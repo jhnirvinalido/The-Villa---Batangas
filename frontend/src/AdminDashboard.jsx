@@ -1466,6 +1466,7 @@ function normalizeBooking(booking) {
       "",
     paymentStatus: computedPaymentStatus,
     bookingChannel,
+    airbnbPaymentStatus: booking.airbnb_payment_status || booking.airbnbPaymentStatus || null,
     paymentChoice,
     requiredDownpayment,
     downpaymentAmount,
@@ -1497,6 +1498,12 @@ function normalizeBooking(booking) {
       booking.specialRequest ||
       "No special request.",
   };
+}
+
+function airbnbPaymentLabel(booking) {
+  return booking.airbnbPaymentStatus === "paid"
+    ? "Paid in Airbnb"
+    : "Not marked paid in Airbnb";
 }
 
 // These predicates use the booking lifecycle saved by the authenticated
@@ -7889,7 +7896,7 @@ Villas Under Maintenance
                   <div>
                     <dt>Remaining balance</dt>
                     <dd className={selectedBooking.balanceAmount > 0 && selectedBooking.bookingChannel !== "airbnb" ? "balance-due" : "balance-paid"}>
-                      {selectedBooking.bookingChannel === "airbnb" ? "Paid in Airbnb" : formatPeso(selectedBooking.balanceAmount)}
+                      {selectedBooking.bookingChannel === "airbnb" ? airbnbPaymentLabel(selectedBooking) : formatPeso(selectedBooking.balanceAmount)}
                     </dd>
                   </div>
                 </dl>
