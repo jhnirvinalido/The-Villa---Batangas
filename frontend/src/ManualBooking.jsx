@@ -141,6 +141,8 @@ export default function ManualBooking({ apiRequest, onViewBookings, onBookingCre
   const [airbnbAvailability, setAirbnbAvailability] = useState(null);
   const [selectedAirbnbVillaIds, setSelectedAirbnbVillaIds] = useState([]);
   const [airbnbStays, setAirbnbStays] = useState([]);
+  const [airbnbConfirmingStayId, setAirbnbConfirmingStayId] = useState("");
+  const [airbnbGuestForm, setAirbnbGuestForm] = useState({ guest_name: "", guest_email: "", guest_phone: "" });
   const [airbnbStaysLoading, setAirbnbStaysLoading] = useState(true);
   const [airbnbChecking, setAirbnbChecking] = useState(false);
   const [airbnbSaving, setAirbnbSaving] = useState("");
@@ -302,6 +304,38 @@ export default function ManualBooking({ apiRequest, onViewBookings, onBookingCre
       await refreshAirbnbStays();
     } catch (requestError) {
       setAirbnbError(getUserFacingError(requestError, "The Airbnb stay could not be updated."));
+    } finally {
+      setAirbnbSaving("");
+    }
+  }
+
+  async function saveAirbnbBooking(stay) {
+    const guestName = airbnbGuestForm.guest_name.trim();
+    if (!guestName) {
+      setAirbnbError("Enter the Airbnb guest's name to save this booking.");
+      return;
+    }
+    setAirbnbError("");
+    setAirbnbNotice("");
+    setAirbnbSaving(`${stay.id}:confirm`);
+    try {
+      const result = await requestRef.current(
+        `/admin/manual-bookings/airbnb-stays/${encodeURIComponent(stay.id)}/confirm`,
+        {
+          method: "POST",
+          body: JSON.stringify({
+            guest_name: guestName,
+            guest_email: airbnbGuestForm.guest_email.trim() || null,
+            guest_phone: airbnbGuestForm.guest_phone.trim() || null,
+          }),
+        },
+      );
+      setAirbnbConfirmingStayId("");
+      setAirbnbGuestForm({ guest_name: "", guest_email: "", guest_phone: "" });
+      setAirbnbNotice(result?.message || "Airbnb booking saved. Housekeeping preparation will be assigned.");
+      await refreshAirbnbStays();
+    } catch (requestError) {
+      setAirbnbError(getUserFacingError(requestError, "The Airbnb booking could not be saved."));
     } finally {
       setAirbnbSaving("");
     }
@@ -657,7 +691,7 @@ export default function ManualBooking({ apiRequest, onViewBookings, onBookingCre
             )}
           </div>
         )}
-        <p className="manual-airbnb-note">Select the villas and create a 10-minute hold before accepting on Airbnb. After Airbnb accepts the request, confirm it below so the dates remain blocked. Holds expire automatically; release dates only if the Airbnb request was not accepted or the stay was cancelled. This uses The Villa’s calendar only—Airbnb requests, guest details, reviews, and calendar updates are not imported. Do not use the direct Manual Booking form for Airbnb stays because it creates a PayMongo checkout.</p>
+        <p className="manual-airbnb-note">Select the villas and create a 10-minute hold before accepting on Airbnb. After Airbnb accepts, enter the guest’s name to save a confirmed booking in The Villa and trigger housekeeping preparation. Airbnb payment is handled externally and is not recorded here. Holds expire automatically; release dates only if the request was not accepted. Do not use the direct Manual Booking form for Airbnb stays because it creates a PayMongo checkout.</p>
         <section className="manual-airbnb-stays" aria-labelledby="manual-airbnb-stays-title">
           <div className="manual-airbnb-stays-heading">
             <h3 id="manual-airbnb-stays-title">Airbnb holds and stays</h3>
@@ -670,31 +704,83 @@ export default function ManualBooking({ apiRequest, onViewBookings, onBookingCre
               {airbnbStays.map(stay => (
                 <li key={stay.id}>
                   <div className="manual-airbnb-stay-details">
-                    <strong>{stay.status === "held" ? "10-minute hold" : "Confirmed Airbnb stay"}</strong>
+                    <strong>{stay.status === "booked" ? "Airbnb booking saved" : stay.status === "held" ? "10-minute hold" : "Airbnb accepted — booking details needed"}</strong>
                     <span>{formatDate(stay.check_in_date)} – {formatDate(stay.check_out_date)} · {stay.guest_count} guests</span>
                     <span>{(stay.villa_names || []).join(", ") || "Villa selection unavailable"}</span>
+                    {stay.status === "booked" && stay.guest_name && <span>Guest: {stay.guest_name}</span>}
+                    {stay.status === "booked" && stay.booking_code && <span>Booking: {stay.booking_code}</span>}
                     {stay.status === "held" && <span>Expires {formatDateTime(stay.expires_at)}</span>}
                   </div>
                   <div className="manual-airbnb-stay-actions">
-                    {stay.status === "held" && (
+                    {["held", "confirmed"].includes(stay.status) && (
                       <button
                         type="button"
                         className="manual-btn-primary"
                         disabled={!!airbnbSaving}
-                        onClick={() => updateAirbnbStay(stay, "confirm")}
+                        onClick={() => {
+                          setAirbnbError("");
+                          setAirbnbConfirmingStayId(current => current === stay.id ? "" : stay.id);
+                          setAirbnbGuestForm({ guest_name: "", guest_email: "", guest_phone: "" });
+                        }}
                       >
-                        {airbnbSaving === `${stay.id}:confirm` ? "Confirming…" : "Airbnb accepted"}
+                        {airbnbConfirmingStayId === stay.id ? "Close booking form" : stay.status === "held" ? "Airbnb accepted" : "Save booking"}
                       </button>
                     )}
-                    <button
-                      type="button"
-                      className="manual-btn-outline"
-                      disabled={!!airbnbSaving}
-                      onClick={() => updateAirbnbStay(stay, "release")}
-                    >
-                      {airbnbSaving === `${stay.id}:release` ? "Releasing…" : "Release dates"}
-                    </button>
+                    {["held", "confirmed"].includes(stay.status) && (
+                      <button
+                        type="button"
+                        className="manual-btn-outline"
+                        disabled={!!airbnbSaving}
+                        onClick={() => updateAirbnbStay(stay, "release")}
+                      >
+                        {airbnbSaving === `${stay.id}:release` ? "Releasing…" : "Release dates"}
+                      </button>
+                    )}
                   </div>
+                  {airbnbConfirmingStayId === stay.id && (
+                    <form
+                      className="manual-airbnb-confirm-form"
+                      onSubmit={event => {
+                        event.preventDefault();
+                        saveAirbnbBooking(stay);
+                      }}
+                    >
+                      <label className="manual-field">Airbnb guest name
+                        <input
+                          required
+                          maxLength={200}
+                          value={airbnbGuestForm.guest_name}
+                          onChange={event => setAirbnbGuestForm(current => ({ ...current, guest_name: event.target.value }))}
+                          autoComplete="name"
+                        />
+                      </label>
+                      <label className="manual-field">Guest email (optional)
+                        <input
+                          type="email"
+                          maxLength={254}
+                          value={airbnbGuestForm.guest_email}
+                          onChange={event => setAirbnbGuestForm(current => ({ ...current, guest_email: event.target.value }))}
+                          autoComplete="email"
+                        />
+                      </label>
+                      <label className="manual-field">Guest phone (optional)
+                        <input
+                          type="tel"
+                          maxLength={40}
+                          value={airbnbGuestForm.guest_phone}
+                          onChange={event => setAirbnbGuestForm(current => ({ ...current, guest_phone: event.target.value }))}
+                          autoComplete="tel"
+                        />
+                      </label>
+                      <p>Payment is managed by Airbnb; no payment is recorded in The Villa.</p>
+                      <div>
+                        <button type="button" className="manual-btn-outline" disabled={!!airbnbSaving} onClick={() => setAirbnbConfirmingStayId("")}>Cancel</button>
+                        <button type="submit" className="manual-btn-primary" disabled={!!airbnbSaving}>
+                          {airbnbSaving === `${stay.id}:confirm` ? <><LoaderCircle size={16} className="manual-spin" /> Saving…</> : "Save booking & assign housekeeping"}
+                        </button>
+                      </div>
+                    </form>
+                  )}
                 </li>
               ))}
             </ul>

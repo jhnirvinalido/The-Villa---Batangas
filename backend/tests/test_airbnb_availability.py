@@ -8,6 +8,8 @@ from pydantic import ValidationError
 from admin import (
     ManualBookingRequest,
     AirbnbStayHoldRequest,
+    AirbnbStayConfirmRequest,
+    confirm_manual_airbnb_stay,
     create_manual_airbnb_stay_hold,
     list_manual_airbnb_stays,
     manual_booking_airbnb_availability,
@@ -17,8 +19,8 @@ from admin import (
 class AirbnbAvailabilityTests(TestCase):
     def setUp(self):
         self.catalog = {
-            "villa-a": {"name": "Villa A", "capacity": 2},
-            "villa-b": {"name": "Villa B", "capacity": 4},
+            "villa-a": {"name": "Villa A", "capacity": 2, "price": 2500, "image": "/villa-a.jpg"},
+            "villa-b": {"name": "Villa B", "capacity": 4, "price": 4000, "image": "/villa-b.jpg"},
         }
 
     def test_checker_requires_villas_available_for_every_night(self):
@@ -106,20 +108,24 @@ class AirbnbAvailabilityTests(TestCase):
         self.assertEqual(caught.exception.status_code, 422)
 
     def test_airbnb_stay_list_loads_villa_names_without_maintenance_summary(self):
-        class CatalogQuery:
+        class Query:
+            def __init__(self, data):
+                self.data = data
+
             def select(self, columns):
                 self.columns = columns
                 return self
 
+            def eq(self, *_):
+                return self
+
             def execute(self):
-                return type("Response", (), {
-                    "data": [{"id": "villa-1", "title": "Villa One"}]
-                })()
+                return type("Response", (), {"data": self.data})()
 
         class Client:
             def table(self, name):
-                self.table_name = name
-                return CatalogQuery()
+                data = [{"id": "villa-1", "title": "Villa One"}] if name == "villa_catalog" else []
+                return Query(data)
 
         stays = [{
             "id": "stay-1",
@@ -136,6 +142,72 @@ class AirbnbAvailabilityTests(TestCase):
             result = list_manual_airbnb_stays(context={})
 
         self.assertEqual(result["data"][0]["villa_names"], ["Villa One"])
+
+    def test_confirmed_airbnb_hold_creates_external_booking_and_assigns_housekeeping(self):
+        stay_id = "11111111-1111-4111-8111-111111111111"
+        actor_id = "22222222-2222-4222-8222-222222222222"
+        stay = {
+            "id": stay_id,
+            "check_in_date": "2099-01-01",
+            "check_out_date": "2099-01-03",
+            "guest_count": 2,
+            "villa_ids": ["villa-a"],
+            "status": "held",
+            "expires_at": "2099-01-01T12:00:00+00:00",
+        }
+
+        class Query:
+            def select(self, *_):
+                return self
+
+            def eq(self, *_):
+                return self
+
+            def limit(self, *_):
+                return self
+
+            def execute(self):
+                return type("Response", (), {"data": [stay]})()
+
+        class Client:
+            def table(self, _):
+                return Query()
+
+            def rpc(self, name, params):
+                self.rpc_name = name
+                self.rpc_params = params
+                return type(
+                    "RpcQuery",
+                    (),
+                    {"execute": lambda _self: type("Response", (), {"data": params["p_booking"]})()},
+                )()
+
+        client = Client()
+        request = AirbnbStayConfirmRequest(guest_name="Airbnb Guest", guest_email="", guest_phone="")
+        with patch("admin.service_client", return_value=client), \
+             patch("admin.get_villa_catalog_map", return_value=self.catalog), \
+             patch("booking._villa_operational", return_value=True), \
+             patch("booking_assignments.schedule_prearrival_assignment", return_value={"status": "assigned"}) as assign:
+            result = confirm_manual_airbnb_stay(
+                stay_id,
+                request,
+                {"account": {"id": actor_id}},
+            )
+
+        self.assertEqual(client.rpc_name, "confirm_airbnb_stay_booking")
+        booking = client.rpc_params["p_booking"]
+        self.assertEqual(booking["customer_name"], "Airbnb Guest")
+        self.assertEqual(booking["booking_channel"], "airbnb")
+        self.assertEqual(booking["payment_status"], "External")
+        self.assertEqual(booking["amount_paid"], 0)
+        self.assertEqual(booking["balance_amount"], 0)
+        self.assertEqual(booking["total_amount"], 5000)
+        assign.assert_called_once_with(booking, client)
+        self.assertEqual(result["assignment"]["status"], "assigned")
+
+    def test_airbnb_confirmation_requires_guest_name_without_numeric_characters(self):
+        with self.assertRaises(ValidationError):
+            AirbnbStayConfirmRequest(guest_name="Guest 123")
 
     def test_create_hold_saves_a_valid_selected_villa(self):
         class RpcQuery:

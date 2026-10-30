@@ -254,6 +254,27 @@ class AirbnbStayHoldRequest(ApiModel):
         return value
 
 
+class AirbnbStayConfirmRequest(ApiModel):
+    guest_name: str = Field(min_length=1, max_length=200)
+    guest_email: EmailStr | None = None
+    guest_phone: str | None = Field(default=None, max_length=40)
+
+    _validate_guest_name = field_validator("guest_name")(validate_person_name)
+
+    @field_validator("guest_name")
+    @classmethod
+    def require_guest_name(cls, value):
+        value = value.strip()
+        if not value:
+            raise ValueError("Enter the Airbnb guest's name.")
+        return value
+
+    @field_validator("guest_email", "guest_phone", mode="before")
+    @classmethod
+    def blank_optional_contact_to_none(cls, value):
+        return value.strip() or None if isinstance(value, str) else value
+
+
 class BookingLifecycleRequest(ApiModel):
     notes: str | None = Field(default=None, max_length=2000)
 
@@ -2219,6 +2240,10 @@ def booking_initial_payment_required(booking: dict[str, Any]) -> Decimal:
 
 
 def booking_initial_payment_verified(booking: dict[str, Any]) -> bool:
+    if str(booking.get("booking_channel") or "").strip().lower() == "airbnb":
+        return str(booking.get("booking_status") or "").strip().lower() in {
+            "confirmed", "checked in",
+        }
     return money(booking.get("amount_paid")) >= booking_initial_payment_required(booking)
 
 
@@ -4582,6 +4607,32 @@ def list_manual_airbnb_stays(
 
     client = service_client()
     stays = _active_airbnb_stays(client)
+    try:
+        booked_stays = rows(
+            client.table("airbnb_stays")
+            .select("id,check_in_date,check_out_date,guest_count,villa_ids,status,expires_at,created_at,booking_id")
+            .eq("status", "booked")
+            .execute()
+        )
+        booking_ids = [str(stay["booking_id"]) for stay in booked_stays if stay.get("booking_id")]
+        linked_bookings = rows(
+            client.table("bookings")
+            .select("id,booking_code,customer_name")
+            .in_("id", booking_ids)
+            .execute()
+        ) if booking_ids else []
+    except Exception as error:
+        logger.exception("Could not load Airbnb booking records.")
+        raise HTTPException(
+            status_code=503,
+            detail="Airbnb booking records could not be loaded. Please retry.",
+        ) from error
+    booking_by_id = {str(booking["id"]): booking for booking in linked_bookings}
+    stays.extend({
+        **stay,
+        "guest_name": booking_by_id.get(str(stay.get("booking_id")), {}).get("customer_name"),
+        "booking_code": booking_by_id.get(str(stay.get("booking_id")), {}).get("booking_code"),
+    } for stay in booked_stays)
     catalog_names = {
         str(villa["id"]): str(villa["title"])
         for villa in DEFAULT_VILLA_CATALOG
@@ -4698,26 +4749,141 @@ def create_manual_airbnb_stay_hold(
 @admin_router.post("/manual-bookings/airbnb-stays/{stay_id}/confirm")
 def confirm_manual_airbnb_stay(
     stay_id: UUID,
+    data: AirbnbStayConfirmRequest,
     context: dict[str, Any] = Depends(require_admin),
 ):
-    now = datetime.now(timezone.utc).isoformat()
-    saved = rows(
-        service_client().table("airbnb_stays")
-        .update({
-            "status": "confirmed",
-            "expires_at": None,
-            "updated_by_staff_id": str(context["account"]["id"]),
-            "updated_at": now,
-        })
-        .eq("id", str(stay_id))
-        .eq("status", "held")
-        .gt("expires_at", now)
+    from booking import _new_booking_code, _villa_operational
+    from booking_assignments import schedule_prearrival_assignment
+
+    client = service_client()
+    stay_rows = rows(
+        client.table("airbnb_stays")
         .select("*")
+        .eq("id", str(stay_id))
+        .limit(1)
         .execute()
     )
-    if not saved:
-        raise HTTPException(status_code=409, detail="This hold expired or was already handled. Check availability again.")
-    return {"message": "Airbnb stay confirmed and dates remain blocked.", "data": saved[0]}
+    if not stay_rows:
+        raise HTTPException(status_code=404, detail="The Airbnb hold was not found.")
+    stay = stay_rows[0]
+    if stay.get("status") == "booked" and stay.get("booking_id"):
+        booking_rows = rows(
+            client.table("bookings")
+            .select("*")
+            .eq("id", str(stay["booking_id"]))
+            .limit(1)
+            .execute()
+        )
+        if not booking_rows:
+            raise HTTPException(status_code=503, detail="The Airbnb booking record could not be loaded.")
+        booking = booking_rows[0]
+    else:
+        if stay.get("status") not in {"held", "confirmed"}:
+            raise HTTPException(status_code=409, detail="This hold is no longer available. Check availability again.")
+        if stay.get("status") == "held" and (
+            not stay.get("expires_at")
+            or datetime.fromisoformat(str(stay["expires_at"]).replace("Z", "+00:00"))
+            <= datetime.now(timezone.utc)
+        ):
+            raise HTTPException(status_code=409, detail="This hold expired. Check availability again.")
+
+        catalog = get_villa_catalog_map(client)
+        villa_ids = [str(villa_id) for villa_id in stay.get("villa_ids") or []]
+        selected_villas = [catalog.get(villa_id) for villa_id in villa_ids]
+        if not selected_villas or any(villa is None for villa in selected_villas):
+            raise HTTPException(status_code=409, detail="A selected villa is no longer available in the catalog.")
+
+        check_in = date.fromisoformat(str(stay["check_in_date"])[:10])
+        check_out = date.fromisoformat(str(stay["check_out_date"])[:10])
+        if any(
+            not _villa_operational(villa, check_in + timedelta(days=offset))
+            for villa in selected_villas
+            for offset in range((check_out - check_in).days)
+        ):
+            raise HTTPException(status_code=409, detail="A selected villa is no longer available for these dates.")
+
+        nights = (check_out - check_in).days
+        total_amount = sum(
+            (Decimal(str(villa["price"])) * nights for villa in selected_villas),
+            Decimal("0"),
+        ).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
+        now = datetime.now(timezone.utc).isoformat()
+        booking_id = str(uuid4())
+        booking = {
+            "id": booking_id,
+            "booking_code": _new_booking_code(),
+            "user_id": None,
+            "customer_name": data.guest_name,
+            "customer_email": str(data.guest_email).strip().lower() if data.guest_email else None,
+            "customer_phone": data.guest_phone,
+            "villa_id": villa_ids[0],
+            "villa_ids": villa_ids,
+            "villa_name": ", ".join(str(villa["name"]) for villa in selected_villas),
+            "villa_image": selected_villas[0].get("image"),
+            "check_in_date": check_in.isoformat(),
+            "check_out_date": check_out.isoformat(),
+            "check_in_time": "3:00 PM",
+            "guest_count": int(stay["guest_count"]),
+            "nights": nights,
+            "notes": "Airbnb reservation. Payment is handled through Airbnb and is not recorded in The Villa.",
+            "total_amount": float(total_amount),
+            "payment_choice": "full",
+            "payment_method": "Airbnb",
+            "payment_method_code": "airbnb",
+            "payment_environment": "external",
+            "payment_due_amount": 0,
+            "amount_paid": 0,
+            "balance_amount": 0,
+            "booking_status": "Confirmed",
+            "stay_status": "Not Checked In",
+            "payment_status": "External",
+            "payment_message": "Payment is handled through Airbnb and is not recorded in The Villa.",
+            "payment_last_checked_at": None,
+            "paymongo_status": "external",
+            "booking_channel": "airbnb",
+            "created_at": now,
+            "updated_at": now,
+        }
+        try:
+            result = client.rpc("confirm_airbnb_stay_booking", {
+                "p_stay_id": str(stay_id),
+                "p_booking": booking,
+                "p_actor_id": str(context["account"]["id"]),
+            }).execute()
+        except Exception as error:
+            message = str(error).lower()
+            if "conflict" in message or "expired" in message or "no longer available" in message:
+                raise HTTPException(
+                    status_code=409,
+                    detail="Those dates or villas are no longer available. Check availability again.",
+                ) from error
+            logger.exception("Could not convert the accepted Airbnb hold into a booking.")
+            raise HTTPException(
+                status_code=503,
+                detail="The Airbnb booking could not be saved. Please retry.",
+            ) from error
+        saved = getattr(result, "data", None)
+        if isinstance(saved, list):
+            saved = saved[0] if saved else None
+        if isinstance(saved, dict) and isinstance(saved.get("booking"), dict):
+            saved = saved["booking"]
+        if not isinstance(saved, dict):
+            raise HTTPException(status_code=503, detail="The Airbnb booking could not be confirmed. Please refresh and check the bookings list.")
+        booking = saved
+
+    try:
+        assignment = schedule_prearrival_assignment(booking, client)
+    except Exception:
+        logger.exception("Airbnb booking was saved but housekeeping assignment needs retry.")
+        assignment = {"status": "retry"}
+    assignment_status = assignment.get("status")
+    if assignment_status in {"assigned", "existing"}:
+        message = f"Airbnb booking {booking.get('booking_code')} was saved and housekeeping preparation is assigned."
+    elif assignment_status == "needs_staff":
+        message = f"Airbnb booking {booking.get('booking_code')} was saved. No suitable housekeeping shift is available yet; an administrator was notified."
+    else:
+        message = f"Airbnb booking {booking.get('booking_code')} was saved. Housekeeping assignment will be retried; please check the admin notifications."
+    return {"message": message, "data": booking, "assignment": assignment}
 
 
 @admin_router.post("/manual-bookings/airbnb-stays/{stay_id}/release")

@@ -1289,6 +1289,10 @@ function getAdminProfile() {
 }
 
 function normalizeBooking(booking) {
+  const bookingChannel = String(
+    booking.booking_channel || booking.bookingChannel || ""
+  ).toLowerCase();
+  const externalPayment = bookingChannel === "airbnb";
   const totalAmount = parseAmount(
     booking.total_amount ?? booking.totalAmount ?? booking.amount
   );
@@ -1321,7 +1325,7 @@ function normalizeBooking(booking) {
       ? storedDownpayment
       : Math.min(amountPaid, requiredDownpayment);
   const downpaymentVerified =
-    requiredDownpayment > 0 && amountPaid >= requiredDownpayment;
+    externalPayment || (requiredDownpayment > 0 && amountPaid >= requiredDownpayment);
 
   const rawHistory = Array.isArray(booking.payment_history)
     ? booking.payment_history
@@ -1364,8 +1368,9 @@ function normalizeBooking(booking) {
     status: payment.status || "",
   }));
 
-  const computedPaymentStatus =
-    balanceAmount <= 0 && amountPaid > 0
+  const computedPaymentStatus = externalPayment
+    ? "External (Airbnb)"
+    : balanceAmount <= 0 && amountPaid > 0
       ? "Paid"
       : paymentChoice === "half" && downpaymentVerified
       ? "50% Downpayment"
@@ -1460,6 +1465,7 @@ function normalizeBooking(booking) {
       booking.booked_at ||
       "",
     paymentStatus: computedPaymentStatus,
+    bookingChannel,
     paymentChoice,
     requiredDownpayment,
     downpaymentAmount,
@@ -4879,7 +4885,7 @@ Villas Under Maintenance
                     </div>}
                   </form>
                 )}
-                {(isCheckin || isCheckout) && <section className="admin-ops-section admin-ops-confirm"><span className="admin-ops-confirm-icon"><ShieldCheck size={26}/></span><h3>{isCheckin ? "Ready to welcome the guest?" : "Ready to complete the stay?"}</h3><p>{isCheckin ? "Confirm the guest's arrival and mark this reservation as checked in." : "This reservation is fully paid. Confirm departure to check out the guest and begin turnover."}</p>{isCheckin && selected.balanceAmount > 0 && settlementForm.paymentTiming === "check_out" && <p className="admin-ops-deferred">Remaining {formatPeso(selected.balanceAmount)} scheduled for check-out.</p>}</section>}
+                {(isCheckin || isCheckout) && <section className="admin-ops-section admin-ops-confirm"><span className="admin-ops-confirm-icon"><ShieldCheck size={26}/></span><h3>{isCheckin ? "Ready to welcome the guest?" : "Ready to complete the stay?"}</h3><p>{isCheckin ? "Confirm the guest's arrival and mark this reservation as checked in." : selected.bookingChannel === "airbnb" ? "Payment is handled by Airbnb and is not tracked here. Confirm departure to check out the guest and begin turnover." : "This reservation is fully paid. Confirm departure to check out the guest and begin turnover."}</p>{isCheckin && selected.balanceAmount > 0 && settlementForm.paymentTiming === "check_out" && <p className="admin-ops-deferred">Remaining {formatPeso(selected.balanceAmount)} scheduled for check-out.</p>}</section>}
               </>
             )}
             {settlementError && operationsMode !== "queue" && <div className="admin-ops-error" role="alert"><AlertCircle size={17}/>{formatUserFacingMessage(settlementError)}</div>}
@@ -7878,12 +7884,12 @@ Villas Under Maintenance
                   </div>
                   <div>
                     <dt>Amount paid</dt>
-                    <dd>{formatPeso(selectedBooking.amountPaid)}</dd>
+                    <dd>{selectedBooking.bookingChannel === "airbnb" ? "Not recorded" : formatPeso(selectedBooking.amountPaid)}</dd>
                   </div>
                   <div>
                     <dt>Remaining balance</dt>
                     <dd className={selectedBooking.balanceAmount > 0 ? "balance-due" : "balance-paid"}>
-                      {formatPeso(selectedBooking.balanceAmount)}
+                      {selectedBooking.bookingChannel === "airbnb" ? "Managed by Airbnb" : formatPeso(selectedBooking.balanceAmount)}
                     </dd>
                   </div>
                 </dl>

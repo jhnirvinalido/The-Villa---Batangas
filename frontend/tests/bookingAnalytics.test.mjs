@@ -61,6 +61,19 @@ test('cancelled or refunded reservations do not count as collected revenue',()=>
   assert.equal(data.totalRevenue,0);
 });
 
+test('Airbnb bookings reserve occupancy but never appear as unpaid or Villa revenue',()=>{
+  const airbnb={...reservation,id:'airbnb',bookingChannel:'airbnb',amountPaid:0,totalAmount:5000,
+    paymentStatus:'External',paymentHistory:[{id:'airbnb-online',amount:5000,processedAt:'2026-10-01',status:'paid'}]};
+  const data=bookingAnalytics([airbnb],villas,2026,[
+    {id:'airbnb-cash',bookingId:'airbnb',amount:200,processedAt:'2026-10-04',status:'Completed'},
+  ]);
+  assert.equal(data.bookingStatus.Confirmed,1);
+  assert.deepEqual(data.paymentStatus,{Paid:0,Partial:0,Unpaid:0});
+  assert.equal(data.totalRevenue,0);
+  assert.equal(data.monthlyBookings[9],1);
+  assert.equal(data.villaChart.find(v=>v.name==='Villa 1').value,1);
+});
+
 test('booking total is defined and cancelled bookings do not inflate pending payments',()=>{
   const data=bookingAnalytics([
     reservation,

@@ -44,20 +44,23 @@ def _money(value):
 
 
 def booking_ready(booking, now=None):
-    """A saved Confirmed booking with the required payment; never a draft."""
+    """A saved confirmed booking with payment or an external Airbnb channel."""
     now = now or datetime.now(MANILA)
     if str(booking.get("booking_status") or "").strip().lower() != "confirmed":
         return False
+    airbnb_booking = str(booking.get("booking_channel") or "").strip().lower() == "airbnb"
     if str(booking.get("stay_status") or "").strip().lower() in {
         "checked in", "checked out", "completed", "cancelled", "canceled",
     }:
         return False
-    if str(booking.get("payment_status") or "").strip().lower() not in {"paid", "partial"}:
+    if not airbnb_booking and str(booking.get("payment_status") or "").strip().lower() not in {"paid", "partial"}:
         return False
     try:
         total, paid = _money(booking.get("total_amount")), _money(booking.get("amount_paid"))
-        required = total if str(booking.get("payment_choice") or "half").lower() == "full" else (total / 2).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
         check_in = date.fromisoformat(str(booking.get("check_in_date"))[:10])
+        if airbnb_booking:
+            return bool(booking.get("id")) and total > 0 and check_in >= now.astimezone(MANILA).date()
+        required = total if str(booking.get("payment_choice") or "half").lower() == "full" else (total / 2).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
         return bool(booking.get("id")) and total > 0 and paid >= required and check_in >= now.astimezone(MANILA).date()
     except (InvalidOperation, ValueError, TypeError):
         return False

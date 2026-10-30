@@ -45,10 +45,11 @@ export function bookingAnalytics(bookings, villas, year, frontDeskPayments = [])
       Number(b.refundedAmount || b.refunded_amount || 0) > 0;
     const confirmed = !cancelled && /confirm|checked|complet/.test(status);
     const ids = [...new Set(b.villaIds?.length ? b.villaIds : [b.villaName])];
-    bookingDetails.set(String(b.id), {ids, cancelled});
+    const external = String(b.bookingChannel ?? b.booking_channel ?? '').toLowerCase() === 'airbnb';
+    bookingDetails.set(String(b.id), {ids, cancelled, external});
     // Payments are dated by receipt, not by the reservation's future stay date.
     for (const p of b.paymentHistory || []) {
-      if (!cancelled) recordPayment(p, `booking:${b.id}:${p.id}`, ids);
+      if (!cancelled && !external) recordPayment(p, `booking:${b.id}:${p.id}`, ids);
     }
     if (confirmed && Number.isFinite(checkIn) && Number.isFinite(checkOut)) {
       for (let day=Math.max(start,checkIn); day<Math.min(end,checkOut); day++) {
@@ -59,7 +60,7 @@ export function bookingAnalytics(bookings, villas, year, frontDeskPayments = [])
     const bucket = cancelled ? 'Cancelled' : /checked.?in/.test(status) ? 'Checked In'
       : /complet|checked.?out/.test(status) ? 'Completed' : confirmed ? 'Confirmed' : 'Pending';
     bookingStatus[bucket]++;
-    if (!cancelled) {
+    if (!cancelled && String(b.bookingChannel ?? b.booking_channel ?? '').toLowerCase() !== 'airbnb') {
       const paid = Number(b.amountPaid)||0, total=Number(b.totalAmount)||0;
       paymentStatus[paid>0 && total>0 && paid>=total ? 'Paid' : paid>0 ? 'Partial' : 'Unpaid']++;
     }
@@ -79,7 +80,7 @@ export function bookingAnalytics(bookings, villas, year, frontDeskPayments = [])
   for (const payment of frontDeskPayments) {
     const bookingId = payment.bookingId ?? payment.booking_id;
     const booking = bookingDetails.get(String(bookingId));
-    if (!booking?.cancelled) {
+    if (!booking?.cancelled && !booking?.external) {
       recordPayment(payment, `front-desk:${payment.id}`, booking?.ids || []);
     }
   }

@@ -17,18 +17,29 @@ Reference: https://www.airbnb.com/help/article/99
 
 ## Approval flow
 
+Apply `backend/migrations/20261030_airbnb_stay_holds.sql` and then
+`backend/migrations/20261030_airbnb_stay_to_booking.sql` before using this
+workflow.
+
 1. Open **Check Airbnb dates** on the Manual Booking page and enter the
    check-in date and guest count. The checker uses the standard 21-hour stay:
    3:00 PM check-in and 12:00 PM checkout the next day. Only proceed when The
    Villa calendar shows enough availability.
 2. Select the Villa(s) and create a 10-minute hold. This reserves the chosen
    dates inside The Villa while the admin accepts the request on Airbnb.
-3. After accepting it on Airbnb, confirm the hold in The Villa. The confirmed
-   Airbnb stay remains a separate record and blocks those dates; it is not a
-   regular paid manual booking.
-4. If the Airbnb request is not accepted or the stay is cancelled, release the
-   hold/stay in The Villa. Unconfirmed holds expire automatically.
-5. Airbnb approval still happens on Airbnb. This system does not import Airbnb
+3. After accepting it on Airbnb, confirm the hold in The Villa and enter the
+   guest's name. Contact details are optional. Confirmation atomically turns
+   the hold into a normal confirmed booking, so the booking blocks dates and
+   appears in booking operations.
+4. Housekeeping preparation is assigned through the normal workflow. The
+   Airbnb payment remains external: The Villa records no payment, balance, or
+   Airbnb payout. The booking's The Villa catalog price is an internal
+   reference only, not the amount Airbnb charged or paid out; exclude Airbnb
+   stays from payment and revenue reporting.
+5. If the Airbnb request is not accepted, release the hold in The Villa or let
+   its 10-minute expiry clear it. A saved Airbnb booking is no longer a hold;
+   do not use **Release** on an accepted stay.
+6. Airbnb approval still happens on Airbnb. This system does not import Airbnb
    guest details, reservations, reviews, or calendar changes.
 
 ## Feedback for an Airbnb guest

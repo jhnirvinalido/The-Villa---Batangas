@@ -123,6 +123,22 @@ class BookingAssignmentsTests(unittest.TestCase):
         self.assertTrue(booking_ready(self.row, NOW))
         self.assertTrue(booking_ready({**self.row, "payment_choice":"full", "amount_paid":5000, "payment_status":"Paid"}, NOW))
 
+    def test_confirmed_airbnb_booking_is_assignable_without_recording_payment(self):
+        airbnb = booking()
+        airbnb.update(
+            payment_status="External",
+            booking_channel="airbnb",
+            amount_paid=0,
+            balance_amount=0,
+        )
+        self.db.data["bookings"] = [airbnb]
+        self.row = airbnb
+
+        self.assertTrue(booking_ready(airbnb, NOW))
+        self.assertEqual(self.assign()["status"], "assigned")
+        self.assertEqual(self.db.data["admin_tasks"][0]["booking_id"], airbnb["id"])
+        self.assertEqual(airbnb["amount_paid"], 0)
+
     def test_assignment_is_linked_ready_before_arrival_and_notifies_both_roles(self):
         result = self.assign()
         self.assertEqual(result["status"], "assigned")
