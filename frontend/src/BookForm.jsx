@@ -1375,11 +1375,19 @@ export default function BookForm() {
       if (emailVerification.sentEmail === email) {
         const verified = await verifyEmailCode();
         if (verified) {
-          runStepTransition(4, "Email verified. Preparing your reservation and payment details…");
+          if (!selectionValid) {
+            setMessage("Your villa selection is no longer available. Go back and choose an available villa.");
+          } else {
+            runStepTransition(4, "Email verified. Preparing your reservation and payment details…");
+          }
         }
       } else {
         await sendEmailVerificationCode(email);
       }
+      return;
+    }
+    if (!selectionValid) {
+      setMessage("Your villa selection is no longer available. Go back and choose an available villa.");
       return;
     }
     runStepTransition(4, "Preparing your reservation and payment details…");
@@ -1542,6 +1550,9 @@ export default function BookForm() {
 
   async function confirmBooking() {
     if (!selectionValid || loading) {
+      if (!selectionValid) {
+        setMessage("Your villa selection is no longer available. Go back and choose an available villa.");
+      }
       return;
     }
 
@@ -2783,7 +2794,6 @@ export default function BookForm() {
                   continueFromPersonalInfo
                 }
                 disabled={
-                  !selectionValid ||
                   availabilityLoading ||
                   stepTransition.active || loading || emailVerificationBusy ||
                   (emailVerification.sentEmail === form.email.trim().toLowerCase() &&
@@ -2827,7 +2837,7 @@ export default function BookForm() {
       </section>
 
       <MessageModal
-        message={message}
+        message={emailVerification.error ? "" : message}
         onClose={() =>
           setMessage("")
         }
