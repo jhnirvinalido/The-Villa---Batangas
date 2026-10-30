@@ -2,6 +2,7 @@ import { AlertMessage } from "./SystemFeedback";
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import useLiveUpdates from "./useLiveUpdates";
 import { formatUserFacingMessage, getUserFacingError } from "./errorMessages.mjs";
+import { dismissFeedback } from "./requestFeedback.mjs";
 import {
   CalendarDays,
   Check,
@@ -171,6 +172,11 @@ export default function ManualBooking({ apiRequest, onViewBookings, onBookingCre
   const [error, setError] = useState("");
   const [copyNotice, setCopyNotice] = useState("");
 
+  const showAirbnbError = (message) => {
+    dismissFeedback(formatUserFacingMessage(message));
+    setAirbnbError(message);
+  };
+
   const refreshAirbnbStays = useCallback(async () => {
     setAirbnbStaysLoading(true);
     try {
@@ -178,7 +184,7 @@ export default function ManualBooking({ apiRequest, onViewBookings, onBookingCre
       setAirbnbStays(response?.data || []);
       setAirbnbError("");
     } catch (requestError) {
-      setAirbnbError(getUserFacingError(requestError, "Airbnb stay records could not be loaded."));
+      showAirbnbError(getUserFacingError(requestError, "Airbnb stay records could not be loaded."));
     } finally {
       setAirbnbStaysLoading(false);
     }
@@ -233,7 +239,7 @@ export default function ManualBooking({ apiRequest, onViewBookings, onBookingCre
     if (!airbnbCheck.check_in_date ||
         airbnbCheck.check_in_date < manilaToday() ||
         !Number.isInteger(guests) || guests < 1 || guests > 32) {
-      setAirbnbError("Enter a valid future check-in date and 1–32 guests.");
+      showAirbnbError("Enter a valid future check-in date and 1–32 guests.");
       return;
     }
     const checkOutDate = nextCalendarDate(airbnbCheck.check_in_date);
@@ -248,7 +254,7 @@ export default function ManualBooking({ apiRequest, onViewBookings, onBookingCre
         `/admin/manual-bookings/airbnb-availability?${params.toString()}`
       ));
     } catch (requestError) {
-      setAirbnbError(getUserFacingError(requestError, "Unable to check availability for this stay."));
+      showAirbnbError(getUserFacingError(requestError, "Unable to check availability for this stay."));
     } finally {
       setAirbnbChecking(false);
     }
@@ -262,7 +268,7 @@ export default function ManualBooking({ apiRequest, onViewBookings, onBookingCre
     ) || [];
     const selectedCapacity = selectedVillas.reduce((total, villa) => total + Number(villa.capacity || 0), 0);
     if (!selectedVillas.length || selectedCapacity < Number(airbnbCheck.guest_count)) {
-      setAirbnbError("Select available villa(s) with enough combined guest capacity.");
+      showAirbnbError("Select available villa(s) with enough combined guest capacity.");
       return;
     }
     setAirbnbSaving("create");
@@ -281,7 +287,7 @@ export default function ManualBooking({ apiRequest, onViewBookings, onBookingCre
       setSelectedAirbnbVillaIds([]);
       await refreshAirbnbStays();
     } catch (requestError) {
-      setAirbnbError(getUserFacingError(requestError, "The Airbnb availability hold could not be created."));
+      showAirbnbError(getUserFacingError(requestError, "The Airbnb availability hold could not be created."));
     } finally {
       setAirbnbSaving("");
     }
@@ -303,7 +309,7 @@ export default function ManualBooking({ apiRequest, onViewBookings, onBookingCre
       setAirbnbNotice(result?.message || "Airbnb stay updated.");
       await refreshAirbnbStays();
     } catch (requestError) {
-      setAirbnbError(getUserFacingError(requestError, "The Airbnb stay could not be updated."));
+      showAirbnbError(getUserFacingError(requestError, "The Airbnb stay could not be updated."));
     } finally {
       setAirbnbSaving("");
     }
@@ -312,7 +318,7 @@ export default function ManualBooking({ apiRequest, onViewBookings, onBookingCre
   async function saveAirbnbBooking(stay) {
     const guestName = airbnbGuestForm.guest_name.trim();
     if (!guestName) {
-      setAirbnbError("Enter the Airbnb guest's name to save this booking.");
+      showAirbnbError("Enter the Airbnb guest's name to save this booking.");
       return;
     }
     setAirbnbError("");
@@ -335,7 +341,7 @@ export default function ManualBooking({ apiRequest, onViewBookings, onBookingCre
       setAirbnbNotice(result?.message || "Airbnb booking saved. Housekeeping preparation will be assigned.");
       await refreshAirbnbStays();
     } catch (requestError) {
-      setAirbnbError(getUserFacingError(requestError, "The Airbnb booking could not be saved."));
+      showAirbnbError(getUserFacingError(requestError, "The Airbnb booking could not be saved."));
     } finally {
       setAirbnbSaving("");
     }

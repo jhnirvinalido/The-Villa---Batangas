@@ -42,6 +42,12 @@ export default function SystemFeedback() {
     const listener = event => {
       if (event.detail.kind === 'pending') setPending(event.detail.count);
       else if (event.detail.kind === 'alert') setAlert(event.detail);
+      else if (event.detail.kind === 'dismiss-alert') {
+        setAlert(current => current &&
+          formatUserFacingMessage(current.message) === formatUserFacingMessage(event.detail.message)
+          ? null
+          : current);
+      }
     };
     window.addEventListener('villa:feedback', listener);
     return () => window.removeEventListener('villa:feedback', listener);

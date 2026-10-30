@@ -14,6 +14,7 @@ export function tracksAction(url, options = {}) {
 }
 export function activeRequests() { return pending.size; }
 export function reportFeedback(message, type = 'error') { emit({ kind: 'alert', message, type }); }
+export function dismissFeedback(message) { emit({ kind: 'dismiss-alert', message }); }
 export async function feedbackFetch(url, options = {}) {
   const tracked = tracksAction(url, options);
   const id = ++sequence;
