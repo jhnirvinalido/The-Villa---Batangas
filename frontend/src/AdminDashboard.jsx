@@ -2042,7 +2042,7 @@ function VillaAnalyticsCharts({ analytics }) {
         {data:Object.values(analytics.paymentStatus),backgroundColor:['#5b9c77','#d6a45d','#c66c62']}
       ]}, options:{...options, scales:{r:{beginAtZero:true,ticks:{precision:0}}}}}),
       new Chart(canvasRefs.current[4], {type:'doughnut', data:{labels:Object.keys(analytics.bookingChannel), datasets:[
-        {data:Object.values(analytics.bookingChannel),backgroundColor:['#e17b52','#4b8f82']}
+        {data:Object.values(analytics.bookingChannel),backgroundColor:['#e17b52','#d7a64b','#4b8f82']}
       ]}, options}),
       new Chart(canvasRefs.current[5], {type:'bar', data:{labels:Object.keys(analytics.assignmentProgress), datasets:[
         {label:'Staff assignments',data:Object.values(analytics.assignmentProgress),backgroundColor:['#d7a64b','#4b8f82','#5c88b0','#c66c62','#8067a5']}
@@ -5042,7 +5042,7 @@ Villas Under Maintenance
                     <article className="admin-ops-queue-row" key={booking.id}>
                       <Avatar name={booking.guestName} size={42}/>
                       <div className="admin-ops-guest"><strong>{booking.guestName}</strong><span>{booking.bookingCode} · {booking.villaName}</span><small>{formatDate(booking.checkIn)} – {formatDate(booking.checkOut)}</small></div>
-                      <div className="admin-ops-queue-status"><StatusPill status="Checked In"/><small>{booking.bookingChannel === "airbnb" ? "Paid in Airbnb" : `${formatPeso(booking.balanceAmount)} due`}</small></div>
+                      <div className="admin-ops-queue-status"><StatusPill status="Checked In"/><small>{booking.bookingChannel === "airbnb" ? airbnbPaymentLabel(booking) : `${formatPeso(booking.balanceAmount)} due`}</small></div>
                       <button type="button" className="admin-btn-primary" onClick={() => startBookingOperation(booking)}>{getBookingOperation(booking) === "payment" ? "Pay" : getBookingOperation(booking) === "checkin" ? "Check In" : "Check Out"}<ChevronRight size={16}/></button>
                     </article>
                   ))}
@@ -5059,8 +5059,8 @@ Villas Under Maintenance
                     <div><small>Check In</small><strong>{formatDate(selected.checkIn)}</strong></div>
                     <div><small>Check Out</small><strong>{formatDate(selected.checkOut)}</strong></div>
                     <div><small>Guests</small><strong>{selected.guestCount || 1}</strong></div>
-                    <div><small>Amount paid</small><strong>{selected.bookingChannel === "airbnb" ? "Paid in Airbnb" : formatPeso(selected.amountPaid)}</strong></div>
-                    <div><small>{selected.bookingChannel === "airbnb" ? "Payment" : "Balance due"}</small><strong>{selected.bookingChannel === "airbnb" ? "Paid in Airbnb" : formatPeso(selected.balanceAmount)}</strong></div>
+                    <div><small>{selected.bookingChannel === "airbnb" ? "Payment" : "Amount paid"}</small><strong>{selected.bookingChannel === "airbnb" ? airbnbPaymentLabel(selected) : formatPeso(selected.amountPaid)}</strong></div>
+                    <div><small>{selected.bookingChannel === "airbnb" ? "Payment record" : "Balance due"}</small><strong>{selected.bookingChannel === "airbnb" ? airbnbPaymentLabel(selected) : formatPeso(selected.balanceAmount)}</strong></div>
                   </div>
                 </div>
                 {isPayment && operationsStage === "timing" && (
@@ -5201,7 +5201,7 @@ Villas Under Maintenance
                         <StatusPill status={booking.paymentStatus} />
                       </td>
                       <td>
-                        <strong>{booking.bookingChannel === "airbnb" ? "Paid in Airbnb" : formatPeso(booking.balanceAmount)}</strong>
+                        <strong>{booking.bookingChannel === "airbnb" ? airbnbPaymentLabel(booking) : formatPeso(booking.balanceAmount)}</strong>
                       </td>
                       <td>
                         <strong>{bookingAssignments.length}</strong>
@@ -5998,7 +5998,7 @@ Villas Under Maintenance
                         </div>
                         <div>
                           <span>{selected.bookingChannel === "airbnb" ? "Payment" : "Already Paid"}</span>
-                          <strong>{selected.bookingChannel === "airbnb" ? "Paid in Airbnb" : formatPeso(selected.amountPaid)}</strong>
+                          <strong>{selected.bookingChannel === "airbnb" ? airbnbPaymentLabel(selected) : formatPeso(selected.amountPaid)}</strong>
                         </div>
                         <div>
                           <span>Payment Status</span>
@@ -6008,7 +6008,7 @@ Villas Under Maintenance
 
                       <div className="admin-fd-v2-remaining">
                         <span>{selected.bookingChannel === "airbnb" ? "Payment" : "Remaining Balance"}</span>
-                        <strong>{selected.bookingChannel === "airbnb" ? "Paid in Airbnb" : formatPeso(selected.balanceAmount)}</strong>
+                        <strong>{selected.bookingChannel === "airbnb" ? airbnbPaymentLabel(selected) : formatPeso(selected.balanceAmount)}</strong>
                       </div>
                     </section>
 
@@ -8096,8 +8096,8 @@ Villas Under Maintenance
                     <dd>{selectedBooking.paymentReference || "Not recorded"}</dd>
                   </div>
                   <div>
-                    <dt>Amount paid</dt>
-                    <dd>{selectedBooking.bookingChannel === "airbnb" ? "Paid in Airbnb" : formatPeso(selectedBooking.amountPaid)}</dd>
+                    <dt>{selectedBooking.bookingChannel === "airbnb" ? "Airbnb payment status" : "Amount paid"}</dt>
+                    <dd>{selectedBooking.bookingChannel === "airbnb" ? airbnbPaymentLabel(selectedBooking) : formatPeso(selectedBooking.amountPaid)}</dd>
                   </div>
                   <div>
                     <dt>Remaining balance</dt>
