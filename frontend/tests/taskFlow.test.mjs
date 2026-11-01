@@ -51,18 +51,32 @@ test('returned feedback is visible only while corrections are in progress',async
   assert.equal(returnedFeedback({...task,status:'Pending Review'}),'');
 });
 
-test('staff queue keeps review and history separate from actionable work',async()=>{
+test('my work includes completed and review assignments while retaining focused queues',async()=>{
   const {filterTaskQueue}=await import('../src/taskFlow.mjs');
   const tasks=['Pending','In Progress','Pending Review','Completed','Cancelled'].map((status,id)=>({id,status}));
-  assert.deepEqual(filterTaskQueue(tasks,{},now).map(t=>t.status),['In Progress','Pending']);
+  assert.deepEqual(filterTaskQueue(tasks,{},now).map(t=>t.status),['In Progress','Pending','Pending Review','Completed']);
+  assert.deepEqual(filterTaskQueue(tasks,{focus:'To do'},now).map(t=>t.status),['Pending']);
   assert.deepEqual(filterTaskQueue(tasks,{view:'In review'},now).map(t=>t.status),['Pending Review']);
   assert.deepEqual(filterTaskQueue(tasks,{view:'History'},now).map(t=>t.status),['Completed','Cancelled']);
+});
+test('checklist edits require an explicit task start', async()=>{
+  const {canEditTaskChecklist}=await import('../src/taskFlow.mjs');
+  for (const status of ['Pending','Pending Review','Completed','Cancelled']) {
+    assert.equal(canEditTaskChecklist({status}),false);
+  }
+  assert.equal(canEditTaskChecklist({status:'In Progress'}),true);
+});
+test('all work includes overdue active assignments',async()=>{
+  const {filterTaskQueue}=await import('../src/taskFlow.mjs');
+  const overdue={id:'overdue',status:'Pending',dueDate:'2026-10-20',dueTime:'10:00'};
+  assert.deepEqual(filterTaskQueue([overdue],{focus:'All work'},now).map(task=>task.id),['overdue']);
+  assert.deepEqual(filterTaskQueue([overdue],{focus:'To do'},now),[]);
 });
 test('calendar task list includes every assignment for the selected date except cancelled',async()=>{
   const {filterTaskQueue}=await import('../src/taskFlow.mjs');
   const tasks=['Pending','In Progress','Pending Review','Completed','Cancelled'].map((status,id)=>({id,status,dueDate:'2026-10-30'}));
   assert.deepEqual(
-    filterTaskQueue(tasks,{view:'Schedule'}).filter(task=>task.dueDate==='2026-10-30').map(task=>task.status),
+    filterTaskQueue(tasks,{view:'Schedule'},Date.parse('2026-10-20T12:00:00+08:00')).filter(task=>task.dueDate==='2026-10-30').map(task=>task.status),
     ['In Progress','Pending','Pending Review','Completed']
   );
 });

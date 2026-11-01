@@ -2,7 +2,7 @@ import { ConfirmAction } from "./SystemFeedback";
 import BookingPreparationContext from "./BookingPreparationContext";
 import { useEffect, useRef, useState } from 'react';
 import { Check, CheckCircle2, Clock3, X } from 'lucide-react';
-import { canStartTask, checklistCount, dateLabel, isLate, readyForReview, returnedFeedback, setChecklistDone, setChecklistItemDone, timeLabel } from './taskFlow.mjs';
+import { canEditTaskChecklist, canStartTask, checklistCount, dateLabel, isLate, readyForReview, returnedFeedback, setChecklistDone, setChecklistItemDone, timeLabel } from './taskFlow.mjs';
 import { formatUserFacingMessage, getUserFacingError } from './errorMessages.mjs';
 
 export default function StaffTaskWorkspace({ task, busy, update, close }) {
@@ -54,7 +54,7 @@ export default function StaffTaskWorkspace({ task, busy, update, close }) {
     close();
   }
   function saveChecklist(nextChecklist, itemIds) {
-    if (busy || readonly || (task.status === 'Pending' && !canStart)) return;
+    if (busy || !canEditTaskChecklist(task)) return;
     checklistDraftRef.current = nextChecklist;
     setChecklistDraft(nextChecklist);
     setError('');
@@ -65,7 +65,7 @@ export default function StaffTaskWorkspace({ task, busy, update, close }) {
     checklistSavingIdsRef.current = pending;
     setChecklistSavingIds(pending);
 
-    const status = task.status === 'Pending' ? 'In Progress' : task.status;
+    const status = task.status;
     const request = checklistQueue.current
       .catch(() => {})
       .then(() => update(task.id,{checklist:nextChecklist,status},undefined,undefined,{checklistOnly:true}));
@@ -109,7 +109,24 @@ export default function StaffTaskWorkspace({ task, busy, update, close }) {
       {task.status!=='Cancelled' && <ol className="work-lifecycle">{[task.maintenanceOnCall ? 'Start repair' : 'Start preparation','Complete checklist','Submit for review','Admin approved'].map((label,index)=><li key={label} className={(index===0 && task.status!=='Pending') || (index===1 && count.total>0 && count.done===count.total) || (index===2 && ['Pending Review','Completed'].includes(task.status)) || (index===3 && task.status==='Completed') ? 'complete' : ''}><span>{index+1}</span>{label}</li>)}</ol>}
       {returnedFeedback(task) && <div className="work-feedback"><strong>Changes requested by your administrator</strong><p>{returnedFeedback(task)}</p></div>}
       <section className="work-instructions"><h3>What needs to be done</h3><p>{task.description}</p></section>
-      <section className="work-checklist"><div className="work-section-title"><h3>Steps to complete</h3><span>{count.done} of {count.total}</span></div>{count.total>0 && <label className="work-checklist-select-all"><input type="checkbox" checked={allChecklistDone} disabled={readonly || busy || checklistSavingIds.size>0 || (task.status==='Pending' && !canStart)} onChange={toggleAllChecklist}/><span>Check all steps</span></label>}<progress value={count.done} max={count.total || 1}/>{checklist.map(item=><label key={item.id} className={item.done?'checked':''}><input type="checkbox" checked={item.done} disabled={readonly || busy || checklistSavingIds.has(item.id) || (task.status==='Pending' && !canStart)} onChange={()=>toggleChecklistItem(item.id)}/><span>{item.label}</span>{checklistSavingIds.has(item.id)?<span className="work-checklist-saving">Saving…</span>:item.done && <Check size={16}/>}</label>)}{!count.total && <p className="work-context">This task has no completion steps. Ask your administrator to add them before submitting.</p>}{task.status==='Pending' && <p className="work-context">{canStart?'Start the task below, or check your first completed step to start automatically.':startMessage}</p>}</section>
+      <section className="work-checklist" aria-labelledby="work-checklist-title">
+        <div className="work-checklist-heading">
+          <div className="work-section-title"><h3 id="work-checklist-title">Steps to complete</h3><span aria-live="polite">{count.done} of {count.total}</span></div>
+          {count.total > 0 && <label className="work-checklist-select-all">
+            <input type="checkbox" checked={allChecklistDone}
+              ref={element => { if (element) element.indeterminate = count.done > 0 && !allChecklistDone; }}
+              disabled={!canEditTaskChecklist(task) || busy || checklistSavingIds.size > 0} onChange={toggleAllChecklist}/>
+            <span>Mark all complete</span>
+          </label>}
+        </div>
+        <progress aria-label="Checklist completion" value={count.done} max={count.total || 1}/>
+        <div className="work-checklist-items">{checklist.map(item => <label key={item.id} className={item.done ? 'checked' : ''}>
+          <input type="checkbox" checked={item.done} disabled={!canEditTaskChecklist(task) || busy || checklistSavingIds.has(item.id)} onChange={() => toggleChecklistItem(item.id)}/>
+          <span>{item.label}</span>{checklistSavingIds.has(item.id) ? <span className="work-checklist-saving">Saving…</span> : item.done && <Check size={16}/>}
+        </label>)}</div>
+        {!count.total && <p className="work-context">This task has no completion steps. Ask your administrator to add them before submitting.</p>}
+        {task.status === 'Pending' && <p className="work-context">{canStart ? 'Select Start task below before completing the checklist.' : startMessage}</p>}
+      </section>
       <section className="work-handover"><label htmlFor="work-notes">Notes & handover</label><textarea id="work-notes" rows={4} maxLength={5000} value={notes} onChange={e=>{setNotes(e.target.value);setSaved(false);}} disabled={readonly || busy}/>{!readonly && <button className="staff-btn-ghost" disabled={!changed || busy} onClick={()=>commit({notes})}>Save notes</button>}</section>
       {task.statusHistory?.length>0 && <details className="work-activity"><summary>Activity history</summary>{[...task.statusHistory].reverse().map((entry,index)=><div key={entry.id || index}><strong>{entry.status}</strong><p>{entry.note}</p><small>{entry.timestamp ? new Date(entry.timestamp).toLocaleString('en-PH') : ''}</small></div>)}</details>}
     </div>

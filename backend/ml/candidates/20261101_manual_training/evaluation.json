@@ -1,0 +1,1527 @@
+{
+  "dataset_file": "THE_VILLA_HUMAN_APPROVED_MODEL_INPUT_232.csv",
+  "dataset_sha256": "fc77f3514af33846940d688b9f4cee44ca1208315d66ebd72e31e4c012d7bf89",
+  "dataset_rows": 232,
+  "review_groups": 66,
+  "class_distribution": {
+    "positive": 100,
+    "negative": 113,
+    "neutral": 19
+  },
+  "empirical_class_priors": {
+    "negative": 0.4870689655172414,
+    "neutral": 0.08189655172413793,
+    "positive": 0.43103448275862066
+  },
+  "annotation_status_counts": {
+    "human-approved": 232
+  },
+  "label_source": "human-approved labels explicitly marked in annotation status",
+  "evaluation": {
+    "method": "3-fold grouped out-of-fold evaluation",
+    "seed": 42,
+    "analyzer": "word",
+    "configuration": {
+      "analyzer": "word",
+      "word_ngram_range": [
+        1,
+        2
+      ],
+      "char_ngram_range": [
+        3,
+        5
+      ],
+      "alpha": 1.0,
+      "class_prior_adjustment": {
+        "neutral": 1.0
+      },
+      "neutral_oversample": 1
+    },
+    "fold_sizes": [
+      {
+        "train": 165,
+        "test": 67,
+        "test_groups": [
+          "airbnb-1",
+          "airbnb-10",
+          "airbnb-18",
+          "airbnb-24",
+          "airbnb-9",
+          "docx-google-004",
+          "docx-google-005",
+          "docx-google-008",
+          "docx-google-010",
+          "docx-google-012",
+          "docx-google-015",
+          "docx-google-017",
+          "docx-google-020",
+          "docx-google-021",
+          "docx-google-028",
+          "docx-google-030",
+          "docx-google-033",
+          "docx-google-034",
+          "docx-google-035",
+          "docx-google-038",
+          "docx-google-039",
+          "docx-google-041"
+        ]
+      },
+      {
+        "train": 151,
+        "test": 81,
+        "test_groups": [
+          "airbnb-11",
+          "airbnb-12",
+          "airbnb-14",
+          "airbnb-17",
+          "airbnb-2",
+          "airbnb-21",
+          "airbnb-22",
+          "airbnb-23",
+          "airbnb-26",
+          "airbnb-8",
+          "docx-google-002",
+          "docx-google-006",
+          "docx-google-007",
+          "docx-google-009",
+          "docx-google-011",
+          "docx-google-018",
+          "docx-google-019",
+          "docx-google-022",
+          "docx-google-023",
+          "docx-google-024",
+          "docx-google-026",
+          "docx-google-027"
+        ]
+      },
+      {
+        "train": 148,
+        "test": 84,
+        "test_groups": [
+          "airbnb-13",
+          "airbnb-15",
+          "airbnb-16",
+          "airbnb-19",
+          "airbnb-20",
+          "airbnb-25",
+          "airbnb-3",
+          "airbnb-5",
+          "airbnb-6",
+          "airbnb-7",
+          "docx-google-001",
+          "docx-google-003",
+          "docx-google-013",
+          "docx-google-014",
+          "docx-google-016",
+          "docx-google-025",
+          "docx-google-029",
+          "docx-google-031",
+          "docx-google-032",
+          "docx-google-036",
+          "docx-google-037",
+          "docx-google-040"
+        ]
+      }
+    ],
+    "model": {
+      "accuracy": 0.7198275862068966,
+      "macro_f1": 0.49934327226442426,
+      "per_class": {
+        "negative": {
+          "precision": 0.7301587301587301,
+          "recall": 0.8141592920353983,
+          "f1": 0.7698744769874477,
+          "support": 113
+        },
+        "neutral": {
+          "precision": 0,
+          "recall": 0.0,
+          "f1": 0,
+          "support": 19
+        },
+        "positive": {
+          "precision": 0.7075471698113207,
+          "recall": 0.75,
+          "f1": 0.7281553398058253,
+          "support": 100
+        }
+      },
+      "confusion_matrix": {
+        "negative": {
+          "negative": 92,
+          "neutral": 0,
+          "positive": 21
+        },
+        "neutral": {
+          "negative": 9,
+          "neutral": 0,
+          "positive": 10
+        },
+        "positive": {
+          "negative": 25,
+          "neutral": 0,
+          "positive": 75
+        }
+      }
+    },
+    "majority_baseline": {
+      "accuracy": 0.4870689655172414,
+      "macro_f1": 0.21835748792270535,
+      "per_class": {
+        "negative": {
+          "precision": 0.4870689655172414,
+          "recall": 1.0,
+          "f1": 0.655072463768116,
+          "support": 113
+        },
+        "neutral": {
+          "precision": 0,
+          "recall": 0.0,
+          "f1": 0,
+          "support": 19
+        },
+        "positive": {
+          "precision": 0,
+          "recall": 0.0,
+          "f1": 0,
+          "support": 100
+        }
+      },
+      "confusion_matrix": {
+        "negative": {
+          "negative": 113,
+          "neutral": 0,
+          "positive": 0
+        },
+        "neutral": {
+          "negative": 19,
+          "neutral": 0,
+          "positive": 0
+        },
+        "positive": {
+          "negative": 100,
+          "neutral": 0,
+          "positive": 0
+        }
+      }
+    }
+  },
+  "nested_evaluation": {
+    "method": "3-fold nested grouped CV; configuration selection uses inner grouped CV only",
+    "seed": 42,
+    "outer_fold_sizes": [
+      {
+        "train": 165,
+        "test": 67,
+        "test_groups": [
+          "airbnb-1",
+          "airbnb-10",
+          "airbnb-18",
+          "airbnb-24",
+          "airbnb-9",
+          "docx-google-004",
+          "docx-google-005",
+          "docx-google-008",
+          "docx-google-010",
+          "docx-google-012",
+          "docx-google-015",
+          "docx-google-017",
+          "docx-google-020",
+          "docx-google-021",
+          "docx-google-028",
+          "docx-google-030",
+          "docx-google-033",
+          "docx-google-034",
+          "docx-google-035",
+          "docx-google-038",
+          "docx-google-039",
+          "docx-google-041"
+        ]
+      },
+      {
+        "train": 151,
+        "test": 81,
+        "test_groups": [
+          "airbnb-11",
+          "airbnb-12",
+          "airbnb-14",
+          "airbnb-17",
+          "airbnb-2",
+          "airbnb-21",
+          "airbnb-22",
+          "airbnb-23",
+          "airbnb-26",
+          "airbnb-8",
+          "docx-google-002",
+          "docx-google-006",
+          "docx-google-007",
+          "docx-google-009",
+          "docx-google-011",
+          "docx-google-018",
+          "docx-google-019",
+          "docx-google-022",
+          "docx-google-023",
+          "docx-google-024",
+          "docx-google-026",
+          "docx-google-027"
+        ]
+      },
+      {
+        "train": 148,
+        "test": 84,
+        "test_groups": [
+          "airbnb-13",
+          "airbnb-15",
+          "airbnb-16",
+          "airbnb-19",
+          "airbnb-20",
+          "airbnb-25",
+          "airbnb-3",
+          "airbnb-5",
+          "airbnb-6",
+          "airbnb-7",
+          "docx-google-001",
+          "docx-google-003",
+          "docx-google-013",
+          "docx-google-014",
+          "docx-google-016",
+          "docx-google-025",
+          "docx-google-029",
+          "docx-google-031",
+          "docx-google-032",
+          "docx-google-036",
+          "docx-google-037",
+          "docx-google-040"
+        ]
+      }
+    ],
+    "baseline": {
+      "accuracy": 0.7198275862068966,
+      "macro_f1": 0.49934327226442426,
+      "per_class": {
+        "negative": {
+          "precision": 0.7301587301587301,
+          "recall": 0.8141592920353983,
+          "f1": 0.7698744769874477,
+          "support": 113
+        },
+        "neutral": {
+          "precision": 0,
+          "recall": 0.0,
+          "f1": 0,
+          "support": 19
+        },
+        "positive": {
+          "precision": 0.7075471698113207,
+          "recall": 0.75,
+          "f1": 0.7281553398058253,
+          "support": 100
+        }
+      },
+      "confusion_matrix": {
+        "negative": {
+          "negative": 92,
+          "neutral": 0,
+          "positive": 21
+        },
+        "neutral": {
+          "negative": 9,
+          "neutral": 0,
+          "positive": 10
+        },
+        "positive": {
+          "negative": 25,
+          "neutral": 0,
+          "positive": 75
+        }
+      }
+    },
+    "tuned": {
+      "accuracy": 0.7758620689655172,
+      "macro_f1": 0.7196339185689928,
+      "per_class": {
+        "negative": {
+          "precision": 0.8053097345132744,
+          "recall": 0.8053097345132744,
+          "f1": 0.8053097345132744,
+          "support": 113
+        },
+        "neutral": {
+          "precision": 0.75,
+          "recall": 0.47368421052631576,
+          "f1": 0.5806451612903226,
+          "support": 19
+        },
+        "positive": {
+          "precision": 0.7476635514018691,
+          "recall": 0.8,
+          "f1": 0.7729468599033816,
+          "support": 100
+        }
+      },
+      "confusion_matrix": {
+        "negative": {
+          "negative": 91,
+          "neutral": 1,
+          "positive": 21
+        },
+        "neutral": {
+          "negative": 4,
+          "neutral": 9,
+          "positive": 6
+        },
+        "positive": {
+          "negative": 18,
+          "neutral": 2,
+          "positive": 80
+        }
+      }
+    },
+    "majority_baseline": {
+      "accuracy": 0.4870689655172414,
+      "macro_f1": 0.21835748792270535,
+      "per_class": {
+        "negative": {
+          "precision": 0.4870689655172414,
+          "recall": 1.0,
+          "f1": 0.655072463768116,
+          "support": 113
+        },
+        "neutral": {
+          "precision": 0,
+          "recall": 0.0,
+          "f1": 0,
+          "support": 19
+        },
+        "positive": {
+          "precision": 0,
+          "recall": 0.0,
+          "f1": 0,
+          "support": 100
+        }
+      },
+      "confusion_matrix": {
+        "negative": {
+          "negative": 113,
+          "neutral": 0,
+          "positive": 0
+        },
+        "neutral": {
+          "negative": 19,
+          "neutral": 0,
+          "positive": 0
+        },
+        "positive": {
+          "negative": 100,
+          "neutral": 0,
+          "positive": 0
+        }
+      }
+    },
+    "selected_configuration_by_outer_fold": [
+      {
+        "analyzer": "char",
+        "char_ngram_range": [
+          3,
+          5
+        ],
+        "alpha": 0.25,
+        "class_prior_adjustment": {
+          "neutral": 1.5
+        },
+        "neutral_oversample": 2
+      },
+      {
+        "analyzer": "char",
+        "char_ngram_range": [
+          2,
+          5
+        ],
+        "alpha": 0.25,
+        "class_prior_adjustment": {
+          "neutral": 1.0
+        },
+        "neutral_oversample": 3
+      },
+      {
+        "analyzer": "char",
+        "char_ngram_range": [
+          2,
+          5
+        ],
+        "alpha": 0.25,
+        "class_prior_adjustment": {
+          "neutral": 1.0
+        },
+        "neutral_oversample": 2
+      }
+    ],
+    "neutral_oof_diagnostics": [
+      {
+        "review_id": "EX-B741CFDF0FED",
+        "group": "docx-google-009",
+        "text": "The pool area has a projector to be used at night, with a pool jacuzzi for 1 hour.",
+        "fold": 2,
+        "baseline_prediction": "negative",
+        "baseline_scores": {
+          "negative": 0.6344775486274989,
+          "neutral": 0.04608759052953562,
+          "positive": 0.3194348608429654
+        },
+        "baseline_known_features": 15,
+        "tuned_prediction": "negative",
+        "tuned_scores": {
+          "negative": 0.8054268756363535,
+          "neutral": 0.08395431435749577,
+          "positive": 0.11061881000615077
+        },
+        "tuned_known_features": 208,
+        "selected_configuration": {
+          "analyzer": "char",
+          "char_ngram_range": [
+            2,
+            5
+          ],
+          "alpha": 0.25,
+          "class_prior_adjustment": {
+            "neutral": 1.0
+          },
+          "neutral_oversample": 3
+        }
+      },
+      {
+        "review_id": "EX-9D34EAF1982F",
+        "group": "airbnb-18",
+        "text": "Villa 1",
+        "fold": 1,
+        "baseline_prediction": "positive",
+        "baseline_scores": {
+          "negative": 0.42372856795015057,
+          "neutral": 0.14830847278478082,
+          "positive": 0.42796295926506855
+        },
+        "baseline_known_features": 1,
+        "tuned_prediction": "neutral",
+        "tuned_scores": {
+          "negative": 0.021486161262615825,
+          "neutral": 0.9510574366252,
+          "positive": 0.027456402112184197
+        },
+        "tuned_known_features": 16,
+        "selected_configuration": {
+          "analyzer": "char",
+          "char_ngram_range": [
+            3,
+            5
+          ],
+          "alpha": 0.25,
+          "class_prior_adjustment": {
+            "neutral": 1.5
+          },
+          "neutral_oversample": 2
+        }
+      },
+      {
+        "review_id": "EX-AD0EDF74BEA4",
+        "group": "docx-google-017",
+        "text": "Also have projector for movie marathon.",
+        "fold": 1,
+        "baseline_prediction": "negative",
+        "baseline_scores": {
+          "negative": 0.4851034333300851,
+          "neutral": 0.09582366682705755,
+          "positive": 0.41907289984285734
+        },
+        "baseline_known_features": 4,
+        "tuned_prediction": "negative",
+        "tuned_scores": {
+          "negative": 0.6112269000469391,
+          "neutral": 0.15875937566722964,
+          "positive": 0.2300137242858312
+        },
+        "tuned_known_features": 71,
+        "selected_configuration": {
+          "analyzer": "char",
+          "char_ngram_range": [
+            3,
+            5
+          ],
+          "alpha": 0.25,
+          "class_prior_adjustment": {
+            "neutral": 1.5
+          },
+          "neutral_oversample": 2
+        }
+      },
+      {
+        "review_id": "EX-34159065C2FA",
+        "group": "airbnb-22",
+        "text": "We also cooked our food",
+        "fold": 2,
+        "baseline_prediction": "negative",
+        "baseline_scores": {
+          "negative": 0.5579727509267881,
+          "neutral": 0.059083518743999926,
+          "positive": 0.382943730329212
+        },
+        "baseline_known_features": 4,
+        "tuned_prediction": "negative",
+        "tuned_scores": {
+          "negative": 0.412400723994489,
+          "neutral": 0.309415727154678,
+          "positive": 0.2781835488508329
+        },
+        "tuned_known_features": 76,
+        "selected_configuration": {
+          "analyzer": "char",
+          "char_ngram_range": [
+            2,
+            5
+          ],
+          "alpha": 0.25,
+          "class_prior_adjustment": {
+            "neutral": 1.0
+          },
+          "neutral_oversample": 3
+        }
+      },
+      {
+        "review_id": "EX-BD9197F86862",
+        "group": "docx-google-018",
+        "text": "We were booked for 2 nights.",
+        "fold": 2,
+        "baseline_prediction": "positive",
+        "baseline_scores": {
+          "negative": 0.45043520526655273,
+          "neutral": 0.07743167858621974,
+          "positive": 0.4721331161472275
+        },
+        "baseline_known_features": 4,
+        "tuned_prediction": "negative",
+        "tuned_scores": {
+          "negative": 0.44089498000029353,
+          "neutral": 0.3803751848725608,
+          "positive": 0.1787298351271456
+        },
+        "tuned_known_features": 89,
+        "selected_configuration": {
+          "analyzer": "char",
+          "char_ngram_range": [
+            2,
+            5
+          ],
+          "alpha": 0.25,
+          "class_prior_adjustment": {
+            "neutral": 1.0
+          },
+          "neutral_oversample": 3
+        }
+      },
+      {
+        "review_id": "EX-2641BAC806B1",
+        "group": "docx-google-037",
+        "text": "Booked Villa #3 good for 8 pax, 1 night stay.",
+        "fold": 3,
+        "baseline_prediction": "positive",
+        "baseline_scores": {
+          "negative": 0.3209338124718762,
+          "neutral": 0.1760076293624512,
+          "positive": 0.5030585581656726
+        },
+        "baseline_known_features": 11,
+        "tuned_prediction": "neutral",
+        "tuned_scores": {
+          "negative": 0.0031326006959712578,
+          "neutral": 0.9813855514595811,
+          "positive": 0.01548184784444772
+        },
+        "tuned_known_features": 137,
+        "selected_configuration": {
+          "analyzer": "char",
+          "char_ngram_range": [
+            2,
+            5
+          ],
+          "alpha": 0.25,
+          "class_prior_adjustment": {
+            "neutral": 1.0
+          },
+          "neutral_oversample": 2
+        }
+      },
+      {
+        "review_id": "EX-4BBD03FFCB17",
+        "group": "docx-google-014",
+        "text": "We booked Villa 4 which is good up to 4pax.",
+        "fold": 3,
+        "baseline_prediction": "positive",
+        "baseline_scores": {
+          "negative": 0.3807658753774908,
+          "neutral": 0.13314610104923688,
+          "positive": 0.4860880235732723
+        },
+        "baseline_known_features": 12,
+        "tuned_prediction": "neutral",
+        "tuned_scores": {
+          "negative": 0.04312295973954022,
+          "neutral": 0.8440130528016271,
+          "positive": 0.11286398745883278
+        },
+        "tuned_known_features": 134,
+        "selected_configuration": {
+          "analyzer": "char",
+          "char_ngram_range": [
+            2,
+            5
+          ],
+          "alpha": 0.25,
+          "class_prior_adjustment": {
+            "neutral": 1.0
+          },
+          "neutral_oversample": 2
+        }
+      },
+      {
+        "review_id": "EX-580A9D8F4E0F",
+        "group": "docx-google-014",
+        "text": "Staff can turn on its bubbles for an hour upon request.",
+        "fold": 3,
+        "baseline_prediction": "positive",
+        "baseline_scores": {
+          "negative": 0.4212887505834046,
+          "neutral": 0.08132877429081922,
+          "positive": 0.4973824751257761
+        },
+        "baseline_known_features": 8,
+        "tuned_prediction": "positive",
+        "tuned_scores": {
+          "negative": 0.4203821808646219,
+          "neutral": 0.0370482984850082,
+          "positive": 0.5425695206503699
+        },
+        "tuned_known_features": 135,
+        "selected_configuration": {
+          "analyzer": "char",
+          "char_ngram_range": [
+            2,
+            5
+          ],
+          "alpha": 0.25,
+          "class_prior_adjustment": {
+            "neutral": 1.0
+          },
+          "neutral_oversample": 2
+        }
+      },
+      {
+        "review_id": "EX-34977417562F",
+        "group": "docx-google-012",
+        "text": "We stayed at the 4pax villa.",
+        "fold": 1,
+        "baseline_prediction": "negative",
+        "baseline_scores": {
+          "negative": 0.4698616411107485,
+          "neutral": 0.13952189753143124,
+          "positive": 0.39061646135782024
+        },
+        "baseline_known_features": 8,
+        "tuned_prediction": "neutral",
+        "tuned_scores": {
+          "negative": 0.07015741305686178,
+          "neutral": 0.8152912029798535,
+          "positive": 0.11455138396328486
+        },
+        "tuned_known_features": 62,
+        "selected_configuration": {
+          "analyzer": "char",
+          "char_ngram_range": [
+            3,
+            5
+          ],
+          "alpha": 0.25,
+          "class_prior_adjustment": {
+            "neutral": 1.5
+          },
+          "neutral_oversample": 2
+        }
+      },
+      {
+        "review_id": "EX-81A1B1E033D3",
+        "group": "docx-google-004",
+        "text": "It's a pretty average spot.",
+        "fold": 1,
+        "baseline_prediction": "negative",
+        "baseline_scores": {
+          "negative": 0.4739941707077701,
+          "neutral": 0.06611857163647016,
+          "positive": 0.4598872576557597
+        },
+        "baseline_known_features": 3,
+        "tuned_prediction": "positive",
+        "tuned_scores": {
+          "negative": 0.4366202029747167,
+          "neutral": 0.08296284984467214,
+          "positive": 0.4804169471806112
+        },
+        "tuned_known_features": 47,
+        "selected_configuration": {
+          "analyzer": "char",
+          "char_ngram_range": [
+            3,
+            5
+          ],
+          "alpha": 0.25,
+          "class_prior_adjustment": {
+            "neutral": 1.5
+          },
+          "neutral_oversample": 2
+        }
+      },
+      {
+        "review_id": "EX-943BDC0A06E7",
+        "group": "docx-google-006",
+        "text": "We booked the villa for 8 guests.",
+        "fold": 2,
+        "baseline_prediction": "positive",
+        "baseline_scores": {
+          "negative": 0.431666289599298,
+          "neutral": 0.11606371850518052,
+          "positive": 0.4522699918955215
+        },
+        "baseline_known_features": 8,
+        "tuned_prediction": "neutral",
+        "tuned_scores": {
+          "negative": 0.030353678095664846,
+          "neutral": 0.9457849553734485,
+          "positive": 0.023861366530886562
+        },
+        "tuned_known_features": 114,
+        "selected_configuration": {
+          "analyzer": "char",
+          "char_ngram_range": [
+            2,
+            5
+          ],
+          "alpha": 0.25,
+          "class_prior_adjustment": {
+            "neutral": 1.0
+          },
+          "neutral_oversample": 3
+        }
+      },
+      {
+        "review_id": "EX-FA6070A66BCE",
+        "group": "docx-google-004",
+        "text": "The Villa - Batangas was okay.",
+        "fold": 1,
+        "baseline_prediction": "negative",
+        "baseline_scores": {
+          "negative": 0.4576033438017112,
+          "neutral": 0.11217847523124741,
+          "positive": 0.43021818096704134
+        },
+        "baseline_known_features": 6,
+        "tuned_prediction": "neutral",
+        "tuned_scores": {
+          "negative": 0.06450385749952382,
+          "neutral": 0.8833232320312392,
+          "positive": 0.052172910469236944
+        },
+        "tuned_known_features": 68,
+        "selected_configuration": {
+          "analyzer": "char",
+          "char_ngram_range": [
+            3,
+            5
+          ],
+          "alpha": 0.25,
+          "class_prior_adjustment": {
+            "neutral": 1.5
+          },
+          "neutral_oversample": 2
+        }
+      },
+      {
+        "review_id": "EX-F472AFF85E07",
+        "group": "docx-google-014",
+        "text": "They have 3 Villas that are good for 8pax each.",
+        "fold": 3,
+        "baseline_prediction": "positive",
+        "baseline_scores": {
+          "negative": 0.4329509575849297,
+          "neutral": 0.09923775324341726,
+          "positive": 0.46781128917165316
+        },
+        "baseline_known_features": 11,
+        "tuned_prediction": "positive",
+        "tuned_scores": {
+          "negative": 0.14103259797238968,
+          "neutral": 0.22499428199824767,
+          "positive": 0.6339731200293627
+        },
+        "tuned_known_features": 131,
+        "selected_configuration": {
+          "analyzer": "char",
+          "char_ngram_range": [
+            2,
+            5
+          ],
+          "alpha": 0.25,
+          "class_prior_adjustment": {
+            "neutral": 1.0
+          },
+          "neutral_oversample": 2
+        }
+      },
+      {
+        "review_id": "EX-DD9F35F46FA2",
+        "group": "docx-google-009",
+        "text": "We booked Villa 1, good for 8 pax but we're only a couple.",
+        "fold": 2,
+        "baseline_prediction": "negative",
+        "baseline_scores": {
+          "negative": 0.4178811618550024,
+          "neutral": 0.19144882193313856,
+          "positive": 0.3906700162118591
+        },
+        "baseline_known_features": 14,
+        "tuned_prediction": "neutral",
+        "tuned_scores": {
+          "negative": 0.009428991237601674,
+          "neutral": 0.974711371451677,
+          "positive": 0.015859637310721434
+        },
+        "tuned_known_features": 175,
+        "selected_configuration": {
+          "analyzer": "char",
+          "char_ngram_range": [
+            2,
+            5
+          ],
+          "alpha": 0.25,
+          "class_prior_adjustment": {
+            "neutral": 1.0
+          },
+          "neutral_oversample": 3
+        }
+      },
+      {
+        "review_id": "EX-AC83A97D46BA",
+        "group": "airbnb-11",
+        "text": "We stayed in Villa 1.",
+        "fold": 2,
+        "baseline_prediction": "positive",
+        "baseline_scores": {
+          "negative": 0.39211454499011633,
+          "neutral": 0.09733766588280084,
+          "positive": 0.5105477891270829
+        },
+        "baseline_known_features": 6,
+        "tuned_prediction": "neutral",
+        "tuned_scores": {
+          "negative": 0.01865706798005563,
+          "neutral": 0.805216777740079,
+          "positive": 0.17612615427986525
+        },
+        "tuned_known_features": 69,
+        "selected_configuration": {
+          "analyzer": "char",
+          "char_ngram_range": [
+            2,
+            5
+          ],
+          "alpha": 0.25,
+          "class_prior_adjustment": {
+            "neutral": 1.0
+          },
+          "neutral_oversample": 3
+        }
+      },
+      {
+        "review_id": "EX-1BFC53FC46D1",
+        "group": "docx-google-014",
+        "text": "Booking is thru their FB page (The Villa - Batangas).",
+        "fold": 3,
+        "baseline_prediction": "positive",
+        "baseline_scores": {
+          "negative": 0.40872751809450875,
+          "neutral": 0.10197353019678898,
+          "positive": 0.4892989517087024
+        },
+        "baseline_known_features": 7,
+        "tuned_prediction": "neutral",
+        "tuned_scores": {
+          "negative": 0.12881201167963896,
+          "neutral": 0.7702789245313256,
+          "positive": 0.10090906378903544
+        },
+        "tuned_known_features": 129,
+        "selected_configuration": {
+          "analyzer": "char",
+          "char_ngram_range": [
+            2,
+            5
+          ],
+          "alpha": 0.25,
+          "class_prior_adjustment": {
+            "neutral": 1.0
+          },
+          "neutral_oversample": 2
+        }
+      },
+      {
+        "review_id": "EX-6A44CAABCCBE",
+        "group": "airbnb-5",
+        "text": "Besides the villa there is a restaurant",
+        "fold": 3,
+        "baseline_prediction": "negative",
+        "baseline_scores": {
+          "negative": 0.5341665838698386,
+          "neutral": 0.05818466379640461,
+          "positive": 0.40764875233375686
+        },
+        "baseline_known_features": 6,
+        "tuned_prediction": "positive",
+        "tuned_scores": {
+          "negative": 0.4376288725207753,
+          "neutral": 0.04636440068716736,
+          "positive": 0.5160067267920574
+        },
+        "tuned_known_features": 120,
+        "selected_configuration": {
+          "analyzer": "char",
+          "char_ngram_range": [
+            2,
+            5
+          ],
+          "alpha": 0.25,
+          "class_prior_adjustment": {
+            "neutral": 1.0
+          },
+          "neutral_oversample": 2
+        }
+      },
+      {
+        "review_id": "EX-1689BA283B2D",
+        "group": "docx-google-014",
+        "text": "Room also comes with amenity kit.",
+        "fold": 3,
+        "baseline_prediction": "negative",
+        "baseline_scores": {
+          "negative": 0.46474354878219937,
+          "neutral": 0.09139633636313456,
+          "positive": 0.4438601148546662
+        },
+        "baseline_known_features": 3,
+        "tuned_prediction": "positive",
+        "tuned_scores": {
+          "negative": 0.46143350208409517,
+          "neutral": 0.04676345655986565,
+          "positive": 0.49180304135603914
+        },
+        "tuned_known_features": 94,
+        "selected_configuration": {
+          "analyzer": "char",
+          "char_ngram_range": [
+            2,
+            5
+          ],
+          "alpha": 0.25,
+          "class_prior_adjustment": {
+            "neutral": 1.0
+          },
+          "neutral_oversample": 2
+        }
+      },
+      {
+        "review_id": "EX-2528F9500523",
+        "group": "airbnb-21",
+        "text": "the staff leaves by 7 p.m.",
+        "fold": 2,
+        "baseline_prediction": "positive",
+        "baseline_scores": {
+          "negative": 0.47421318089215636,
+          "neutral": 0.04963924185426701,
+          "positive": 0.4761475772535766
+        },
+        "baseline_known_features": 4,
+        "tuned_prediction": "positive",
+        "tuned_scores": {
+          "negative": 0.43863166336080334,
+          "neutral": 0.028631404670946964,
+          "positive": 0.5327369319682498
+        },
+        "tuned_known_features": 59,
+        "selected_configuration": {
+          "analyzer": "char",
+          "char_ngram_range": [
+            2,
+            5
+          ],
+          "alpha": 0.25,
+          "class_prior_adjustment": {
+            "neutral": 1.0
+          },
+          "neutral_oversample": 3
+        }
+      }
+    ],
+    "neutral_oof_summary": {
+      "support": 19,
+      "review_groups": 13,
+      "baseline_predictions": {
+        "negative": 9,
+        "positive": 10
+      },
+      "tuned_predictions": {
+        "negative": 4,
+        "neutral": 9,
+        "positive": 6
+      }
+    },
+    "deployment_configuration_selected_on_full_data": {
+      "analyzer": "char",
+      "char_ngram_range": [
+        2,
+        5
+      ],
+      "alpha": 0.25,
+      "class_prior_adjustment": {
+        "neutral": 1.0
+      },
+      "neutral_oversample": 3
+    },
+    "full_data_inner_cv_score_for_selection_only": {
+      "accuracy": 0.8017241379310345,
+      "macro_f1": 0.7687263501891985,
+      "per_class": {
+        "negative": {
+          "precision": 0.8173913043478261,
+          "recall": 0.831858407079646,
+          "f1": 0.8245614035087718,
+          "support": 113
+        },
+        "neutral": {
+          "precision": 0.8461538461538461,
+          "recall": 0.5789473684210527,
+          "f1": 0.6875,
+          "support": 19
+        },
+        "positive": {
+          "precision": 0.7788461538461539,
+          "recall": 0.81,
+          "f1": 0.7941176470588236,
+          "support": 100
+        }
+      },
+      "confusion_matrix": {
+        "negative": {
+          "negative": 94,
+          "neutral": 0,
+          "positive": 19
+        },
+        "neutral": {
+          "negative": 4,
+          "neutral": 11,
+          "positive": 4
+        },
+        "positive": {
+          "negative": 17,
+          "neutral": 2,
+          "positive": 81
+        }
+      }
+    },
+    "search_configurations": 135,
+    "selection_metric": "macro_f1; ties use neutral recall, then accuracy"
+  },
+  "feature_comparison": {
+    "word": {
+      "method": "3-fold grouped out-of-fold evaluation",
+      "seed": 42,
+      "analyzer": "word",
+      "configuration": {
+        "analyzer": "word",
+        "word_ngram_range": [
+          1,
+          2
+        ],
+        "char_ngram_range": [
+          3,
+          5
+        ],
+        "alpha": 1.0,
+        "class_prior_adjustment": {
+          "neutral": 1.0
+        },
+        "neutral_oversample": 1
+      },
+      "fold_sizes": [
+        {
+          "train": 165,
+          "test": 67,
+          "test_groups": [
+            "airbnb-1",
+            "airbnb-10",
+            "airbnb-18",
+            "airbnb-24",
+            "airbnb-9",
+            "docx-google-004",
+            "docx-google-005",
+            "docx-google-008",
+            "docx-google-010",
+            "docx-google-012",
+            "docx-google-015",
+            "docx-google-017",
+            "docx-google-020",
+            "docx-google-021",
+            "docx-google-028",
+            "docx-google-030",
+            "docx-google-033",
+            "docx-google-034",
+            "docx-google-035",
+            "docx-google-038",
+            "docx-google-039",
+            "docx-google-041"
+          ]
+        },
+        {
+          "train": 151,
+          "test": 81,
+          "test_groups": [
+            "airbnb-11",
+            "airbnb-12",
+            "airbnb-14",
+            "airbnb-17",
+            "airbnb-2",
+            "airbnb-21",
+            "airbnb-22",
+            "airbnb-23",
+            "airbnb-26",
+            "airbnb-8",
+            "docx-google-002",
+            "docx-google-006",
+            "docx-google-007",
+            "docx-google-009",
+            "docx-google-011",
+            "docx-google-018",
+            "docx-google-019",
+            "docx-google-022",
+            "docx-google-023",
+            "docx-google-024",
+            "docx-google-026",
+            "docx-google-027"
+          ]
+        },
+        {
+          "train": 148,
+          "test": 84,
+          "test_groups": [
+            "airbnb-13",
+            "airbnb-15",
+            "airbnb-16",
+            "airbnb-19",
+            "airbnb-20",
+            "airbnb-25",
+            "airbnb-3",
+            "airbnb-5",
+            "airbnb-6",
+            "airbnb-7",
+            "docx-google-001",
+            "docx-google-003",
+            "docx-google-013",
+            "docx-google-014",
+            "docx-google-016",
+            "docx-google-025",
+            "docx-google-029",
+            "docx-google-031",
+            "docx-google-032",
+            "docx-google-036",
+            "docx-google-037",
+            "docx-google-040"
+          ]
+        }
+      ],
+      "model": {
+        "accuracy": 0.7198275862068966,
+        "macro_f1": 0.49934327226442426,
+        "per_class": {
+          "negative": {
+            "precision": 0.7301587301587301,
+            "recall": 0.8141592920353983,
+            "f1": 0.7698744769874477,
+            "support": 113
+          },
+          "neutral": {
+            "precision": 0,
+            "recall": 0.0,
+            "f1": 0,
+            "support": 19
+          },
+          "positive": {
+            "precision": 0.7075471698113207,
+            "recall": 0.75,
+            "f1": 0.7281553398058253,
+            "support": 100
+          }
+        },
+        "confusion_matrix": {
+          "negative": {
+            "negative": 92,
+            "neutral": 0,
+            "positive": 21
+          },
+          "neutral": {
+            "negative": 9,
+            "neutral": 0,
+            "positive": 10
+          },
+          "positive": {
+            "negative": 25,
+            "neutral": 0,
+            "positive": 75
+          }
+        }
+      },
+      "majority_baseline": {
+        "accuracy": 0.4870689655172414,
+        "macro_f1": 0.21835748792270535,
+        "per_class": {
+          "negative": {
+            "precision": 0.4870689655172414,
+            "recall": 1.0,
+            "f1": 0.655072463768116,
+            "support": 113
+          },
+          "neutral": {
+            "precision": 0,
+            "recall": 0.0,
+            "f1": 0,
+            "support": 19
+          },
+          "positive": {
+            "precision": 0,
+            "recall": 0.0,
+            "f1": 0,
+            "support": 100
+          }
+        },
+        "confusion_matrix": {
+          "negative": {
+            "negative": 113,
+            "neutral": 0,
+            "positive": 0
+          },
+          "neutral": {
+            "negative": 19,
+            "neutral": 0,
+            "positive": 0
+          },
+          "positive": {
+            "negative": 100,
+            "neutral": 0,
+            "positive": 0
+          }
+        }
+      }
+    },
+    "char": {
+      "method": "3-fold grouped out-of-fold evaluation",
+      "seed": 42,
+      "analyzer": "char",
+      "configuration": {
+        "analyzer": "char",
+        "word_ngram_range": [
+          1,
+          2
+        ],
+        "char_ngram_range": [
+          3,
+          5
+        ],
+        "alpha": 1.0,
+        "class_prior_adjustment": {
+          "neutral": 1.0
+        },
+        "neutral_oversample": 1
+      },
+      "fold_sizes": [
+        {
+          "train": 165,
+          "test": 67,
+          "test_groups": [
+            "airbnb-1",
+            "airbnb-10",
+            "airbnb-18",
+            "airbnb-24",
+            "airbnb-9",
+            "docx-google-004",
+            "docx-google-005",
+            "docx-google-008",
+            "docx-google-010",
+            "docx-google-012",
+            "docx-google-015",
+            "docx-google-017",
+            "docx-google-020",
+            "docx-google-021",
+            "docx-google-028",
+            "docx-google-030",
+            "docx-google-033",
+            "docx-google-034",
+            "docx-google-035",
+            "docx-google-038",
+            "docx-google-039",
+            "docx-google-041"
+          ]
+        },
+        {
+          "train": 151,
+          "test": 81,
+          "test_groups": [
+            "airbnb-11",
+            "airbnb-12",
+            "airbnb-14",
+            "airbnb-17",
+            "airbnb-2",
+            "airbnb-21",
+            "airbnb-22",
+            "airbnb-23",
+            "airbnb-26",
+            "airbnb-8",
+            "docx-google-002",
+            "docx-google-006",
+            "docx-google-007",
+            "docx-google-009",
+            "docx-google-011",
+            "docx-google-018",
+            "docx-google-019",
+            "docx-google-022",
+            "docx-google-023",
+            "docx-google-024",
+            "docx-google-026",
+            "docx-google-027"
+          ]
+        },
+        {
+          "train": 148,
+          "test": 84,
+          "test_groups": [
+            "airbnb-13",
+            "airbnb-15",
+            "airbnb-16",
+            "airbnb-19",
+            "airbnb-20",
+            "airbnb-25",
+            "airbnb-3",
+            "airbnb-5",
+            "airbnb-6",
+            "airbnb-7",
+            "docx-google-001",
+            "docx-google-003",
+            "docx-google-013",
+            "docx-google-014",
+            "docx-google-016",
+            "docx-google-025",
+            "docx-google-029",
+            "docx-google-031",
+            "docx-google-032",
+            "docx-google-036",
+            "docx-google-037",
+            "docx-google-040"
+          ]
+        }
+      ],
+      "model": {
+        "accuracy": 0.7327586206896551,
+        "macro_f1": 0.508910810701092,
+        "per_class": {
+          "negative": {
+            "precision": 0.736,
+            "recall": 0.8141592920353983,
+            "f1": 0.7731092436974789,
+            "support": 113
+          },
+          "neutral": {
+            "precision": 0,
+            "recall": 0.0,
+            "f1": 0,
+            "support": 19
+          },
+          "positive": {
+            "precision": 0.7289719626168224,
+            "recall": 0.78,
+            "f1": 0.7536231884057971,
+            "support": 100
+          }
+        },
+        "confusion_matrix": {
+          "negative": {
+            "negative": 92,
+            "neutral": 0,
+            "positive": 21
+          },
+          "neutral": {
+            "negative": 11,
+            "neutral": 0,
+            "positive": 8
+          },
+          "positive": {
+            "negative": 22,
+            "neutral": 0,
+            "positive": 78
+          }
+        }
+      },
+      "majority_baseline": {
+        "accuracy": 0.4870689655172414,
+        "macro_f1": 0.21835748792270535,
+        "per_class": {
+          "negative": {
+            "precision": 0.4870689655172414,
+            "recall": 1.0,
+            "f1": 0.655072463768116,
+            "support": 113
+          },
+          "neutral": {
+            "precision": 0,
+            "recall": 0.0,
+            "f1": 0,
+            "support": 19
+          },
+          "positive": {
+            "precision": 0,
+            "recall": 0.0,
+            "f1": 0,
+            "support": 100
+          }
+        },
+        "confusion_matrix": {
+          "negative": {
+            "negative": 113,
+            "neutral": 0,
+            "positive": 0
+          },
+          "neutral": {
+            "negative": 19,
+            "neutral": 0,
+            "positive": 0
+          },
+          "positive": {
+            "negative": 100,
+            "neutral": 0,
+            "positive": 0
+          }
+        }
+      }
+    }
+  },
+  "limitations": [
+    "Pilot only; too few examples for a reliable general-purpose sentiment model.",
+    "Nested grouped CV estimates model-selection performance against the supplied labels; it is not an independent external test or production-accuracy guarantee.",
+    "Vocabulary and IDF are fit inside each training fold; review groups and duplicate normalized texts never cross partitions.",
+    "Neutral oversampling is applied only to training-fold feature counts; no synthetic or evaluation examples are generated.",
+    "Names, review dates, and ratings are not inference features.",
+    "Clause extraction and vocabulary-based category matching require separate human evaluation.",
+    "Posterior scores are uncalibrated; unknown vocabulary can fall back to class priors."
+  ]
+}

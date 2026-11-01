@@ -16258,7 +16258,7 @@
   .modern-history-footer {padding:14px 17px;}
   .modern-profile-edit-form {grid-template-columns:1fr;padding:18px;}
 }
-/* Fixed sidebar: collapse and menu controls intentionally removed. */
+/* Keep the logo toggle; hide the legacy floating controls. */
 .admin-dashboard-shell .admin-sidebar-collapse-btn,
 .admin-dashboard-shell .admin-menu-btn,
 .admin-dashboard-shell .admin-sidebar-overlay { display: none !important; }
@@ -17317,10 +17317,63 @@
 
 .admin-sidebar-nav > .admin-nav-profile .admin-profile-nickname { display: inline; margin: 0; }
 
+/* Make the editable profile photo read as a deliberate sidebar control. */
+.admin-sidebar-nav > .admin-nav-profile .admin-sidebar-avatar-control {
+  position: relative;
+  display: block;
+  flex: 0 0 80px;
+  width: 80px;
+  height: 80px;
+  transition: transform .18s ease;
+}
+.admin-sidebar-nav > .admin-nav-profile .admin-avatar-wrap {
+  outline-color: #d3b18e;
+  outline-offset: 4px;
+  box-shadow: 0 5px 16px rgb(0 0 0 / 24%);
+  transition: box-shadow .18s ease, transform .18s ease;
+}
+.admin-sidebar-nav > .admin-nav-profile .admin-avatar {
+  border: 3px solid #f1dfca;
+  background: linear-gradient(145deg, #927050, #514137);
+}
+.admin-sidebar-nav > .admin-nav-profile .admin-sidebar-avatar-edit {
+  position: absolute;
+  right: -3px;
+  bottom: -2px;
+  display: grid;
+  width: 25px;
+  height: 25px;
+  place-items: center;
+  border: 2px solid #28231f;
+  border-radius: 50%;
+  background: #d5aa80;
+  color: #30251d;
+  box-shadow: 0 2px 6px rgb(0 0 0 / 28%);
+  transition: transform .18s ease, background .18s ease;
+}
+.admin-sidebar-nav > .admin-nav-profile:hover .admin-sidebar-avatar-control {
+  transform: translateY(-1px);
+}
+.admin-sidebar-nav > .admin-nav-profile:hover .admin-avatar-wrap {
+  box-shadow: 0 8px 20px rgb(0 0 0 / 30%);
+}
+.admin-sidebar-nav > .admin-nav-profile:hover .admin-sidebar-avatar-edit {
+  transform: scale(1.08);
+  background: #e4bd97;
+}
+
 /* Pages begin directly with their working content after removing the top header. */
-.admin-dashboard-shell .admin-page-content { padding-top: 14px; }
+.admin-dashboard-shell .admin-page-content { padding-top: 0; }
 .admin-dashboard-shell .admin-page-content.admin-manual-booking-content { padding-top: 14px; }
-@media(max-width:680px) { .admin-dashboard-shell .admin-page-content,.admin-dashboard-shell .admin-page-content.admin-manual-booking-content { padding-top: 10px; } }
+@media(max-width:680px) { .admin-dashboard-shell .admin-page-content,.admin-dashboard-shell .admin-page-content.admin-manual-booking-content { padding-top: 0; } }
+
+@media (prefers-reduced-motion: reduce) {
+  .admin-sidebar-nav > .admin-nav-profile .admin-avatar-wrap,
+  .admin-sidebar-nav > .admin-nav-profile .admin-sidebar-avatar-control,
+  .admin-sidebar-nav > .admin-nav-profile .admin-sidebar-avatar-edit {
+    transition: none;
+  }
+}
 
 /* Compact titles and a unified booking action row. */
 .admin-dashboard-shell .dashboard-page-heading { display:flex; flex-direction:column; gap:5px; margin:4px 0 20px; }
@@ -17344,35 +17397,265 @@
 
 .admin-data-table .admin-preparation-needed { color:#9a6700; font-weight:600; }
 
+.admin-dashboard-shell .dashboard-page-heading.admin-sticky-page-bar {
+  position: relative;
+  top: auto;
+  z-index: auto;
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  min-height: 64px;
+  margin: 0 -32px 20px;
+  padding: 10px clamp(16px,2.2vw,32px);
+  border-bottom: 1px solid #eae5df;
+  background: #fff;
+  backdrop-filter: none;
+}
+.admin-dashboard-shell .dashboard-page-heading.admin-sticky-page-bar .admin-sticky-page-title {
+  display: grid;
+  gap: 0;
+  min-width: 0;
+}
+.admin-dashboard-shell .dashboard-page-heading.admin-sticky-page-bar .admin-sticky-page-title > h1 {
+  margin: 0;
+  color: var(--villa-text);
+  font-size: clamp(25px, 2vw, 30px);
+  font-weight: 650;
+  line-height: 1.15;
+  letter-spacing: -.035em;
+}
+.admin-sticky-page-bar .admin-topbar-icon-btn {cursor:pointer;}
+.admin-notification-dropdown {color:var(--villa-text);}
+.admin-notification-dropdown>header h2 {margin:0;font-size:16px;}
+.admin-notification-dropdown>div>button {cursor:pointer;}
+.admin-notification-dropdown>footer button {cursor:pointer;}
+.admin-notification-empty {padding:16px;color:var(--villa-text-muted);font-size:12px;text-align:center;}
+.booking-history-panel {overflow:hidden;}
+.admin-booking-history-page .booking-history-panel,
+.admin-bookings-page > .admin-bookings-list {
+  overflow: visible;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+}
+.admin-booking-history-page .admin-history-toolbar {
+  gap: 10px;
+  padding: 0 0 14px;
+  border: 0;
+  background: transparent;
+}
+.admin-booking-history-page .admin-history-toolbar .admin-search-box {
+  width: min(380px, 100%);
+  min-width: 220px;
+  height: 42px;
+}
+.admin-booking-history-page .admin-history-toolbar select { height: 42px; border-radius: 7px; }
+.booking-history-count { margin-left: auto; color: var(--villa-text-muted); font-size: 12px; font-weight: 600; white-space: nowrap; }
+.admin-bookings-page > .admin-bookings-list > .admin-panel-header {
+  min-height: 0;
+  align-items: baseline;
+  padding: 0 0 12px;
+  border: 0;
+}
+.admin-bookings-page > .admin-bookings-list > .admin-panel-header h3 {
+  color: var(--villa-text);
+  font-size: 16px;
+  font-weight: 650;
+  letter-spacing: -.02em;
+}
+.admin-bookings-page > .admin-bookings-list > .admin-panel-header p {
+  margin-top: 3px;
+  color: var(--villa-text-muted);
+  font-size: 12px;
+}
+.admin-bookings-page > .admin-bookings-list > .admin-table-wrap,
+.booking-history-table-wrap {
+  border-top: 1px solid var(--villa-border);
+  border-bottom: 1px solid var(--villa-border);
+  background: var(--villa-white);
+}
+.admin-bookings-list .admin-data-table thead th,
+.booking-history-table thead th {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  padding-top: 11px;
+  padding-bottom: 11px;
+  color: var(--villa-text-muted);
+  font-size: 10px;
+  font-weight: 650;
+  letter-spacing: .045em;
+}
+.admin-bookings-list .admin-data-table tbody tr:hover td,
+.booking-history-table tbody tr:hover td { background: #faf8f5; }
+.booking-history-table td:nth-child(5),
+.booking-history-table td:nth-child(6),
+.booking-history-table td:nth-child(7) { text-align: right; font-variant-numeric: tabular-nums; }
+.booking-history-table th:nth-child(5) .booking-history-sort,
+.booking-history-table th:nth-child(6) .booking-history-sort,
+.booking-history-table th:nth-child(7) .booking-history-sort { justify-content: flex-end; width: 100%; }
+.booking-history-table-wrap {width:100%;overflow-x:auto;background:var(--villa-white);}
+.booking-history-table {width:100%;min-width:1080px;border-collapse:collapse;text-align:left;font-size:12px;}
+.booking-history-table th {padding:0 12px;background:#faf9f7;color:var(--villa-text-muted);font-size:10px;text-transform:uppercase;white-space:nowrap;}
+.booking-history-sort {display:flex;align-items:center;min-height:44px;padding:9px 0;border:0;background:transparent;color:inherit;font:inherit;font-weight:700;text-transform:uppercase;cursor:pointer;}
+.booking-history-sort:hover {color:var(--villa-brown-dark);}
+.booking-history-table td {padding:13px 12px;border-top:1px solid var(--villa-border);color:var(--villa-text);vertical-align:middle;white-space:nowrap;}
+.booking-history-table td:first-child {min-width:155px;}
+.booking-history-table td:first-child small,.booking-history-table td:nth-child(8) small {display:block;margin-top:4px;color:var(--villa-text-muted);font-size:10px;white-space:normal;}
+.booking-history-table .admin-status-pill {display:inline-flex;}
+.booking-history-empty {padding:26px!important;color:var(--villa-text-muted)!important;text-align:center;}
+.booking-history-panel>.record-pagination {--record-border:var(--villa-border);--record-muted-bg:#faf9f7;--record-surface:var(--villa-white);--record-muted:var(--villa-text-muted);--record-ink:var(--villa-text);--record-focus:var(--villa-brown-light);}
+@media(max-width:680px) {
+  .admin-dashboard-shell .dashboard-page-heading.admin-sticky-page-bar {min-height:56px;margin:0 -14px 16px;padding:9px 14px;}
+  .admin-sticky-page-title>h1 {font-size:19px;}
+  .admin-dashboard-shell .dashboard-page-heading.admin-sticky-page-bar .admin-sticky-page-title > h1 {font-size:23px;}
+  .admin-booking-history-page .admin-history-toolbar .admin-search-box {flex:1 1 100%;width:100%;min-width:0;}
+  .booking-history-count {margin-left:0;flex-basis:100%;}
+  .booking-history-table-wrap {max-width:calc(100vw - 28px);}
+}
+
 .assignment-auto-hint { margin:6px 0 0; max-width:620px; color:var(--admin-muted,#756e68); font-size:12px; line-height:1.6; }
 
 /* Shared booking workspace for Admin and Front Desk. */
 .dashboard-page-heading>p { margin:2px 0 0; color:var(--villa-text-muted); font-size:12px; line-height:1.6; }
 .admin-sidebar-footer a.admin-sidebar-nav-btn { display:flex; text-decoration:none; margin-bottom:8px; }
 .admin-data-notice { display:flex; align-items:center; justify-content:space-between; gap:16px; padding:14px 18px; margin-bottom:18px; border:1px solid #e5cdb2; border-radius:12px; background:#fffaf2; color:#765a37; font-size:12px; line-height:1.6; }
-.admin-stay-summary { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:14px; margin-bottom:20px; }
-.admin-stay-summary button { display:grid; gap:10px; text-align:left; padding:19px 20px; border:1px solid var(--villa-border); border-radius:14px; background:var(--villa-white); color:var(--villa-text); transition:border-color .15s,box-shadow .15s; }
-.admin-stay-summary button:hover { border-color:var(--villa-brown-light); box-shadow:var(--villa-shadow); }
-.admin-stay-summary span { display:flex; align-items:center; gap:9px; color:var(--villa-text-muted); font-size:12px; }
-.admin-stay-summary span svg { color:var(--villa-brown); }
-.admin-stay-summary strong { font-size:28px; font-weight:650; line-height:1.15; }
-.admin-stay-summary small { color:var(--villa-text-muted); font-size:10px; }
-.admin-booking-scopes { display:flex; gap:4px; flex-wrap:wrap; padding:4px; border:1px solid var(--villa-border); border-radius:11px; background:#f0ede8; }
-.admin-booking-scopes button { padding:9px 13px; border:1px solid transparent; border-radius:8px; background:transparent; color:var(--villa-text-muted); font:inherit; font-size:12px; font-weight:600; }
-.admin-booking-scopes button[aria-pressed="true"] { border-color:var(--villa-border); background:#fff; color:var(--villa-brown-dark); box-shadow:0 2px 5px #311c1108; }
+.admin-bookings-controls.admin-bookings-filter-panel {
+  display: grid;
+  gap: 12px;
+  padding: 0 0 16px;
+  margin-bottom: 18px;
+  border: 0;
+  border-bottom: 1px solid var(--villa-border);
+  border-radius: 0;
+  background: transparent;
+}
+.admin-booking-filter-top,
+.admin-booking-actions,
+.admin-booking-scopes { display: flex; align-items: center; }
+.admin-booking-filter-top { justify-content: space-between; gap: 16px; }
+.admin-booking-actions { gap: 8px; }
+.admin-booking-scopes {
+  gap: 22px;
+  align-self: stretch;
+  border-bottom: 1px solid var(--villa-border);
+}
+.admin-booking-scopes button {
+  min-height: 40px;
+  padding: 8px 0;
+  border: 0;
+  border-bottom: 2px solid transparent;
+  border-radius: 0;
+  background: transparent;
+  color: var(--villa-text-muted);
+  font: inherit;
+  font-size: 12px;
+  font-weight: 550;
+}
+.admin-booking-scopes button[aria-pressed="true"] {
+  border-color: transparent;
+  border-bottom-color: var(--villa-brown);
+  background: transparent;
+  color: var(--villa-brown-dark);
+  font-weight: 700;
+  box-shadow: none;
+}
+.admin-bookings-filter-panel .admin-bookings-toolbar {
+  display: grid;
+  grid-template-columns: minmax(220px, 1fr) minmax(190px, .58fr) minmax(160px, .48fr);
+  gap: 10px;
+  width: 100%;
+  min-width: 0;
+  margin: 0;
+}
+.admin-bookings-filter-panel .admin-bookings-search {
+  width: 100%;
+  min-width: 0;
+  min-height: 42px;
+  border-radius: 7px;
+}
+.admin-bookings-filter-panel .admin-booking-date { width: 100%; min-width: 0; }
+.admin-bookings-filter-panel .admin-bookings-toolbar select {
+  width: 100%;
+  min-width: 0;
+  min-height: 42px;
+  border-radius: 7px;
+}
+.admin-bookings-filter-panel .admin-bookings-refresh,
+.admin-bookings-filter-panel .admin-bookings-operations {
+  min-height: 38px;
+  border-radius: 7px;
+  font-size: 12px;
+}
 .admin-booking-date { display:flex; align-items:center; gap:7px; min-height:42px; max-width:100%; padding:0 10px; border:1px solid var(--villa-border); border-radius:9px; background:#fff; color:var(--villa-text-muted); font-size:11px; }
 .admin-booking-date input { width:130px; min-width:0; padding:8px 0; border:0; background:transparent; color:var(--villa-text); font:inherit; font-size:12px; outline:0; }
 .admin-booking-date:focus-within { border-color:var(--villa-brown); box-shadow:0 0 0 3px #a86f4d1f; }
-.admin-bookings-controls button:focus-visible,.admin-stay-summary button:focus-visible { outline:2px solid var(--villa-brown-light); outline-offset:3px; }
+.admin-bookings-controls button:focus-visible { outline:2px solid var(--villa-brown-light); outline-offset:3px; }
 @media(max-width:680px) {
-  .admin-stay-summary { gap:8px; }
-  .admin-stay-summary button { padding:13px 10px; gap:8px; }
-  .admin-stay-summary span { flex-direction:column; align-items:flex-start; gap:6px; font-size:11px; }
-  .admin-stay-summary strong { font-size:24px; }
-  .admin-stay-summary small { line-height:1.5; }
-  .admin-booking-scopes { width:100%; }
-  .admin-booking-scopes button { flex:1; padding:9px 6px; font-size:11px; }
-  .admin-booking-date { flex:1 1 190px; }
+  .admin-booking-filter-top { align-items: stretch; flex-direction: column; }
+  .admin-booking-scopes { justify-content: space-between; gap: 12px; }
+  .admin-booking-scopes button { flex: 1; font-size: 11px; text-align: center; }
+  .admin-booking-actions { width: 100%; justify-content: flex-end; }
+  .admin-bookings-controls.admin-bookings-filter-panel .admin-bookings-operations { width: auto; flex: 1; justify-content: center; }
+  .admin-bookings-filter-panel .admin-bookings-toolbar { grid-template-columns: minmax(0, 1fr); }
   .admin-booking-date input { flex:1; }
   .admin-data-notice { flex-wrap:wrap; }
+}
+
+
+
+.admin-dashboard-shell:not(.staff-dashboard-shell):not(.fd-shell) .admin-bookings-page > .admin-bookings-list > .admin-table-wrap.villa-table-frame {
+  position: relative;
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  overflow-x: scroll !important;
+  overflow-y: hidden !important;
+  direction: ltr;
+  scrollbar-color: #9d7a5e #eee8e0;
+  scrollbar-width: auto;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior-x: contain;
+}
+
+.admin-dashboard-shell:not(.staff-dashboard-shell):not(.fd-shell) .admin-bookings-list .admin-data-table {
+  width: 100%;
+  min-width: 1450px;
+  table-layout: auto;
+}
+
+.admin-dashboard-shell:not(.staff-dashboard-shell):not(.fd-shell) .admin-bookings-list .admin-data-table th:first-child,
+.admin-dashboard-shell:not(.staff-dashboard-shell):not(.fd-shell) .admin-bookings-list .admin-data-table td:first-child {
+  position: sticky;
+  left: 0;
+  z-index: 2;
+  background: var(--villa-white);
+  box-shadow: 1px 0 0 var(--villa-border);
+}
+
+.admin-dashboard-shell:not(.staff-dashboard-shell):not(.fd-shell) .admin-bookings-list .admin-data-table thead th:first-child {
+  z-index: 3;
+  background: var(--villa-cream-dark);
+}
+
+.admin-dashboard-shell:not(.staff-dashboard-shell):not(.fd-shell) .admin-bookings-list .admin-table-wrap::-webkit-scrollbar {
+  height: 12px;
+}
+
+.admin-dashboard-shell:not(.staff-dashboard-shell):not(.fd-shell) .admin-bookings-list .admin-table-wrap::-webkit-scrollbar-track {
+  border-radius: 999px;
+  background: #eee8e0;
+}
+
+.admin-dashboard-shell:not(.staff-dashboard-shell):not(.fd-shell) .admin-bookings-list .admin-table-wrap::-webkit-scrollbar-thumb {
+  border: 3px solid #eee8e0;
+  border-radius: 999px;
+  background: #9d7a5e;
+}
+
+.admin-dashboard-shell:not(.staff-dashboard-shell):not(.fd-shell) .admin-bookings-list .admin-table-wrap::-webkit-scrollbar-thumb:hover {
+  background: #75553d;
 }

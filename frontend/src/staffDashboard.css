@@ -3881,7 +3881,7 @@
 .staff-dashboard-assignment-card { box-shadow: 0 4px 18px rgba(44,30,20,.045); }
 
 @media (max-width: 900px) {
-  .staff-page-content { padding: 12px; padding-top: 66px; }
+  .staff-page-content { padding: 12px; }
   .staff-mobile-menu-floating {
     display:grid;
     place-items:center;
@@ -5248,6 +5248,9 @@
 .staff-dashboard-shell .staff-sidebar-brand { min-height:58px;padding:10px 16px; }
 .staff-dashboard-shell .staff-sidebar-nav { flex-direction:row;overflow-x:auto;gap:6px;padding:8px 12px; }
 .staff-dashboard-shell .staff-sidebar-nav-btn { width:auto;flex:0 0 auto;white-space:nowrap; }
+}
+
+@media(max-width:980px) {
 .staff-dashboard-shell .staff-sidebar-footer { display:flex;flex-direction:row;align-items:center;padding:7px 12px; }
 .staff-dashboard-shell .staff-sidebar-profile-card { flex:1;width:auto; }
 .staff-dashboard-shell .staff-logout-btn { width:auto; }
@@ -5274,7 +5277,7 @@
 .staff-dashboard-shell .staff-nav-profile .staff-sidebar-profile-copy small { margin-top: 5px; color: #c0a89a; font-size: 10px; line-height: 1.5; font-weight: 400; }
 .staff-dashboard-shell .staff-sidebar-nav > .staff-nav-profile:hover,.staff-dashboard-shell .staff-sidebar-nav > .staff-nav-profile.active { border: 0; background: #ffffff05; }
 .staff-dashboard-shell .staff-nav-profile:focus-visible { outline: 2px solid #d6a77d; outline-offset: 2px; }
-@media(max-width:980px) { .staff-dashboard-shell .staff-sidebar-nav > .staff-nav-profile { width: 180px; margin: 0; } }
+@media(max-width:980px) { .staff-dashboard-shell .staff-sidebar-nav > .staff-nav-profile { width: 180px; margin: 4px 0 12px; } }
 
 .staff-profile-dialog { width: min(540px, calc(100vw - 28px)); max-height: calc(100svh - 40px); margin: auto; padding: 24px; box-sizing: border-box; overflow-y: auto; border: 1px solid #e9e2da; border-radius: 18px; background: #fff; color: #302820; }
 .staff-profile-dialog::backdrop { background: #21181080; backdrop-filter: blur(3px); }
@@ -5294,11 +5297,99 @@
 .staff-profile-dialog input:focus-visible,.staff-profile-dialog button:focus-visible,.staff-profile-photo-picker:focus-within { outline: 2px solid #b58b67; outline-offset: 2px; }
 @media(max-width:540px) { .staff-profile-dialog fieldset { grid-template-columns: 1fr; } .staff-profile-dialog { padding: 20px; } }
 
-/* Keep the headerless staff pages close to the top edge. */
-.staff-dashboard-shell .staff-page-content { padding-top: 14px; }
-@media(max-width:680px) { .staff-dashboard-shell .staff-page-content { padding-top: 10px; } }
+/* The old floating menu is hidden in this shell, so content starts at the top. */
+.staff-dashboard-shell .staff-page-content {
+  padding: 0 32px 32px;
+}
 
-.staff-compact-page-heading { display:flex; flex-direction:column; gap:5px; margin:4px 0 20px; }
-.staff-compact-page-heading>span { color:#9b8c7d; font-size:9px; font-weight:600; letter-spacing:.14em; text-transform:uppercase; }
-.staff-compact-page-heading>h1 { margin:0; color:#44372c; font-size:24px; font-weight:600; line-height:1.25; letter-spacing:-.03em; }
-@media(max-width:680px) { .staff-compact-page-heading>h1 { font-size:21px; } }
+.staff-dashboard-shell .staff-main-area {
+  padding-top: 0;
+}
+
+.staff-compact-page-heading {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  margin: 0;
+}
+
+.staff-compact-page-heading > h1 {
+  margin: 0;
+  color: #44372c;
+  font-size: 24px;
+  font-weight: 600;
+  line-height: 1.25;
+  letter-spacing: -.03em;
+}
+
+.staff-dashboard-shell .staff-panel,
+.staff-dashboard-shell .staff-stat-card,
+.staff-dashboard-shell .staff-task-tools {
+  border-radius: 16px;
+  box-shadow: 0 3px 15px rgba(45, 28, 18, .035);
+}
+.staff-dashboard-shell .staff-stat-card:hover { transform: none; box-shadow: none; }
+.staff-dashboard-shell .work-focus,
+.staff-dashboard-shell .work-today {
+  border: 1px solid #eae7e3;
+  border-radius: 16px;
+  background: #fff;
+  box-shadow: 0 3px 15px rgba(45, 28, 18, .035);
+}
+.staff-dashboard-shell .staff-alert-center .staff-alert-bell.admin-topbar-icon-btn {
+  width: 40px;
+  height: 40px;
+  border-radius: 10px;
+}
+.staff-dashboard-shell .staff-nav-profile .staff-sidebar-profile-copy {
+  align-items: center;
+}
+.staff-dashboard-shell .staff-nav-profile .admin-profile-role-label {
+  display: block;
+  margin-top: 5px;
+  color: #c0a89a;
+  font-size: 10px;
+  font-weight: 400;
+  line-height: 1.5;
+}
+.staff-dashboard-shell.is-maintenance-workspace .staff-maintenance-workspace { width: min(1120px, 100%); margin: 0; color: var(--villa-text); }
+.staff-dashboard-shell.is-maintenance-workspace .staff-maintenance-header > div > span { color: var(--villa-brown); }
+.staff-dashboard-shell.is-maintenance-workspace .staff-maintenance-header h2 { color: var(--villa-text); }
+.staff-dashboard-shell.is-maintenance-workspace .staff-maintenance-header p { color: var(--villa-text-muted); }
+.staff-dashboard-shell.is-maintenance-workspace .staff-maintenance-header-icon { border-color: var(--villa-border); border-radius: 9px; background: var(--villa-cream-dark); color: var(--villa-brown); }
+.staff-dashboard-shell.is-maintenance-workspace .staff-maintenance-inbox { border-color: var(--villa-border); border-radius: 10px; box-shadow: none; }
+.staff-dashboard-shell.is-maintenance-workspace .staff-maintenance-request-row { color: var(--villa-text); border-color: var(--villa-border); }
+.staff-dashboard-shell.is-maintenance-workspace .staff-maintenance-request-row:hover { background: var(--villa-cream-dark); }
+.staff-dashboard-shell.is-maintenance-workspace .staff-maintenance-request-icon { border-radius: 8px; background: var(--villa-cream-dark); color: var(--villa-brown); }
+.staff-dashboard-shell.is-maintenance-workspace .staff-maintenance-request-meta,
+.staff-dashboard-shell.is-maintenance-workspace .staff-maintenance-request-copy small { color: var(--villa-text-muted); }
+.staff-dashboard-shell.is-maintenance-workspace .staff-maintenance-request-action { color: var(--villa-brown); }
+
+@media (max-width: 980px) {
+  .staff-dashboard-shell {
+    flex-direction: column;
+  }
+
+  .staff-dashboard-shell .staff-page-content {
+    padding: 0 16px 20px;
+  }
+
+  .staff-dashboard-shell .staff-sidebar {
+    position: relative;
+    inset: auto;
+    width: 100%;
+    height: auto;
+  }
+
+  .staff-dashboard-shell .staff-main-area {
+    width: 100%;
+    min-width: 0;
+    margin-left: 0;
+  }
+}
+
+@media (max-width: 600px) {
+  .staff-compact-page-heading > h1 {
+    font-size: 21px;
+  }
+}

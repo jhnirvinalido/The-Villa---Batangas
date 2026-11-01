@@ -42,5 +42,7 @@ test('a server-confirmed role change replaces every stale role field and keeps t
 test('refresh and browser history retain a valid Front Desk section', () => {
   assert.equal(frontDeskSection({ pathname: '/front-desk', search: '?section=payments' }), 'payments');
   assert.equal(frontDeskSection({ pathname: '/front-desk/staff', search: '' }), 'staff');
+  assert.equal(frontDeskSection({ pathname: '/front-desk/receipts', search: '' }), 'receipts');
+  assert.equal(frontDeskSection({ pathname: '/front-desk', search: '?section=receipts' }), 'receipts');
   assert.equal(frontDeskSection({ pathname: '/front-desk', search: '?section=unknown' }), 'bookings');
 });

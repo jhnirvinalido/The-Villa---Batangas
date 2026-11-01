@@ -116,7 +116,7 @@ export default function StaffNotifications({ staffId, notifications, apiRequest,
   }
 
   return <div className="staff-alert-center" ref={root}>
-    <button type="button" ref={bell} className={`staff-alert-bell${unread ? ' has-unread' : ''}`} aria-label={`Notifications${unread ? `, ${unread} unread` : ''}`} aria-expanded={open} aria-controls={panelId} onClick={() => { setOpen(value => !value); setAlerts([]); }}>
+    <button type="button" ref={bell} className={`staff-alert-bell admin-topbar-icon-btn${unread ? ' has-unread' : ''}`} aria-label={`Notifications${unread ? `, ${unread} unread` : ''}`} aria-expanded={open} aria-controls={panelId} onClick={() => { setOpen(value => !value); setAlerts([]); }}>
       <Bell size={21} />{unread > 0 && <span className="staff-alert-count" aria-hidden="true">{unread > 99 ? '99+' : unread}</span>}
     </button>
     {open && <section id={panelId} className="staff-alert-panel" aria-label="Staff notifications">

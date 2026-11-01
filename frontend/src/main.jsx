@@ -21,6 +21,7 @@ import AdminDashboard from "./AdminDashboard.jsx";
 import FrontDeskDashboard from "./FrontDeskDashboard.jsx";
 import StaffDashboard from "./staffDashboard.jsx";
 import ProtectedRoute from "./ProtectedRoute.jsx";
+import "./DashboardLayout.css";
 
 /*
   Redirect old customer routes to the new public booking form.
@@ -68,6 +69,14 @@ ReactDOM.createRoot(
         path="/"
         element={<App />}
       />
+
+      <Route path="/villas" element={<App />} />
+      <Route path="/villas/:villaId" element={<App />} />
+      <Route path="/about" element={<App />} />
+      <Route path="/location" element={<App />} />
+      <Route path="/faqs" element={<App />} />
+      <Route path="/reviews" element={<App />} />
+      <Route path="/policies" element={<App />} />
 
       <Route path="/feedback" element={<GuestFeedback />} />
       <Route path="/maintenance-response" element={<MaintenanceResponse />} />

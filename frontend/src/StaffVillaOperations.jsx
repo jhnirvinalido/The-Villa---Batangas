@@ -43,18 +43,9 @@ export default function StaffVillaOperations({ apiRequest, onChanged, initialVil
 
   return (
     <div className="staff-maintenance-workspace">
-      <header className="staff-maintenance-header">
-        <div>
-          <span>MAINTENANCE WORKSPACE</span>
-          <h2>New request</h2>
-          <p>Maintenance requests from your administrator. Choose when you can attend each one.</p>
-        </div>
-        <div className="staff-maintenance-header-icon" aria-hidden="true"><Wrench size={24}/></div>
-      </header>
-
       {error && <p role="alert" className="staff-maintenance-message is-error"><AlertCircle size={18}/>{formatUserFacingMessage(error)}</p>}
 
-      <section className="staff-maintenance-inbox" aria-label="Incoming maintenance requests">
+      <section className="staff-maintenance-inbox villa-table-frame" aria-label="Incoming maintenance requests">
         {loading ? <p className="staff-maintenance-loading" role="status"><LoaderCircle size={18} className="staff-maintenance-spinner"/>Loading requests…</p> : requests.length ? (
           <div className="staff-maintenance-request-list">{requests.map(report => (
             <button type="button" className="staff-maintenance-request-row" key={report.id} onClick={() => setSelectedRequestId(report.id)}>

@@ -5147,8 +5147,7 @@ async def stop_public_checkout_reconciliation_worker():
         _public_checkout_reconciliation_task = None
 
 
-# Persistent outbox state lives in Supabase; each API process may safely run a
-# worker because claims use FOR UPDATE SKIP LOCKED and a database lease.
+# Sentiment analysis is persisted by the periodic feedback worker.
 _feedback_analysis_task = None
 
 async def feedback_analysis_worker():
@@ -5159,7 +5158,7 @@ async def feedback_analysis_worker():
         except asyncio.CancelledError:
             raise
         except Exception:
-            logging.getLogger("thevilla.feedback.automation").warning("Automatic feedback analysis could not run. Check the automation migration and configuration.")
+            logging.getLogger("thevilla.feedback.automation").warning("Automatic sentiment analysis could not run. Check the feedback schema and model configuration.")
         await live_hub.wait("analysis", 60)
 
 @app.on_event("startup")

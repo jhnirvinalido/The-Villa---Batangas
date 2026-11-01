@@ -1,3 +1,6 @@
+import AdminWorkHours from "./AdminWorkHours";
+import SidebarBrand from "./SidebarBrand";
+import usePortalSidebar from "./usePortalSidebar";
 import { bookingAnalytics } from "./bookingAnalytics.mjs";
 import { AlertMessage, ConfirmSignOut, LoadingScreen } from "./SystemFeedback";
 import { feedbackFetch as fetch } from "./requestFeedback.mjs";
@@ -5,6 +8,9 @@ import { formatUserFacingMessage, getApiErrorMessage, getUserFacingError } from 
 import { singleFlightRefresh } from "./liveTransport.mjs";
 import useLiveUpdates from "./useLiveUpdates";
 import { snapshotRows } from "./dashboardSnapshot.mjs";
+import { RecordPagination } from "./RecordListControls";
+import { paginateRecords } from "./recordListModel.mjs";
+import { deskTableRows } from "./frontDeskTableModel.mjs";
 import React from "react";
 import { filterBookingRecords } from "./bookingDesk.mjs";
 import VillaMaintenance from "./VillaMaintenance";
@@ -39,8 +45,6 @@ import {
   Send,
   UserCog,
   UserPlus,
-  PanelLeftClose,
-  PanelLeftOpen,
   Pencil,
   Plus,
   Printer,
@@ -408,14 +412,17 @@ const ASSIGNMENT_TEMPLATES = [
 const SIDEBAR_ITEMS = [
   { id: "dashboard", label: "Dashboard", icon: Home, section: "Overview" },
   { id: "bookings", label: "Bookings", icon: CalendarDays, section: "Overview" },
-  { id: "manualBooking", label: "External Bookings", icon: UserPlus, section: "Overview" },
-  { id: "villas", label: "Villas & Pricing", icon: SlidersHorizontal, section: "Content" },
-  { id: "history", label: "Booking History", icon: History, section: "Operations" },
-  { id: "guestFeedback", label: "Guest Feedback", icon: MessageCircle, section: "Operations" },
-  { id: "staff", label: "Staff Directory", icon: Users, section: "People" },
+  { id: "manualBooking", label: "External bookings", icon: UserPlus, section: "Overview" },
+  { id: "villas", label: "Villas & pricing", icon: SlidersHorizontal, section: "Content" },
+  { id: "history", label: "Booking history", icon: History, section: "Operations" },
+  { id: "guestFeedback", label: "Guest reviews", icon: MessageCircle, section: "Operations" },
+  { id: "assignmentMonitor", label: "Assignments", icon: ClipboardList, section: "Operations" },
+  { id: "staff", label: "Staff directory", icon: Users, section: "People" },
+  { id: "workHours", label: "Work hours", icon: Clock3, section: "People" },
 ];
 
 const VIEW_META = {
+  workHours: { title: "Work hours", description: "Staff time records and approvals." },
   guestFeedback: { title: "Guest Feedback", description: "Verified post-stay guest reviews." },
   dashboard: {
     title: "Admin Dashboard",
@@ -2273,6 +2280,7 @@ export default function AdminDashboard() {
   const today = todayStr();
   const [profile, setProfile] = React.useState(getAdminProfile);
   const [view, setView] = React.useState("dashboard");
+  const [sidebarCollapsed, setSidebarCollapsed] = usePortalSidebar();
   const [notificationOpen, setNotificationOpen] = React.useState(false);
   const [globalSearch, setGlobalSearch] = React.useState("");
   const [systemAlert, setSystemAlert] = React.useState({
@@ -2284,11 +2292,17 @@ export default function AdminDashboard() {
   const [signOutConfirmOpen, setSignOutConfirmOpen] = React.useState(false);
   const [signingOut, setSigningOut] = React.useState(false);
   const [bookings, setBookings] = React.useState([]);
+  const [bookingSort, setBookingSort] = React.useState({key:'stay', direction:'asc'});
+  const [bookingPageSize, setBookingPageSize] = React.useState(10);
+  const [bookingPosition, setBookingPosition] = React.useState({signature:'', page:0});
   const [selectedBooking, setSelectedBooking] = React.useState(null);
   const [bookingHistory, setBookingHistory] = React.useState(() => readStorage(STORAGE_KEYS.BOOKING_HISTORY, []));
   const [historySearch, setHistorySearch] = React.useState("");
   const [historyStatusFilter, setHistoryStatusFilter] = React.useState("All");
   const [historyVillaFilter, setHistoryVillaFilter] = React.useState("All");
+  const [historyPageSize, setHistoryPageSize] = React.useState(10);
+  const [historyPosition, setHistoryPosition] = React.useState({ signature: "", page: 0 });
+  const [historySort, setHistorySort] = React.useState({ key: "completedAt", direction: "desc" });
 
 
   // Booking History is an archive, not the active arrival queue. A checkout
@@ -2741,10 +2755,11 @@ export default function AdminDashboard() {
     setVillaMaintenanceTarget(null);
     setView(nextView === "maintenance" ? "villas" : nextView);
     setNotificationOpen(false);
+    if (window.matchMedia("(max-width: 980px)").matches) setSidebarCollapsed(true);
     if (!["bookings", "assignmentMonitor", "staff", "payments"].includes(nextView)) {
       setGlobalSearch("");
     }
-  }, []);
+  }, [setSidebarCollapsed]);
 
 
   const normalizedBookings = React.useMemo(
@@ -5192,9 +5207,12 @@ Villas Under Maintenance
   }
 
   function renderBookings() {
-    const arrivals = activeBookings.filter(booking => booking.checkIn === today && !hasAdminCheckedIn(booking));
-    const inHouse = normalizedBookings.filter(hasAdminCheckedIn);
-    const departures = inHouse.filter(booking => booking.checkOut <= today);
+    const sortValues = {guest: booking => booking.guestName, booking: booking => booking.bookingCode, stay: booking => booking.checkIn, status: booking => booking.bookingStatus, payment: booking => booking.paymentStatus, total: booking => Number(booking.totalAmount), paid: booking => booking.bookingChannel === 'airbnb' ? null : Number(booking.amountPaid), balance: booking => booking.bookingChannel === 'airbnb' ? null : Number(booking.balanceAmount)};
+    const sorted = deskTableRows(filteredBookings,{sortValue:sortValues[bookingSort.key],direction:bookingSort.direction});
+    const signature = JSON.stringify([globalSearch,bookingFilter,bookingArrivalDay,bookingInHouseOnly,bookingSort,bookingPageSize]);
+    const page = paginateRecords(sorted,bookingPosition.signature === signature ? bookingPosition.page : 0,bookingPageSize);
+    const changePage = value => setBookingPosition({signature,page:value});
+    const sortHeading = (key,label) => <th scope="col" aria-sort={bookingSort.key === key ? bookingSort.direction === 'asc' ? 'ascending' : 'descending' : 'none'}><button type="button" className="admin-table-sort-heading" onClick={() => setBookingSort({key,direction:bookingSort.key === key && bookingSort.direction === 'asc' ? 'desc' : 'asc'})}>{label} {bookingSort.key === key ? bookingSort.direction === 'asc' ? '↑' : '↓' : '↕'}</button></th>;
     const showBookings = ({ arrival = '', inHouseOnly = false } = {}) => {
       setBookingArrivalDay(arrival);
       setBookingInHouseOnly(inHouseOnly);
@@ -5203,78 +5221,84 @@ Villas Under Maintenance
     };
     return (
       <div className="admin-page admin-bookings-page">
-        <section className="admin-stay-summary" aria-label="Today's guest operations">
-          <button type="button" onClick={() => showBookings({ arrival: today })}>
-            <span><CalendarDays size={18} /> Arrivals today</span><strong>{arrivals.length}</strong><small>{formatDate(today)} · Philippine time</small>
-          </button>
-          <button type="button" onClick={() => showBookings({ inHouseOnly: true })}>
-            <span><Users size={18} /> In-house guests</span><strong>{inHouse.length}</strong><small>Currently checked in</small>
-          </button>
-          <button type="button" onClick={() => { setOperationsMode("queue"); setOperationsQuery(""); setOperationsFilter("All"); setOperationsModalOpen(true); }}>
-            <span><ClipboardCheck size={18} /> Departures due</span><strong>{departures.length}</strong><small>Check-out today or earlier</small>
-          </button>
-        </section>
         {bookingDataError && <div className="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-900" role="alert">
           <span>{formatUserFacingMessage(bookingDataError)}</span>
           <button type="button" className="admin-btn-secondary" onClick={() => loadAdminData()}>Retry bookings</button>
         </div>}
-        <div className="admin-bookings-controls">
+        <div className="admin-bookings-controls admin-bookings-filter-panel">
+          <div className="admin-booking-filter-top">
             <div className="admin-booking-scopes" role="group" aria-label="Booking view">
               <button type="button" aria-pressed={!bookingInHouseOnly && bookingArrivalDay === today} onClick={() => showBookings({ arrival: today })}>Today's arrivals</button>
               <button type="button" aria-pressed={bookingInHouseOnly} onClick={() => showBookings({ inHouseOnly: true })}>In house</button>
               <button type="button" aria-pressed={!bookingInHouseOnly && !bookingArrivalDay} onClick={() => showBookings()}>All bookings</button>
             </div>
-            <button type="button" className="admin-btn-secondary" onClick={() => loadAdminData({ silent: true })}><RefreshCw size={15} /> Refresh</button>
-        </div>
-        <div className="admin-bookings-controls">
-            <div className="admin-bookings-toolbar">
-              <label className="admin-bookings-search">
-                <Search size={17} />
-                <input
-                  type="search"
-                  placeholder="Search guest, villa or reference..."
-                  value={globalSearch}
-                  onChange={(event) => setGlobalSearch(event.target.value)}
-                  aria-label="Search bookings"
-                />
-              </label>
-              <label className="admin-booking-date"><CalendarDays size={16} /><span>Arrival</span><input type="date" aria-label="Filter bookings by arrival date" value={bookingArrivalDay} onChange={event => { setBookingArrivalDay(event.target.value); setBookingInHouseOnly(false); }} /></label>
-              <select
-                value={bookingFilter}
-                onChange={(event) => setBookingFilter(event.target.value)}
-                aria-label="Filter booking payment status"
-              >
-              <option>All</option>
+            <div className="admin-booking-actions">
+              <button type="button" className="admin-btn-secondary admin-bookings-refresh" aria-label="Refresh bookings" onClick={() => loadAdminData({ silent: true })}><RefreshCw size={15} /> Refresh</button>
+              <button type="button" className="admin-btn-primary admin-bookings-operations" onClick={() => {
+                setOperationsMode("queue"); setOperationsQuery(""); setOperationsFilter("All"); setOperationsModalOpen(true);
+              }}><ClipboardCheck size={16} /> Check in/out</button>
+            </div>
+          </div>
+          <div className="admin-bookings-toolbar">
+            <label className="admin-bookings-search">
+              <Search size={17} />
+              <input
+                type="search"
+                placeholder="Search guest, villa or reference..."
+                value={globalSearch}
+                onChange={(event) => setGlobalSearch(event.target.value)}
+                aria-label="Search bookings"
+              />
+            </label>
+            <label className="admin-booking-date"><CalendarDays size={16} /><span>Arrival</span><input type="date" aria-label="Filter bookings by arrival date" value={bookingArrivalDay} onChange={event => { setBookingArrivalDay(event.target.value); setBookingInHouseOnly(false); }} /></label>
+            <select
+              value={bookingFilter}
+              onChange={(event) => setBookingFilter(event.target.value)}
+              aria-label="Filter booking status"
+            >
+              <option value="All">Any status</option>
               <option>Paid</option>
-              <option>Unpaid</option>
+              <option value="Unpaid">Outstanding balance</option>
+              <option>Partially paid</option>
               <option>Completed</option>
               <option>Overdue/Cancelled</option>
-              </select>
-            </div>
-          <button type="button" className="admin-btn-primary admin-bookings-operations" onClick={() => {
-            setOperationsMode("queue"); setOperationsQuery(""); setOperationsFilter("All"); setOperationsModalOpen(true);
-          }}><ClipboardCheck size={16} /> Check In / Check Out</button>
+            </select>
+          </div>
         </div>
-        <section className="admin-panel">
+        <section className="admin-panel admin-bookings-list">
           <header className="admin-panel-header">
-            <div><h3>{bookingInHouseOnly ? "In-house bookings" : bookingArrivalDay ? `Arrivals · ${formatDate(bookingArrivalDay)}` : "All booking records"}</h3><p>{filteredBookings.length} reservation{filteredBookings.length === 1 ? '' : 's'} · Online, external and walk-in bookings</p></div>
+            <div><h3>{bookingInHouseOnly ? "In-house bookings" : bookingArrivalDay ? `Arrivals · ${formatDate(bookingArrivalDay)}` : "All bookings"}</h3><p>{filteredBookings.length} reservation{filteredBookings.length === 1 ? '' : 's'}</p></div>
           </header>
-          <div className="admin-table-wrap">
+          <div className="admin-table-wrap villa-table-frame" role="region" aria-label="Bookings table" tabIndex={0}>
             <table className="admin-data-table">
+              <colgroup>
+                <col style={{ width: "15%" }} />
+                <col style={{ width: "10%" }} />
+                <col style={{ width: "10%" }} />
+                <col style={{ width: "10%" }} />
+                <col style={{ width: "11%" }} />
+                <col style={{ width: "8%" }} />
+                <col style={{ width: "8%" }} />
+                <col style={{ width: "8%" }} />
+                <col style={{ width: "10%" }} />
+                <col style={{ width: "10%" }} />
+              </colgroup>
               <thead>
                 <tr>
-                  <th>Guest</th>
-                  <th>Booking</th>
-                  <th>Stay</th>
-                  <th>Status</th>
-                  <th>Payment</th>
-                  <th>Balance</th>
+                  {sortHeading('guest','Guest')}
+                  {sortHeading('booking','Booking')}
+                  {sortHeading('stay','Stay')}
+                  {sortHeading('status','Status')}
+                  {sortHeading('payment','Payment')}
+                  {sortHeading('total','Booking total (TCP)')}
+                  {sortHeading('paid','Amount paid')}
+                  {sortHeading('balance','Balance due')}
                   <th>Assignments</th>
                   <th>Action</th>
                 </tr>
               </thead>
               <tbody>
-                {filteredBookings.map((booking) => {
+                {page.rows.map((booking) => {
                   const bookingAssignments = assignments.filter(
                     (assignment) => assignment.bookingId === booking.id
                   );
@@ -5289,7 +5313,7 @@ Villas Under Maintenance
                   ).length;
                   return (
                     <tr key={booking.id}>
-                      <td>
+                      <td data-label="Guest">
                         <div className="admin-person-cell">
                           <Avatar name={booking.guestName} size={36} />
                           <span>
@@ -5298,28 +5322,30 @@ Villas Under Maintenance
                           </span>
                         </div>
                       </td>
-                      <td>
+                      <td data-label="Booking">
                         <strong>{booking.bookingCode}</strong>
                         <small>{booking.villaName}</small>
                       </td>
-                      <td>
+                      <td data-label="Stay">
                         <strong>{formatDate(booking.checkIn)}</strong>
                         <small>to {formatDate(booking.checkOut)}</small>
                       </td>
-                      <td><StatusPill status={booking.bookingStatus} /><small>{booking.stayStatus}</small></td>
-                      <td>
+                      <td data-label="Status"><StatusPill status={booking.bookingStatus} /><small>{booking.stayStatus}</small></td>
+                      <td data-label="Payment">
                         <StatusPill status={booking.paymentStatus} />
                       </td>
-                      <td>
+                      <td className="record-money" data-label="Booking total">{formatPeso(booking.totalAmount)}</td>
+                      <td className="record-money" data-label="Amount paid">{booking.bookingChannel === 'airbnb' ? airbnbPaymentLabel(booking) : formatPeso(booking.amountPaid)}</td>
+                      <td data-label="Balance due">
                         <strong>{booking.bookingChannel === "airbnb" ? airbnbPaymentLabel(booking) : formatPeso(booking.balanceAmount)}</strong>
                       </td>
-                      <td>
+                      <td data-label="Assignments">
                         <strong>{bookingAssignments.length}</strong>
                         <small>{activeCount} active</small>
                         {preparationAssignment && <small>{preparationAssignment.source === "automatic-booking-preparation" ? "Auto-assigned" : "Preparation"}: {preparationAssignment.assignedTo || "Housekeeping"}</small>}
                         {preparationNeeded && <small className="admin-preparation-needed">Preparation staff needed</small>}
                       </td>
-                      <td className="admin-booking-action-cell">
+                      <td className="admin-booking-action-cell" data-label="Actions">
 
 <div className="admin-booking-actions">
 
@@ -5328,7 +5354,7 @@ Villas Under Maintenance
   className="admin-btn-secondary admin-table-action-btn"
   onClick={() => openBookingDetails(booking)}
 >
-  <Eye size={14}/> Details
+  <Eye size={14}/> View details
  </button>
 {getBookingOperation(booking) && (
   <button
@@ -5347,8 +5373,8 @@ Villas Under Maintenance
                   );
                 })}
                 {!filteredBookings.length && (
-                  <tr>
-                    <td colSpan={8}>
+                  <tr className="admin-booking-empty-row">
+                    <td colSpan={10}>
                       <EmptyState
                         icon={CalendarDays}
                         title="No bookings found"
@@ -5360,6 +5386,7 @@ Villas Under Maintenance
               </tbody>
             </table>
           </div>
+          <RecordPagination page={page} pageSize={bookingPageSize} onPageChange={changePage} onPageSizeChange={setBookingPageSize} label="bookings"/>
         </section>
       </div>
     );
@@ -5396,29 +5423,53 @@ Villas Under Maintenance
 
       return matchesSearch && matchesStatus && matchesVilla;
     });
+    const historySortValues = {
+      bookingCode: item => item.bookingCode || "",
+      guest: item => item.guestName || "",
+      villa: item => item.villaName || "",
+      checkIn: item => item.checkIn || "",
+      checkOut: item => item.checkOut || "",
+      total: item => Number(item.totalAmount || 0),
+      paid: item => Number(item.amountPaid || 0),
+      balance: item => Number(item.balanceAmount ?? Math.max(Number(item.totalAmount || 0) - Number(item.amountPaid || 0), 0)),
+      status: item => item.historyStatus || "Completed",
+      completedAt: item => item.completedAt || "",
+    };
+    const sortedHistory = deskTableRows(filteredHistory, {
+      sortValue: historySortValues[historySort.key],
+      direction: historySort.direction,
+    });
+    const historySignature = JSON.stringify([historySearch, historyStatusFilter, historyVillaFilter, historyPageSize, historySort]);
+    const historyPage = paginateRecords(
+      sortedHistory,
+      historyPosition.signature === historySignature ? historyPosition.page : 0,
+      historyPageSize
+    );
+    const changeHistoryPage = page => setHistoryPosition({ signature: historySignature, page });
+    const sortHistory = key => setHistorySort(current => ({
+      key,
+      direction: current.key === key && current.direction === "asc" ? "desc" : "asc",
+    }));
+    const sortHeader = (key, label) => <th aria-sort={historySort.key === key ? historySort.direction === "asc" ? "ascending" : "descending" : "none"}>
+      <button type="button" className="booking-history-sort" onClick={() => sortHistory(key)}>{label}{historySort.key === key ? historySort.direction === "asc" ? " ↑" : " ↓" : " ↕"}</button>
+    </th>;
 
     return (
       <div className="admin-page admin-booking-history-page">
         <section className="admin-panel booking-history-panel">
-          <header className="admin-panel-header">
-            <div>
-              <h3><History size={18}/> Booking History</h3>
-              <p>Completed admin checkouts and past-due reservations are archived here.</p>
-            </div>
-            <strong>{filteredHistory.length} Records</strong>
-          </header>
-
           <div className="admin-history-toolbar">
             <div className="admin-search-box">
               <Search size={16}/>
               <input
+                aria-label="Search booking history"
                 value={historySearch}
                 onChange={(e) => setHistorySearch(e.target.value)}
-                placeholder="Search guest, booking code, villa..."
+                placeholder="Search guest, code, villa"
               />
             </div>
 
             <select
+              aria-label="Filter booking history by status"
               value={historyStatusFilter}
               onChange={(e) => setHistoryStatusFilter(e.target.value)}
             >
@@ -5428,6 +5479,7 @@ Villas Under Maintenance
             </select>
 
             <select
+              aria-label="Filter booking history by villa"
               value={historyVillaFilter}
               onChange={(e) => setHistoryVillaFilter(e.target.value)}
             >
@@ -5435,40 +5487,29 @@ Villas Under Maintenance
                 <option key={villa} value={villa}>{villa}</option>
               ))}
             </select>
+            <span className="booking-history-count">{filteredHistory.length} records</span>
           </div>
 
-          <div className="booking-history-grid">
-            {filteredHistory.map((item) => (
-              <article className="booking-history-card" key={item.id}>
-                <div className="booking-history-card-top">
-                  <div>
-                    <h4>{item.guestName || "Guest"}</h4>
-                    <p>{item.bookingCode || "No booking code"}</p>
-                  </div>
-
-                  <span className={`admin-status-pill status-${slug(item.historyStatus || "completed")}`}>
-                    {item.historyStatus || "Completed"}
-                  </span>
-                </div>
-
-                <div className="booking-history-details">
-                  <div><small>Villa</small><strong>{item.villaName || "N/A"}</strong></div>
-                  <div><small>Check In</small><strong>{formatDate(item.checkIn)}</strong></div>
-                  <div><small>Check Out</small><strong>{formatDate(item.checkOut)}</strong></div>
-                  <div><small>Status</small><strong>{item.action || "Completed Stay"}</strong></div>
-                  <div><small>Recorded</small><strong>{formatDateTime(item.completedAt)}</strong></div>
-                </div>
-              </article>
-            ))}
+          <div className="booking-history-table-wrap villa-table-frame" role="region" aria-label="Booking history table" tabIndex={0}>
+            <table className="booking-history-table">
+              <thead><tr>{sortHeader("bookingCode","Booking / Guest")}{sortHeader("villa","Villa")}{sortHeader("checkIn","Check In")}{sortHeader("checkOut","Check Out")}{sortHeader("total","Total")}{sortHeader("paid","Paid")}{sortHeader("balance","Balance")}{sortHeader("status","Status")}{sortHeader("completedAt","Recorded")}<th scope="col">Action</th></tr></thead>
+              <tbody>{historyPage.rows.map(item => (
+                <tr key={item.id}>
+                  <td><strong>{item.bookingCode || "No booking code"}</strong><small>{item.guestName || "Guest"}</small></td>
+                  <td>{item.villaName || "N/A"}</td>
+                  <td>{formatDate(item.checkIn)}</td>
+                  <td>{formatDate(item.checkOut)}</td>
+                  <td>{formatPeso(item.totalAmount ?? 0)}</td>
+                  <td>{formatPeso(item.amountPaid ?? 0)}</td>
+                  <td>{formatPeso(item.balanceAmount ?? Math.max(Number(item.totalAmount || 0) - Number(item.amountPaid || 0), 0))}</td>
+                  <td><span className={`admin-status-pill status-${slug(item.historyStatus || "completed")}`}>{item.historyStatus || "Completed"}</span><small>{item.action || "Completed Stay"}</small></td>
+                  <td>{formatDateTime(item.completedAt)}</td><td><button type="button" className="admin-btn-secondary" onClick={() => openBookingDetails(normalizedBookings.find(booking => String(booking.id) === String(item.originalBookingId)) || {...item,id:item.originalBookingId || item.id})}>View details</button></td>
+                </tr>
+              ))}{!historyPage.total && <tr><td colSpan={10} className="booking-history-empty">No matching bookings.</td></tr>}</tbody>
+            </table>
           </div>
+          <RecordPagination page={historyPage} pageSize={historyPageSize} onPageChange={changeHistoryPage} onPageSizeChange={setHistoryPageSize} label="bookings"/>
 
-          {!filteredHistory.length && (
-            <EmptyState
-              icon={History}
-              title="No booking history found"
-              message="Try changing the search or filters."
-            />
-          )}
         </section>
       </div>
     );
@@ -5529,7 +5570,7 @@ Villas Under Maintenance
           </article>
         </section>
 
-        <section className="admin-panel admin-staff-account-panel">
+        <section className="admin-panel admin-staff-account-panel villa-table-frame">
           <header className="admin-panel-header">
             <div>
               <h3><UserCog size={17} /> Staff account register</h3>
@@ -5540,7 +5581,7 @@ Villas Under Maintenance
             </span>
           </header>
 
-          <div className="admin-table-wrap">
+          <div className="admin-table-wrap" role="region" aria-label="Staff accounts table" tabIndex={0}>
             <table className="admin-data-table admin-staff-account-table">
               <thead>
                 <tr>
@@ -7951,6 +7992,7 @@ Villas Under Maintenance
   function renderContent() {
     switch (view) {
       case "maintenance": return renderVillas();
+      case "workHours": return <AdminWorkHours apiRequest={apiRequest} staff={staffDirectory}/>;
       case "guestFeedback": return <AdminGuestFeedback apiRequest={apiRequest} />;
       case "dashboard":
         return renderDashboard();
@@ -7986,15 +8028,12 @@ Villas Under Maintenance
   const sidebarItems = SIDEBAR_ITEMS;
 
   return (
-    <div className="admin-dashboard-shell" data-live-status={liveStatus}>
+    <div className={`admin-dashboard-shell${sidebarCollapsed ? " sidebar-collapsed" : ""}`} data-live-status={liveStatus}>
       <aside className="admin-sidebar">
         <div className="admin-sidebar-inner">
-          <div className="admin-sidebar-brand">
-            <span className="admin-brand-logo">
-              <img src="/favicon.png" alt="The Villa logo" />
-            </span>
-            <span className="admin-brand-name">The Villa - Admin</span>
-          </div>
+          <header className="admin-sidebar-brand">
+            <SidebarBrand label="Administration" collapsed={sidebarCollapsed} onToggle={() => setSidebarCollapsed(value => !value)} />
+          </header>
 
           <nav className="admin-sidebar-nav" aria-label="Admin navigation">
             <button
@@ -8003,8 +8042,11 @@ Villas Under Maintenance
               onClick={openProfileEditor}
               title="My profile"
             >
-              <Avatar name={profile.fullName || profile.name} size={80} src={profile.avatar_url || profile.avatarUrl || profile.photo_url || profile.photoUrl} />
-              <span className="admin-sidebar-profile-copy">
+               <span className="admin-sidebar-avatar-control">
+                 <Avatar name={profile.fullName || profile.name} size={40} src={profile.avatar_url || profile.avatarUrl || profile.photo_url || profile.photoUrl} />
+                 <span className="admin-sidebar-avatar-edit" aria-hidden="true"><Pencil className="h-3 w-3 shrink-0" size={12} strokeWidth={2.2} /></span>
+               </span>
+               <span className="admin-sidebar-profile-copy">
                 <strong>{profile.fullName || profile.name}{profile.nickname?.trim() && <> <span className="admin-profile-nickname">({profile.nickname.trim()})</span></>}</strong>
                 <small className="admin-profile-role-label">{profileRole}</small>
               </span>
@@ -8036,9 +8078,9 @@ Villas Under Maintenance
                         navigate(item.id);
                       }
                     }}
-                    title={item.label}
+                    aria-label={item.label} title={item.label}
                   >
-                    <Icon size={18} />
+                    <Icon className="h-[18px] w-[18px] shrink-0" size={18} />
                     <span className="admin-nav-label">{item.label}</span>
                     {badge ? <b className="admin-nav-badge">{badge}</b> : null}
                   </button>
@@ -8054,16 +8096,39 @@ Villas Under Maintenance
               onClick={() => setSignOutConfirmOpen(true)}
               aria-label="Sign Out"
             >
-              <LogOut size={16} />
+              <LogOut className="h-4 w-4 shrink-0" size={16} />
               <span className="admin-nav-label">Sign Out</span>
             </button>
           </div>
         </div>
       </aside>
+      {!sidebarCollapsed && <button type="button" className="portal-sidebar-backdrop" aria-label="Close navigation" onClick={() => setSidebarCollapsed(true)} />}
 
       <div className="admin-main-area">
         <main className="admin-page-content" aria-label={meta.title}>
-          <div className="dashboard-page-heading"><span>Admin workspace</span><h1>{meta.title}</h1></div>
+          <div className="dashboard-page-heading admin-sticky-page-bar">
+            <div className="admin-sticky-page-title"><h1>{meta.title}</h1></div>
+            <div className="admin-notification-wrap">
+              <button
+                type="button"
+                className={`admin-topbar-icon-btn${notificationOpen ? " active" : ""}`}
+                aria-label={`Notifications${unreadNotificationCount ? `, ${unreadNotificationCount} unread` : ""}`}
+                aria-expanded={notificationOpen}
+                aria-controls="admin-notification-menu"
+                onClick={() => setNotificationOpen(open => !open)}
+              >
+                <Bell size={19}/>
+                {unreadNotificationCount > 0 && <span className="admin-notification-badge">{unreadNotificationCount > 99 ? "99+" : unreadNotificationCount}</span>}
+              </button>
+              {notificationOpen && <section id="admin-notification-menu" className="admin-notification-dropdown" aria-label="Recent notifications">
+                <header><div><h2>Notifications</h2><p>{unreadNotificationCount ? `${unreadNotificationCount} unread` : "You’re all caught up"}</p></div>{unreadNotificationCount > 0 && <button type="button" onClick={markAllNotificationsRead}>Mark all read</button>}</header>
+                <div>{notifications.slice(0, 5).map(notification => <button type="button" key={notification.id} className={notification.unread ? "unread" : ""} onClick={() => handleNotificationClick(notification)}>
+                  <span><Bell size={17}/></span><span><strong>{notification.title || "Villa update"}</strong><p>{notification.message}</p><time>{formatRelative(notification.timestamp)}</time></span>{notification.unread && <i aria-label="Unread"/>}
+                </button>)}{!notifications.length && <p className="admin-notification-empty">No notifications yet.</p>}</div>
+                <footer><button type="button" onClick={() => { setNotificationOpen(false); navigate("notifications"); }}>View all notifications</button></footer>
+              </section>}
+            </div>
+          </div>
           {dataError && <div className="admin-data-notice" role="alert"><span>{formatUserFacingMessage(dataError)}</span><button type="button" className="admin-btn-secondary" onClick={() => loadAdminData()}>Retry</button></div>}
           {renderContent()}
         </main>
@@ -8171,7 +8236,7 @@ Villas Under Maintenance
                     <WalletCards size={17} />
                   </span>
                   <div>
-                    <small>Booking total</small>
+                    <small>Booking total (TCP)</small>
                     <strong>{formatPeso(selectedBooking.totalAmount)}</strong>
                     <span>{selectedBooking.paymentStatus}</span>
                   </div>
@@ -8216,6 +8281,7 @@ Villas Under Maintenance
                     <dt>Payment reference</dt>
                     <dd>{selectedBooking.paymentReference || "Not recorded"}</dd>
                   </div>
+                  <div><dt>Booking total (TCP)</dt><dd>{formatPeso(selectedBooking.totalAmount)}</dd></div>
                   <div>
                     <dt>{selectedBooking.bookingChannel === "airbnb" ? "Airbnb payment status" : "Amount paid"}</dt>
                     <dd>{selectedBooking.bookingChannel === "airbnb" ? airbnbPaymentLabel(selectedBooking) : formatPeso(selectedBooking.amountPaid)}</dd>

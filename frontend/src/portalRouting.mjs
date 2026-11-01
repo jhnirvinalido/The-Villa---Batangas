@@ -40,7 +40,7 @@ export function sessionWithCurrentRole(session, user) {
 }
 
 export function frontDeskSection(location) {
-  const sections = new Set(['bookings', 'walkIns', 'newWalkIn', 'lifecycle', 'payments', 'staff']);
+  const sections = new Set(['bookings', 'walkIns', 'newWalkIn', 'lifecycle', 'payments', 'receipts', 'staff']);
   const section = new URLSearchParams(location.search).get('section') || location.pathname?.split('/').filter(Boolean)[1];
   return sections.has(section) ? section : 'bookings';
 }

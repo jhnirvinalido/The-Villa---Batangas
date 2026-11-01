@@ -22,3 +22,8 @@ test('arrival date, payment status and guest search work together without changi
   assert.deepEqual(filterBookingRecords(source, { arrivalDate: '2026-11-01', status: 'Unpaid', search: ' REYES ' }).map(row => row.id), ['partial']);
   assert.deepEqual(source.map(row => row.id), ['online', 'partial']);
 });
+
+test('partial payment filter isolates downpayments from paid and unpaid bookings', () => {
+  const source = [booking, { ...booking, id: 'half', paymentStatus: '50% Downpayment' }, { ...booking, id: 'partial', paymentStatus: 'Partially paid' }, { ...booking, id: 'unpaid', paymentStatus: 'Unpaid' }];
+  assert.deepEqual(filterBookingRecords(source, { status: 'Partially paid' }).map(row => row.id), ['half', 'partial']);
+});

@@ -19,6 +19,14 @@ export default function AppRoutes() {
       <Routes>
         {/* Public guest pages */}
         <Route path="/" element={<App />} />
+        <Route path="/villas" element={<App />} />
+        <Route path="/villas/:villaId" element={<App />} />
+        <Route path="/about" element={<App />} />
+        <Route path="/location" element={<App />} />
+        <Route path="/faqs" element={<App />} />
+        <Route path="/reviews" element={<App />} />
+        <Route path="/policies" element={<App />} />
+
         <Route path="/book" element={<BookForm />} />
 
         {/* Remove the old customer login and dashboard routes. */}

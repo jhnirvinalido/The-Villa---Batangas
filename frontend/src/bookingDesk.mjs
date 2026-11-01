@@ -7,6 +7,7 @@ export function filterBookingRecords(bookings, { search = '', status = 'All', ar
     const payment = String(booking.paymentStatus || '').toLowerCase();
     const matchesStatus = status === 'All'
       || (status === 'Paid' && payment === 'paid')
+      || (status === 'Partially paid' && /partial|downpayment/.test(payment))
       || (status === 'Unpaid' && /unpaid|partial|downpayment/.test(payment))
       || (status === 'Completed' && (booking.lifecycleStatus === 'Completed' || /completed|checked out/.test(reservation)))
       || (status === 'Overdue/Cancelled' && /overdue|cancelled|canceled|expired/.test(reservation));

@@ -1891,9 +1891,6 @@ export default function BookForm() {
 
             <span>
               <strong>The Villa</strong>
-              <small>
-                Batangas Private Staycation
-              </small>
             </span>
           </button>
 

@@ -9,9 +9,8 @@ import {
   EyeOff,
   KeyRound,
   Mail,
-  ShieldCheck,
 } from "lucide-react";
-import { useNavigate, useLocation } from "react-router-dom";
+import { Link, useNavigate, useLocation } from "react-router-dom";
 import "./AdminLogin.css";
 
 const API_URL = (import.meta.env.VITE_API_URL || "http://127.0.0.1:8000").replace(/\/$/, "");
@@ -419,63 +418,54 @@ export default function VillaLogin() {
 
   return (
     <main className="villa-login-page">
-      <div className="villa-login-background" aria-hidden="true" />
-      <div className="villa-login-light villa-login-light-one" aria-hidden="true" />
-      <div className="villa-login-light villa-login-light-two" aria-hidden="true" />
-
-      <section className="villa-login-form-section">
-        <aside className="villa-login-welcome" aria-label="The Villa management portal">
-          <div className="villa-login-welcome-brand">
+      <section className="villa-login-brand-panel" aria-label="The Villa">
+        <img className="villa-login-property-image" src="/image2.jpg" alt="The Villa in San Jose, Batangas" />
+        <div className="villa-login-brand-content">
+          <Link to="/" className="villa-login-brand">
             <img src="/favicon.png" alt="" />
-            <div>
-              <strong>The Villa</strong>
-              <span>Hospitality &amp; Retreat</span>
-            </div>
+            <strong>The Villa</strong>
+          </Link>
+          <div className="villa-login-brand-copy">
+            <span>SAN JOSE, BATANGAS</span>
+            <h2>Behind every<br />well-kept stay.</h2>
+            <p>The workspace for our people and our property.</p>
           </div>
+        </div>
+      </section>
 
-          <div className="villa-login-welcome-copy">
-            <span className="villa-login-welcome-eyebrow">THE VILLA · OPERATIONS</span>
-            <h2>Hospitality,<br />thoughtfully managed.</h2>
-            <p>
-              Your workspace for reservations, guest care, and the details
-              that make every stay feel effortless.
-            </p>
+      <section className="villa-login-panel" aria-label="Sign in">
+        <div className="villa-login-content">
+          <Link to="/" className="villa-login-back">← Back to the website</Link>
+          <div className="villa-login-mobile-brand">
+            <img src="/favicon.png" alt="" />
+            <strong>The Villa</strong>
           </div>
-
-          <div className="villa-login-welcome-footer">
-            <span className="villa-login-welcome-rule" />
-            <span>EVERY STAY, A LITTLE MORE SPECIAL</span>
-          </div>
-        </aside>
-
-        <div className="villa-login-card">
-          <div className="villa-login-card-accent" />
-
           <header className="villa-login-heading">
-            <div className="villa-login-portal-label">
-              <ShieldCheck size={14} /> Management portal
-            </div>
-            <h1>Welcome back</h1>
-            <p>Admin, Front Desk / Operations, Staff, and Maintenance sign in here. Your account opens your assigned workspace.</p>
+            <span className="villa-login-kicker">THE VILLA / TEAM PORTAL</span>
+            <h1>Sign in to your workspace</h1>
+            <p>Use the work account provided by your administrator.</p>
           </header>
 
           {errorMessage && <AlertMessage message={errorMessage}/>}
           {successMessage && <AlertMessage message={successMessage} type="success"/>}
 
-          <form className="villa-login-form" onSubmit={handleLogin} noValidate>
+          <form className="villa-login-form" onSubmit={handleLogin} aria-busy={isSubmitting || isResetting}>
             <label className="villa-login-field">
               <span>Email address</span>
               <div className="villa-login-input">
                 <span className="villa-login-input-icon"><Mail size={18} /></span>
                 <input
                   type="email"
+                  name="email"
+                  required
+                  spellCheck={false}
                   value={email}
                   onChange={(event) => {
                     setEmail(event.target.value);
                     setErrorMessage("");
                     setSuccessMessage("");
                   }}
-                  placeholder="you@thevilla.com"
+                  placeholder="Enter your work email"
                   autoComplete="email"
                   inputMode="email"
                   disabled={isSubmitting || isResetting}
@@ -489,6 +479,8 @@ export default function VillaLogin() {
                 <span className="villa-login-input-icon"><KeyRound size={18} /></span>
                 <input
                   type={showPassword ? "text" : "password"}
+                  name="password"
+                  required
                   value={password}
                   onChange={(event) => {
                     setPassword(event.target.value);
@@ -518,7 +510,7 @@ export default function VillaLogin() {
                   onChange={(event) => setRememberMe(event.target.checked)}
                   disabled={isSubmitting || isResetting}
                 />
-                <span>Remember my email</span>
+                <span>Remember email</span>
               </label>
 
               <button
@@ -534,22 +526,10 @@ export default function VillaLogin() {
             <button type="submit" className="villa-login-submit" disabled={isSubmitting || isResetting}>
               {isSubmitting ? (
                 <><span className="villa-login-spinner" /> Verifying account...</>
-              ) : "Sign in to your workspace"}
+              ) : "Sign in"}
             </button>
           </form>
-
-          <div className="villa-login-security">
-            <span><ShieldCheck size={18} /></span>
-            <p>
-              <strong>Private staff portal</strong>
-              <br />
-              Access is limited to authorized Villa administrators and staff.
-            </p>
-          </div>
-
-          <footer className="villa-login-card-footer">
-            <span /><p>THE VILLA · MANAGEMENT PORTAL</p><span />
-          </footer>
+          <p className="villa-login-help">Need access? Contact your administrator.</p>
         </div>
       </section>
     </main>

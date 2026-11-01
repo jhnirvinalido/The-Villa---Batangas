@@ -14,13 +14,17 @@ class FrontendFiles(StaticFiles):
             # Only browser routes get the SPA entry point. Missing API routes
             # and assets retain their 404 instead of returning HTML.
             browser_routes = {
+                "villas", "about", "location", "faqs", "reviews", "policies",
                 "feedback", "maintenance-response", "book", "register",
                 "dashboard", "login", "admin-login", "admin-dashboard", "admin", "staff", "maintenance", "front-desk", "front-desk-login",
                 "front-desk/bookings", "front-desk/walkIns", "front-desk/newWalkIn",
-                "front-desk/lifecycle", "front-desk/payments", "front-desk/staff",
+                "front-desk/lifecycle", "front-desk/payments", "front-desk/receipts", "front-desk/staff",
             }
             route = path.strip("/")
-            if error.status_code != 404 or route not in browser_routes:
+            # Villa detail pages have one identifier, never an asset/API suffix.
+            parts = route.split("/")
+            villa_detail = len(parts) == 2 and parts[0] == "villas" and bool(parts[1]) and "." not in parts[1]
+            if error.status_code != 404 or (route not in browser_routes and not villa_detail):
                 raise
             return await super().get_response("index.html", scope)
 

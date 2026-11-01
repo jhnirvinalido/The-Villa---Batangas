@@ -1,3 +1,7 @@
+import StaffWorkHours from "./StaffWorkHours";
+import { deskTableRows } from "./frontDeskTableModel.mjs";
+import SidebarBrand from "./SidebarBrand";
+import usePortalSidebar from "./usePortalSidebar";
 import { AlertMessage, ConfirmSignOut, LoadingScreen } from "./SystemFeedback";
 import { feedbackFetch as fetch } from "./requestFeedback.mjs";
 import { formatUserFacingMessage, getApiErrorMessage, getUserFacingError } from "./errorMessages.mjs";
@@ -7,11 +11,16 @@ import { snapshotRows } from "./dashboardSnapshot.mjs";
 import React from "react";
 import {
   CalendarDays,
-  Check,
+  Clock3,
+  RefreshCw,
+  ClipboardCheck,
   ClipboardList,
+  LayoutDashboard,
+  Timer,
   History,
   LockKeyhole,
   LogOut,
+  Pencil,
   Wrench,
 } from "lucide-react";
 import "./staffDashboard.css";
@@ -20,6 +29,8 @@ import StaffVillaOperations from "./StaffVillaOperations";
 import StaffNotifications from "./StaffNotifications";
 import StaffTaskBoard, { StaffOverview } from "./StaffTaskBoard";
 import StaffTaskWorkspace from "./StaffTaskWorkspace";
+import { RecordPagination } from "./RecordListControls";
+import { paginateRecords } from "./recordListModel.mjs";
 import "./StaffFlow.css";
 import { isLate, needsAvailabilityResponse } from "./taskFlow.mjs";
 
@@ -36,12 +47,13 @@ const ADMIN_CONTACT = {
 };
 
 const SIDEBAR_ITEMS = [
-  { id: "overview", label: "My workspace", icon: ClipboardList },
-  { id: "calendar", label: "My Schedule", icon: CalendarDays },
-  { id: "todo", label: "My assignments", icon: ClipboardList, preset: { tab: "My work", focus: "To do" }, count: "todo" },
-  { id: "inProgress", label: "In progress", icon: ClipboardList, preset: { tab: "My work", focus: "In progress" }, count: "inProgress" },
-  { id: "review", label: "Awaiting approval", icon: Check, preset: { tab: "In review", focus: "All work" }, count: "review" },
+  { id: "overview", label: "My workspace", icon: LayoutDashboard },
+  { id: "calendar", label: "My schedule", icon: CalendarDays },
+  { id: "todo", label: "My assignments", icon: ClipboardList, preset: { tab: "My work", focus: "All work" }, count: "all" },
+  { id: "inProgress", label: "In progress", icon: Timer, preset: { tab: "My work", focus: "In progress" }, count: "inProgress" },
+  { id: "review", label: "Awaiting approval", icon: ClipboardCheck, preset: { tab: "In review", focus: "All work" }, count: "review" },
   { id: "history", label: "History", icon: History },
+  { id: "workHours", label: "Work hours", icon: Clock3 },
 ];
 
 const API_BASE_URL = (
@@ -1043,14 +1055,43 @@ function EmptyState({ icon: Icon, title, message, action, onAction }) {
   );
 }
 
+function StaffHistoryList({ history, isMaintenanceStaff, openTask }) {
+  const [search, setSearch] = React.useState('');
+  const [status, setStatus] = React.useState('');
+  const [sort, setSort] = React.useState({key:'completed', direction:'desc'});
+  const [pageSize, setPageSize] = React.useState(10);
+  const [position, setPosition] = React.useState({signature:'', page:0});
+  const statusLabel = task => isLate(task) ? 'Overdue' : task.status;
+  const values = {task: task => task.title, booking: task => task.bookingCode || task.bookingId, due: task => task.dueDate, completed: task => task.completedAt || task.updatedAt, status: statusLabel};
+  const filtered = history.filter(task => !status || statusLabel(task) === status);
+  const rows = deskTableRows(filtered, {query:search, searchText:task => `${task.title} ${task.villaName} ${task.guestName} ${task.bookingCode || task.bookingId || ''}`, sortValue:values[sort.key], direction:sort.direction});
+  const signature = JSON.stringify([search,status,sort,pageSize]);
+  const page = paginateRecords(rows, position.signature === signature ? position.page : 0, pageSize);
+  const changePage = value => setPosition({signature, page:value});
+  const sortHeading = (key,label) => <th scope="col" aria-sort={sort.key === key ? sort.direction === 'asc' ? 'ascending' : 'descending' : 'none'}><button type="button" className="work-task-sort-heading" onClick={() => setSort({key, direction:sort.key === key && sort.direction === 'asc' ? 'desc' : 'asc'})}>{label} {sort.key === key ? sort.direction === 'asc' ? '↑' : '↓' : '↕'}</button></th>;
+  return <div className="staff-page staff-page-history">
+    <div className="record-toolbar"><input type="search" aria-label="Search task history" placeholder="Search assignment, villa or booking…" value={search} onChange={event => setSearch(event.target.value)}/><select aria-label="Filter history status" value={status} onChange={event => setStatus(event.target.value)}><option value="">All statuses</option>{['Completed','Cancelled','Overdue'].map(value => <option key={value}>{value}</option>)}</select>{(search || status) && <button type="button" className="staff-btn-ghost" onClick={() => {setSearch('');setStatus('');}}>Clear filters</button>}</div>
+    <section className="staff-history-table-wrap villa-table-frame" role="region" aria-label="Task history table" tabIndex={0}>
+      <table className="staff-history-table"><thead><tr>{sortHeading('task','Assignment')}{sortHeading('booking','Booking')}{sortHeading('due','Due date')}{sortHeading('completed','Completed at')}{sortHeading('status','Status')}<th scope="col">Action</th></tr></thead>
+      <tbody>{page.rows.map(task => <tr key={task.id}>
+        <td><strong className="staff-history-title">{task.title}</strong><small>{task.villaName} · {task.guestName || 'General assignment'}</small></td><td>{task.bookingCode || task.bookingId || '—'}</td><td>{formatDate(task.dueDate)}</td><td>{task.status === 'Completed' ? formatDateTime(task.completedAt || task.updatedAt) : '—'}</td><td><StatusPill status={statusLabel(task)}/></td>
+        <td><button type="button" className="work-task-view-button" aria-label={`View details for ${task.title}`} onClick={() => openTask(task.id)}>View details</button></td>
+      </tr>)}{!page.total && <tr><td colSpan={6}><EmptyState icon={History} title={search || status ? 'No matching history' : isMaintenanceStaff ? 'No completed maintenance yet' : 'No task history yet'} message="Completed, cancelled and overdue assignments can be reviewed here."/></td></tr>}</tbody></table>
+    </section>
+    <RecordPagination page={page} pageSize={pageSize} onPageChange={changePage} onPageSizeChange={setPageSize} label="history records"/>
+  </div>;
+}
+
 // ============================================================
 // MAIN COMPONENT
 // ============================================================
 export default function StaffDashboard() {
   const [view, setView] = React.useState("overview");
+  const [sidebarCollapsed, setSidebarCollapsed] = usePortalSidebar();
+  const [workHoursDay, setWorkHoursDay] = React.useState('');
   const [villaFocus, setVillaFocus] = React.useState('');
   const initialViewChosen = React.useRef(false);
-  const [taskBoardPreset,setTaskBoardPreset] = React.useState({tab:"My work",focus:"To do"});
+  const [taskBoardPreset,setTaskBoardPreset] = React.useState({tab:"My work",focus:"All work"});
   const [toast, setToast] = React.useState("");
   const [profileOpen, setProfileOpen] = React.useState(false);
   const [profileForm, setProfileForm] = React.useState({ name: "", nickname: "", avatarUrl: "", personalEmail: "" });
@@ -1111,7 +1152,8 @@ export default function StaffDashboard() {
       { id: "villas", label: "New request", icon: Wrench },
       { id: "calendar", label: "My schedule", icon: CalendarDays },
       { id: "todo", label: "My tasks", icon: ClipboardList, preset: { tab: "My work", focus: "All work" } },
-      { id: "history", label: "Completed", icon: Check },
+      { id: "history", label: "History", icon: History },
+      { id: "workHours", label: "Work hours", icon: Clock3 },
     ]
     : SIDEBAR_ITEMS;
 
@@ -1245,9 +1287,11 @@ export default function StaffDashboard() {
   }, [dataLoading, currentStaff.id, tasks, showToast]);
 
   function navigate(nextView, preset = {tab:"My work",focus:"All work"}) {
+    if (nextView === 'workHours') setWorkHoursDay(preset.dueDate || '');
     if (nextView === 'villas') setVillaFocus('');
     if (["todo","inProgress","review"].includes(nextView)) setTaskBoardPreset(preset);
     setView(nextView);
+    if (window.matchMedia("(max-width: 980px)").matches) setSidebarCollapsed(true);
   }
 
 async function commitTaskUpdate(
@@ -1367,6 +1411,7 @@ async function signOut() {
 
   const stats = React.useMemo(() => {
     return {
+      all: workspaceTasks.filter(task => task.status !== "Cancelled" && !needsAvailabilityResponse(task)).length,
       todo: workspaceTasks.filter((task) => task.status === "Pending" && !isLate(task)).length,
       inProgress: workspaceTasks.filter((task) => task.status === "In Progress" && !isLate(task)).length,
       review: workspaceTasks.filter((task) => task.status === "Pending Review").length,
@@ -1383,48 +1428,7 @@ async function signOut() {
         ? task.status === "Completed"
         : ["Completed", "Cancelled"].includes(task.status) || isLate(task))
       .sort((a, b) => String(b.updatedAt || b.dueDate || "").localeCompare(String(a.updatedAt || a.dueDate || "")));
-    return (
-      <div className="staff-page staff-page-history">
-        <section className="staff-history-table-wrap">
-          <table className="staff-history-table">
-            <thead>
-              <tr>
-                <th>Assignment</th>
-                <th>Booking</th>
-                <th>Due Date</th>
-                <th>Completed at</th>
-                <th>Status</th>
-              </tr>
-            </thead>
-            <tbody>
-              {history.map((task) => (
-                <tr key={task.id} onClick={() => openTask(task.id)}>
-                  <td>
-                    <strong className="staff-history-title">{task.title}</strong>
-                    <small>{task.villaName} · {task.guestName}</small>
-                  </td>
-                  <td>{task.bookingCode || task.bookingId || "—"}</td>
-                  <td>{formatDate(task.dueDate)}</td>
-                  <td>{task.status === "Completed" ? formatDateTime(task.completedAt || task.updatedAt) : "—"}</td>
-                  <td><StatusPill status={task.status === "Completed" ? "Completed" : task.status === "Cancelled" ? "Cancelled" : "Overdue"} /></td>
-                </tr>
-              ))}
-              {!history.length && (
-                <tr>
-                  <td colSpan={5}>
-                    <EmptyState
-                      icon={History}
-                      title={isMaintenanceStaff ? "No completed maintenance yet" : "No task history yet"}
-                      message={isMaintenanceStaff ? "Verified maintenance work will appear here." : "Approved, cancelled and overdue assignments appear here. Ask your administrator to review missed preparation deadlines."}
-                    />
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          </table>
-        </section>
-      </div>
-    );
+    return <StaffHistoryList history={history} isMaintenanceStaff={isMaintenanceStaff} openTask={openTask}/>;
   }
 
   function openProfileEditor() {
@@ -1471,12 +1475,13 @@ async function signOut() {
   function renderCurrentView() {
     switch (view) {
       case "villas": return <StaffVillaOperations key={villaFocus || 'villas'} apiRequest={staffApiRequest} initialVillaId={villaFocus} onChanged={() => loadStaffData({ silent: true })} />;
-      case "overview": return <StaffOverview tasks={tasks} name={currentStaff.name} shift={currentStaff.shift} openTask={openTask} viewCalendar={()=>navigate("calendar")} viewHistory={()=>navigate("history")} viewTasks={(tab,focus)=>navigate(tab==='In review'?'review':'todo',{tab,focus})} />;
+      case "overview": return <StaffOverview tasks={tasks} shift={currentStaff.shift} openTask={openTask} viewCalendar={()=>navigate("calendar")} viewHistory={()=>navigate("history")} viewTasks={(tab,focus)=>navigate(tab==='In review'?'review':'todo',{tab,focus})} />;
       case "todo":
       case "inProgress":
       case "review": return renderTasks();
       case "history": return renderHistory();
-      case "calendar": return <StaffSchedule tasks={workspaceTasks} shift={currentStaff.shift} openTask={openTask} onViewTodos={(dueDate)=>navigate("todo",{tab:"Schedule",focus:"All work",dueDate})} />;
+      case "workHours": return <StaffWorkHours key={workHoursDay} apiRequest={staffApiRequest} initialDate={workHoursDay}/>;
+      case "calendar": return <StaffSchedule onViewWorkHours={dueDate => navigate("workHours", {dueDate})} tasks={workspaceTasks} shift={currentStaff.shift} openTask={openTask} onViewTodos={(dueDate)=>navigate("todo",{tab:"Schedule",focus:"All work",dueDate})} />;
       case "profile": return renderProfile();
       default: return renderTasks();
     }
@@ -1505,23 +1510,28 @@ async function signOut() {
 
   const shellClass = [
     "staff-dashboard-shell",
+    "admin-dashboard-shell",
+    sidebarCollapsed && "sidebar-collapsed",
+    isMaintenanceStaff && "is-maintenance-workspace",
   ].filter(Boolean).join(" ");
 
   return (
     <div className={shellClass} data-live-status={liveStatus}>
-      <aside className="staff-sidebar">
-        <div className="staff-sidebar-inner">
-          <header className="staff-sidebar-brand">
-            <span className="staff-brand-logo"><img src="/favicon.png" alt="The Villa logo" /></span>
-            <strong className="staff-brand-name">The Villa - {isMaintenanceStaff ? "Maintenance" : "Staff"}</strong>
+      <aside className="staff-sidebar admin-sidebar">
+        <div className="staff-sidebar-inner admin-sidebar-inner">
+          <header className="staff-sidebar-brand admin-sidebar-brand">
+            <SidebarBrand label={isMaintenanceStaff ? "Maintenance" : "Staff"} collapsed={sidebarCollapsed} onToggle={() => setSidebarCollapsed(value => !value)} />
           </header>
 
-          <nav className="staff-sidebar-nav">
-            <button type="button" className={`staff-sidebar-profile-card staff-nav-profile${view === "profile" ? " active" : ""}`} onClick={openProfileEditor} title="My profile">
-              <Avatar name={currentStaff.name} size={80} src={currentStaff.avatarUrl || currentStaff.avatar_url} />
-              <span className="staff-sidebar-profile-copy">
-                <strong>{currentStaff.name}{currentStaff.nickname?.trim() && <> <span className="staff-profile-nickname">({currentStaff.nickname.trim()})</span></>}</strong>
-                <small>{currentStaff.role}</small>
+          <nav className="staff-sidebar-nav admin-sidebar-nav" aria-label="Staff navigation">
+            <button type="button" className={`staff-sidebar-profile-card admin-sidebar-profile-card staff-nav-profile admin-nav-profile${view === "profile" ? " active" : ""}`} onClick={openProfileEditor} title="My profile">
+              <span className="admin-sidebar-avatar-control">
+                <Avatar name={currentStaff.name} size={40} src={currentStaff.avatarUrl || currentStaff.avatar_url} />
+                <span className="admin-sidebar-avatar-edit" aria-hidden="true"><Pencil className="h-3 w-3 shrink-0" size={12} strokeWidth={2.2} /></span>
+              </span>
+              <span className="staff-sidebar-profile-copy admin-sidebar-profile-copy">
+                <strong>{currentStaff.name}{currentStaff.nickname?.trim() && <> <span className="staff-profile-nickname admin-profile-nickname">({currentStaff.nickname.trim()})</span></>}</strong>
+                <small className="admin-profile-role-label">{currentStaff.role.replace(/\b\w/g, letter => letter.toUpperCase())}</small>
               </span>
             </button>
             {sidebarItems.map((item) => {
@@ -1531,36 +1541,47 @@ async function signOut() {
                 <button
                   type="button"
                   key={item.id}
-                  className={`staff-sidebar-nav-btn${view === item.id ? " active" : ""}`}
+                  className={`staff-sidebar-nav-btn admin-sidebar-nav-btn${view === item.id ? " active" : ""}`}
+                  aria-current={view === item.id ? "page" : undefined}
+                  aria-label={item.label} title={item.label}
                   onClick={() => navigate(item.id, item.preset)}
                 >
-                  <Icon size={18} />
+                  <Icon className="h-[18px] w-[18px] shrink-0" size={18} />
                   <span className="staff-nav-label">{item.label}</span>
-                  {badge > 0 && <b className="staff-nav-badge">{badge}</b>}
+                  {badge > 0 &&                   <b className="staff-nav-badge admin-nav-badge">{badge}</b>}
                 </button>
               );
             })}
           </nav>
 
-          <footer className="staff-sidebar-footer">
-            <button type="button" className="staff-logout-btn" onClick={()=>setSignOutConfirmOpen(true)}>
-              <LogOut size={17} />
-              <span className="staff-nav-label">Sign Out</span>
+          <footer className="staff-sidebar-footer admin-sidebar-footer">
+            <button type="button" className="staff-logout-btn admin-logout-btn" title="Sign out" onClick={()=>setSignOutConfirmOpen(true)}>
+              <LogOut className="h-[17px] w-[17px] shrink-0" size={17} />
+              <span className="staff-nav-label">Sign out</span>
             </button>
           </footer>
         </div>
       </aside>
+      {!sidebarCollapsed && <button type="button" className="portal-sidebar-backdrop" aria-label="Close navigation" onClick={() => setSidebarCollapsed(true)} />}
 
-      <main className="staff-main-area">
-        <section className="staff-page-content">
-          <div className="staff-workspace-heading"><div className="staff-compact-page-heading"><span>{isMaintenanceStaff ? "Maintenance" : "My workspace"}</span><h1>{sidebarItems.find(item => item.id === view)?.label || "My Profile"}</h1></div>
-            <StaffNotifications key={currentStaff.id} staffId={currentStaff.id} notifications={staffNotifications} setNotifications={setStaffNotifications} popupsEnabled={notificationPopupsEnabled} apiRequest={staffApiRequest} openTask={openNotificationTask} refresh={() => loadStaffData({ silent: true })} />
+      <div className="staff-main-area admin-main-area">
+        <main className="staff-page-content admin-page-content" aria-label={sidebarItems.find(item => item.id === view)?.label || "My Profile"}>
+          <div className="staff-workspace-heading dashboard-page-heading admin-sticky-page-bar">
+            <div className="staff-compact-page-heading admin-sticky-page-title">
+              <h1>{sidebarItems.find(item => item.id === view)?.label || "My Profile"}</h1>
+            </div>
+            <div className="portal-topbar-actions">
+            <button type="button" className="portal-refresh-button" disabled={dataLoading} onClick={() => loadStaffData()} aria-label="Refresh workspace"><RefreshCw size={16}/><span>Refresh</span></button>
+            <div className="admin-notification-wrap">
+              <StaffNotifications key={currentStaff.id} staffId={currentStaff.id} notifications={staffNotifications} setNotifications={setStaffNotifications} popupsEnabled={notificationPopupsEnabled} apiRequest={staffApiRequest} openTask={openNotificationTask} refresh={() => loadStaffData({ silent: true })} />
+            </div>
+            </div>
           </div>
           {dataLoading && <LoadingScreen message="Loading your staff workspace…"/>}
           {dataError && <div className="grid gap-3"><AlertMessage message={dataError}/><button className="staff-btn-ghost" onClick={()=>loadStaffData()}>Retry</button></div>}
           {renderCurrentView()}
-        </section>
-      </main>
+        </main>
+      </div>
 
       {taskModalOpen && selectedTask && <StaffTaskWorkspace key={selectedTask.id} task={selectedTask} busy={!!taskSavingId} update={commitTaskUpdate} close={() => setTaskModalOpen(false)} />}
 
@@ -1584,7 +1605,7 @@ async function signOut() {
       </dialog>
 
       <ConfirmSignOut open={signOutConfirmOpen} busy={signingOut} cancel={()=>setSignOutConfirmOpen(false)} confirm={signOut}/>
-      {toast && <div className="fixed bottom-4 left-4 right-4 z-[25000] mx-auto max-w-lg"><AlertMessage message={toast} type={/unable|cannot|could not|failed|error|not available|already|no longer|please wait/i.test(toast) ? 'error' : 'success'} dismiss={()=>setToast("")}/></div>}
+      {toast && <div className="fixed bottom-4 left-4 right-4 z-[25000] mx-auto max-w-lg"><AlertMessage message={toast} type={/unable|cannot|could not|couldn.t|failed|error|connect|not available|already|no longer|please wait/i.test(toast) ? 'error' : 'success'} dismiss={()=>setToast("")}/></div>}
 
 
     </div>

@@ -2533,3 +2533,60 @@ button {
 .booking-spinner.compact { width: 18px; height: 18px; border-width: 2px; }
 @keyframes bookingSpinnerRotate { to { transform: rotate(360deg); } }
 @media (prefers-reduced-motion: reduce) { .booking-spinner { animation: none; } }
+
+/* Shared type scale across reservation steps. */
+.booking-page {
+  --booking-type-title: 26px;
+  --booking-type-section: 20px;
+  --booking-type-subheading: 16px;
+  --booking-type-body: 14px;
+  --booking-type-control: 16px;
+  --booking-type-label: 12px;
+  --booking-type-caption: 11px;
+  font-size: var(--booking-type-body);
+  line-height: 1.5;
+}
+.booking-page .booking-heading h1 { font-size:var(--booking-type-title); font-weight:600; line-height:1.25; }
+.booking-page .booking-brand strong { font-size:18px; font-weight:600; }
+.booking-page .booking-section-title h2 { font-size:var(--booking-type-section); font-weight:600; line-height:1.3; }
+.booking-page .booking-section-title.small h2,
+.booking-page .booking-villa-title-row h3,
+.booking-page .booking-villa-title-button,
+.booking-page .booking-calendar-topbar strong { font-size:var(--booking-type-subheading); font-weight:600; line-height:1.4; }
+.booking-page .booking-field-label,
+.booking-page .booking-summary-label { font-size:var(--booking-type-label); font-weight:600; line-height:1.5; }
+.booking-page .booking-field :is(input,select,textarea),
+.booking-page .booking-selected-date-chip strong {
+  font-family:inherit;
+  font-size:var(--booking-type-control);
+  font-weight:500;
+  line-height:1.5;
+}
+.booking-page .booking-guest-options button { font-size:var(--booking-type-control); line-height:1.5; }
+.booking-page :is(.booking-home-button,.booking-back-button,.booking-next-button),
+.booking-page .booking-card-footer button,
+.booking-page .booking-confirmation-buttons button,
+.booking-page .booking-villa-details-actions button { font-size:var(--booking-type-body); font-weight:600; line-height:1.5; }
+.booking-page .booking-progress-dot { font-size:var(--booking-type-label); font-weight:600; }
+.booking-page .booking-progress-item small { font-size:var(--booking-type-caption); font-weight:600; line-height:1.4; white-space:normal; text-align:center; }
+.booking-page .booking-heading>span,
+.booking-page .booking-calendar-topbar span,
+.booking-page .booking-calendar-weekdays span { font-size:var(--booking-type-caption); font-weight:600; line-height:1.5; }
+.booking-page .booking-calendar-day span { font-size:var(--booking-type-body); font-weight:600; line-height:1.3; }
+.booking-page .booking-calendar-day small,
+.booking-page .booking-calendar-day .booking-calendar-status-compact { font-size:var(--booking-type-caption); font-weight:500; line-height:1.3; }
+.booking-page .booking-calendar-day { min-height:56px; }
+.booking-page .booking-calendar-status,
+.booking-page .booking-calendar-legend,
+.booking-page .booking-section-title p,
+.booking-page .booking-field small,
+.booking-page .booking-selection-summary span,
+.booking-page .booking-selection-summary button,
+.booking-page .booking-villa-title-row small,
+.booking-page .booking-villa-title-row>strong,
+.booking-page .booking-villa-copy>p,
+.booking-page .booking-summary :is(dt,dd),
+.booking-page .booking-policy-check span { font-size:var(--booking-type-label); line-height:1.5; }
+@media(max-width:600px) {
+  .booking-page { --booking-type-title:22px; --booking-type-section:18px; }
+}

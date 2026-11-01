@@ -1,0 +1,165 @@
+/* Public pages retain the existing palette with more room to browse. */
+.public-site { display:flex; flex-direction:column; min-height:100dvh; }
+.public-site main { flex:1; outline:none; }
+.public-site .content-container { width:calc(100% - 64px); max-width:1320px; padding-inline:0; }
+.public-site .header-inner { max-width:1440px; margin-inline:auto; padding-inline:32px; }
+.public-site .brand { text-decoration:none; }
+.public-site .desktop-nav a { position:relative; padding:12px 0; color:#554f4a; font-size:13px; font-weight:600; text-decoration:none; white-space:nowrap; }
+.public-site .desktop-nav a:hover,.public-site .desktop-nav a[aria-current="page"] { color:var(--brand); }
+.public-site .desktop-nav a[aria-current="page"]::after { content:""; position:absolute; bottom:3px; left:0; right:0; height:2px; background:var(--brand); }
+.public-site .mobile-menu nav a { display:block; padding:12px 0; min-height:44px; color:var(--text); font-size:16px; text-decoration:none; }
+.public-site .mobile-menu nav a[aria-current="page"] { color:var(--brand); font-weight:700; }
+.public-skip-link { position:fixed; top:8px; left:16px; z-index:4000; padding:12px 20px; background:#fff; color:#292522; transform:translateY(-160%); }
+.public-skip-link:focus { transform:none; }
+.public-inner-page main { padding-top:var(--header-height); }
+.public-inner-page .section { padding-block:32px 72px; }
+.public-inner-page .section-heading h2 { font-size:clamp(26px,3vw,38px); }
+.public-site .villa-grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:30px; }
+.public-site .villa-card { min-width:0; grid-template-columns:1fr; }
+.public-site .villa-image-carousel-card,.public-site .villa-image-button { height:300px; min-height:300px; }
+.public-site .villa-card-body { padding:26px; }
+.public-site .villa-card-title p { display:block; max-width:none; font-size:14px; line-height:1.8; overflow:visible; }
+.public-site .villa-card-topline>strong { font-size:14px; }
+.public-site .villa-card-topline>span,.public-site .villa-card-feature>span { font-size:10px; }
+.public-site .villa-card-highlights span,.public-site .villa-card-feature strong { font-size:13px; }
+.public-site .villa-card-image-meta b { font-size:13px; }
+.public-site .villa-card-image-meta small { font-size:11px; }
+.public-site .villa-card-actions { margin-top:24px; }
+.public-site .villa-card-actions .primary-action,.public-site .villa-card-actions .secondary-action { font-size:13px; min-height:44px; }
+.public-inner-page .villas-section::before { display:none; }
+.public-site .villa-card-actions a { text-decoration:none; }
+.app.public-site .public-explore { background:var(--page); color:var(--text); }
+.public-explore-grid { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:26px; }
+.public-explore-card { overflow:hidden; border:1px solid var(--line); border-radius:14px; color:var(--text); background:#fff; text-decoration:none; transition:box-shadow .2s; }
+.public-explore-card:hover { color:var(--text); box-shadow:var(--shadow); }
+.public-explore-card>img { width:100%; height:250px; object-fit:cover; }
+.public-explore-card>div { padding:28px; }
+.public-explore-card h3 { font-family:Georgia,serif; font-size:25px; font-weight:400; }
+.public-explore-card p { color:var(--muted); font-size:14px; line-height:1.8; }
+.public-explore-card span { display:inline-flex; align-items:center; gap:12px; margin-top:12px; color:var(--brand-dark); font-size:13px; font-weight:600; }
+.public-back-link { display:inline-block; margin-block:26px; color:var(--brand-dark); font-size:14px; }
+.public-site .public-villa-detail { max-width:1120px; padding-bottom:48px!important; }
+.public-villa-detail .public-back-link { margin-block:18px; font-size:13px; }
+.public-villa-detail .villa-modal { width:100%; height:auto; max-height:none; overflow:visible; display:grid; grid-template-columns:minmax(0,.95fr) minmax(0,1.05fr); grid-template-rows:none; grid-auto-rows:auto; align-items:stretch; gap:0; border:1px solid var(--line); border-radius:12px; background:var(--surface); box-shadow:none; overflow:hidden; }
+.public-villa-detail .villa-image-carousel-detail { display:flex; flex-direction:column; min-width:0; background:#eee9e2; }
+.public-villa-detail .villa-modal-gallery-image { position:relative; flex:1; width:100%; height:100%; min-height:320px; max-height:none; overflow:hidden; border-radius:0; background:#eee9e2; }
+.public-villa-detail .villa-modal-gallery-image img { position:absolute; inset:0; width:100%; height:100%; object-fit:cover; object-position:center; transform:none; }
+.villa-photo-thumbnails { display:flex; gap:8px; overflow-x:auto; padding:10px 2px 4px; }
+.villa-photo-thumbnails button { flex:0 0 64px; height:50px; padding:2px; border:2px solid transparent; border-radius:7px; background:transparent; }
+.villa-photo-thumbnails button[aria-pressed="true"] { border-color:var(--brand); }
+.villa-photo-thumbnails button:focus-visible { outline:2px solid var(--brand); outline-offset:2px; }
+.villa-photo-thumbnails img { width:100%; height:100%; border-radius:3px; object-fit:cover; }
+.public-villa-detail .villa-modal-info { height:auto; max-height:none; overflow:visible; border:0; border-left:1px solid var(--line); border-radius:0; }
+.public-villa-detail .modal-body { padding:24px; overflow:visible; }
+.public-villa-detail .modal-title { flex-wrap:wrap; gap:12px; }
+.public-villa-detail .modal-title h2 { font-size:30px; line-height:1.2; }
+.public-villa-detail .modal-title>strong { padding:7px 9px; font-size:12px; }
+.public-villa-detail .modal-description { margin-top:12px; font-size:13px; line-height:1.7; }
+.public-villa-detail .modal-subheading { margin-top:20px; font-size:13px; }
+.public-villa-detail .villa-specs { margin-top:12px; gap:8px; }
+.public-villa-detail .villa-specs article { min-height:44px; padding:9px 10px; }
+.public-villa-detail .amenities span { min-height:34px; padding-block:8px; font-size:12px; font-weight:400; }
+.public-villa-amenities { grid-column:1/-1; padding:20px 24px; border:0; border-top:1px solid var(--line); border-radius:0; background:var(--surface); }
+.public-villa-amenities h3 { margin:0 0 12px; color:var(--text); font-size:15px; font-weight:700; }
+.public-villa-amenities .amenities { grid-template-columns:repeat(3,minmax(0,1fr)); gap:0 24px; }
+.public-villa-detail .modal-actions { position:static; padding:16px 0 0; border:0; }
+.public-villa-detail .public-villa-booking { grid-column:1/-1; justify-content:flex-end; padding:18px 24px; border-top:1px solid var(--line); }
+.public-villa-detail .modal-actions .primary-action { width:auto; min-height:42px; padding-inline:22px; }
+.public-footer { padding:64px 0 22px; background:#211c18; color:#d0c5bc; }
+.public-footer .content-container { width:calc(100% - 64px); max-width:1320px; padding-inline:0; }
+.public-footer-grid { display:grid; grid-template-columns:1.5fr 1fr 1fr 1.1fr; align-items:start; gap:44px; }
+.public-footer-brand { display:inline-flex; align-items:center; gap:14px; color:#fff; text-decoration:none; }
+.public-footer-brand img { padding:5px; background:#fff; border-radius:10px; }
+.public-footer-brand span { font-family:Georgia,serif; font-size:29px; }
+.public-footer p { margin:20px 0; font-size:14px; line-height:1.9; }
+.public-footer h2 { margin:6px 0 19px; color:#fff; font-size:14px; font-weight:600; }
+.public-footer nav>a,.public-footer-location>a { display:block; width:fit-content; padding:8px 0; color:#d0c5bc; font-size:13px; line-height:1.6; text-decoration:none; }
+.public-footer a:hover { color:#fff; text-decoration:underline; text-underline-offset:5px; }
+.public-footer address { margin-bottom:12px; color:#d0c5bc; font-size:14px; font-style:normal; line-height:1.9; }
+.public-footer a.public-footer-book { display:inline-flex; align-items:center; gap:28px; padding:12px 18px; border:1px solid #9d8068; border-radius:6px; color:#fff; font-size:13px; text-decoration:none; }
+.public-footer-bottom { display:flex; justify-content:space-between; flex-wrap:wrap; gap:16px; margin-top:48px; padding-top:22px!important; border-top:1px solid #ffffff26; font-size:12px; }
+.public-footer-bottom a { color:#d0c5bc; text-decoration:none; }
+.public-site a:focus-visible,.public-footer a:focus-visible { outline:2px solid #b89263; outline-offset:5px; }
+@media(max-width:991px) {
+  .public-explore-grid { gap:16px; }
+  .public-explore-card>div { padding:20px; }
+  .public-explore-card>img { height:200px; }
+  .public-footer-grid { grid-template-columns:repeat(2,minmax(0,1fr)); gap:36px; }
+  .public-villa-detail .villa-modal { gap:0; }
+  .public-villa-amenities .amenities { grid-template-columns:repeat(2,minmax(0,1fr)); }
+}
+@media(max-width:767px) {
+  .public-site .content-container,.public-footer .content-container { width:calc(100% - 40px); }
+  .public-site .header-inner { padding-inline:16px; }
+  .public-site .villa-grid,.public-explore-grid { grid-template-columns:1fr; gap:24px; }
+  .public-inner-page .section { padding-block:24px 48px; }
+  .public-explore-card>img { height:230px; }
+  .public-footer { padding-top:42px; }
+  .public-footer-grid { gap:30px 20px; }
+  .public-footer-intro,.public-footer-location { grid-column:1/-1; }
+  .public-footer nav>a,.public-footer-location>a { min-height:44px; }
+  .public-footer-bottom { margin-top:30px; font-size:11px; }
+  .public-villa-detail .villa-modal { grid-template-columns:1fr; gap:0; }
+  .public-villa-detail .villa-modal-gallery-image { flex:none; height:auto; min-height:0; aspect-ratio:3/2; max-height:300px; }
+  .public-villa-detail .villa-modal-info { border-left:0; border-top:1px solid var(--line); }
+  .public-villa-detail .modal-body { padding:18px; }
+  .public-villa-amenities { padding:18px; }
+  .public-villa-detail .public-villa-booking { padding:16px 18px; }
+  .public-villa-amenities .amenities { grid-template-columns:1fr; }
+  .public-villa-detail .modal-title h2 { font-size:26px; }
+}
+
+/* Reviews use solid surfaces and a finite page of cards. */
+.app.public-site .reviews-page { background:#f4f1eb; }
+.app.public-site .reviews-page::before,.app.public-site .reviews-page::after { display:none; }
+.app.public-site .reviews-page>.content-container { display:block; max-width:1160px; }
+.app.public-site .reviews-page .landing-feedback-heading { display:flex; flex-direction:row; align-items:center; justify-content:space-between; gap:24px; padding:24px; margin:0 0 20px; border:1px solid #ddd5ca; border-radius:12px; background:#fff; box-shadow:none; }
+.app.public-site .reviews-page .landing-feedback-heading h2 { max-width:none; margin:0; color:#302922; font-family:Georgia,serif; font-size:clamp(26px,3vw,34px); line-height:1.2; }
+.app.public-site .reviews-page .landing-feedback-heading h2::after { display:none; }
+.app.public-site .reviews-page .section-label { color:#715339; font-size:11px; }
+.app.public-site .reviews-page .section-villa-logo { display:none; }
+.app.public-site .reviews-page .landing-feedback-total { display:flex; gap:18px; padding:0 0 0 24px; border:0; border-left:1px solid #ddd5ca; border-radius:0; background:#fff; }
+.app.public-site .reviews-page .landing-rating-number>small,.app.public-site .reviews-page .landing-rating-detail>small { color:#62584e; font-size:12px; }
+.app.public-site .reviews-page .landing-rating-number>strong { color:#573d28; font-size:32px; }
+.app.public-site .reviews-page .landing-rating-number>strong>span { font-size:14px; color:#62584e; }
+.app.public-site .reviews-page .landing-rating-detail { padding:0; border:0; }
+.app.public-site .reviews-page .landing-review-pages { padding:0; border:0; border-radius:0; background:transparent; box-shadow:none; }
+.app.public-site .reviews-page .landing-review-page-footer { margin:0 0 16px; padding:0; border:0; display:flex; flex-direction:row; justify-content:space-between; align-items:center; gap:12px; }
+.app.public-site .reviews-page .landing-review-page-footer>span,.app.public-site .reviews-page .landing-review-pagination>span { color:#5e5348; font-size:12px; }
+.app.public-site .reviews-page .landing-review-pagination { display:flex; width:auto; align-items:center; gap:12px; flex-wrap:nowrap; }
+.app.public-site .reviews-page .landing-review-pagination button { min-height:44px; padding:0 14px; border:1px solid #cbbda9; border-radius:8px; background:#fff; color:#593e29; font-size:13px; font-weight:600; }
+.app.public-site .reviews-page .landing-review-pagination button:hover:not(:disabled) { background:#eee6dc; }
+.app.public-site .reviews-page .landing-review-pagination button:disabled { opacity:.45; cursor:not-allowed; }
+.app.public-site .reviews-page .landing-written-reviews { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:16px; max-height:none; overflow:visible; padding:0; scrollbar-gutter:auto; }
+.app.public-site .reviews-page .landing-written-review { display:flex; flex-direction:column; align-self:stretch; gap:14px; min-width:0; min-height:280px; padding:22px; border:1px solid #ddd5ca; border-radius:12px; background:#fff; box-shadow:0 4px 16px #30251b06; }
+.app.public-site .reviews-page .landing-written-review header { gap:10px; }
+.app.public-site .reviews-page .landing-review-avatar { width:36px; height:36px; border:0; background:#eee5da; color:#684b32; }
+.app.public-site .reviews-page .landing-written-review h3 { color:#302922; font-size:14px; }
+.app.public-site .reviews-page .landing-written-review header small { color:#6c6054; font-size:12px; }
+.app.public-site .reviews-page .landing-review-stars { font-size:15px; color:#bcb3a6; letter-spacing:1px; }
+.app.public-site .reviews-page .landing-review-stars .filled { color:#8a5c25; }
+.app.public-site .reviews-page .landing-written-review>p { margin:0; color:#40372e; font-size:14px; line-height:1.7; max-width:none; }
+.app.public-site .reviews-page .review-comment-collapsed { display:-webkit-box; -webkit-line-clamp:4; -webkit-box-orient:vertical; overflow:hidden; }
+.app.public-site .reviews-page .mobile-review-expand { display:inline-flex; align-items:center; justify-content:space-between; gap:12px; width:100%; margin:auto 0 0; padding:0; min-height:44px; color:#68452c; font-size:13px; font-weight:600; text-decoration:none; }
+.review-detail-dialog { position:fixed; inset:0; width:min(600px,calc(100% - 32px)); max-height:80dvh; margin:auto; padding:26px; overflow:auto; border:1px solid #d7cabc; border-radius:14px; background:#fff; color:#302922; box-shadow:0 20px 80px #0004; }
+.review-detail-dialog::backdrop { background:#211a14b3; backdrop-filter:blur(3px); }
+.review-detail-dialog>header { display:flex; align-items:flex-start; justify-content:space-between; gap:16px; margin-bottom:18px; }
+.review-detail-dialog h2 { margin:5px 0; font-size:22px; }
+.review-detail-dialog small { color:#6c6054; font-size:12px; }
+.review-detail-dialog>p { margin:18px 0 0; color:#40372e; font-size:14px; line-height:1.8; white-space:pre-wrap; overflow-wrap:anywhere; }
+.review-dialog-close { flex:0 0 44px; width:44px; height:44px; border:1px solid #ddd5ca; border-radius:8px; background:#f8f5f0; color:#4b3929; font-size:26px; line-height:1; }
+.review-dialog-close:focus-visible,.app.public-site .reviews-page button:focus-visible { outline:2px solid #8a653a; outline-offset:3px; }
+@media(min-width:768px) and (max-width:1099px) {
+  .app.public-site .reviews-page .landing-written-reviews { grid-template-columns:repeat(2,minmax(0,1fr)); }
+}
+@media(max-width:767px) {
+  .app.public-site .reviews-page .landing-feedback-heading { flex-direction:column; align-items:flex-start; gap:18px; padding:20px; margin-bottom:16px; }
+  .app.public-site .reviews-page .landing-feedback-total { padding:0; border:0; }
+  .app.public-site .reviews-page .landing-review-page-footer { flex-wrap:wrap; }
+  .app.public-site .reviews-page .landing-review-pagination { width:100%; justify-content:space-between; gap:8px; }
+  .app.public-site .reviews-page .landing-written-reviews { grid-template-columns:1fr; }
+  .app.public-site .reviews-page .landing-written-review { padding:20px; min-height:260px; }
+}
+
+/* Keep the property identity comfortably inside the viewport on every page. */
+.public-site .header-inner { padding-inline: clamp(20px, 3vw, 48px); gap: 24px; }

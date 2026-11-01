@@ -26,7 +26,7 @@ class FrontendHostingTests(unittest.TestCase):
         self.client = TestClient(app)
 
     def test_front_desk_direct_visits_and_refreshes_serve_the_app(self):
-        for path in ("/login", "/admin-dashboard", "/staff", "/maintenance", "/front-desk-login", "/front-desk", "/front-desk/", "/front-desk/bookings", "/front-desk?section=staff"):
+        for path in ("/login", "/admin-dashboard", "/staff", "/maintenance", "/front-desk-login", "/front-desk", "/front-desk/", "/front-desk/bookings", "/front-desk/receipts", "/front-desk?section=receipts", "/front-desk?section=staff"):
             with self.subTest(path=path):
                 response = self.client.get(path)
                 self.assertEqual(response.status_code, 200)
@@ -36,8 +36,15 @@ class FrontendHostingTests(unittest.TestCase):
         response = self.client.get("/front-desk/payments")
         self.assertEqual(response.json(), {"data": []})
 
+    def test_public_pages_and_villa_deep_links_serve_the_app(self):
+        for path in ("/villas", "/villas/", "/villas/villa-1", "/villas/villa-1/", "/about", "/location", "/faqs", "/reviews", "/policies"):
+            with self.subTest(path=path):
+                response = self.client.get(path)
+                self.assertEqual(response.status_code, 200)
+                self.assertIn("The Villa portal", response.text)
+
     def test_missing_apis_and_assets_remain_404(self):
-        for path in ("/staff/missing", "/front-desk/bookings/missing/status", "/front-desk/payments/missing/status", "/assets/missing.js", "/front-desk/missing.js"):
+        for path in ("/staff/missing", "/front-desk/bookings/missing/status", "/front-desk/payments/missing/status", "/assets/missing.js", "/front-desk/missing.js", "/villas/missing.jpg", "/villas/villa-1/status", "/unknown"):
             with self.subTest(path=path):
                 response = self.client.get(path)
                 self.assertEqual(response.status_code, 404)

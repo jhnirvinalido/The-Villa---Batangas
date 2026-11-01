@@ -2,7 +2,8 @@ import sys
 import unittest
 from datetime import date
 from pathlib import Path
-from unittest.mock import call, patch
+from types import SimpleNamespace
+from unittest.mock import MagicMock, call, patch
 
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
@@ -36,6 +37,58 @@ class FrontDeskPortalTests(unittest.TestCase):
         self.assertEqual(data["profile"]["portalRole"], "front_desk")
         self.assertEqual(data["bookings"][0]["id"], "incoming")
         self.assertNotIn("authUserId", data["staff"][0])
+
+    def test_front_desk_can_update_only_its_own_profile(self):
+        account = {"id": "front-desk-1", "role": "front_desk"}
+        saved = {
+            "id": account["id"],
+            "full_name": "Updated Desk Name",
+            "personal_email": "desk@example.com",
+            "nickname": "Host",
+            "avatar_url": None,
+            "role": "front_desk",
+            "position": "Front Desk",
+        }
+        client = MagicMock()
+        query = client.table.return_value.update.return_value
+        query.eq.return_value.select.return_value.execute.return_value = SimpleNamespace(data=[saved])
+        with (
+            patch("admin.validate_portal_access_token", return_value=account),
+            patch("admin.save_session", return_value={}),
+            patch("admin.service_client", return_value=client),
+        ):
+            response = self.client.patch(
+                "/front-desk/profile",
+                headers={"Authorization": "Bearer test-token"},
+                json={
+                    "fullName": "Updated Desk Name",
+                    "personalEmail": "DESK@example.com",
+                    "nickname": "Host",
+                    "avatarUrl": "",
+                },
+            )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json()["data"]["name"], "Updated Desk Name")
+        query.eq.assert_called_once_with("id", account["id"])
+        updates = client.table.return_value.update.call_args.args[0]
+        self.assertEqual(updates["updated_by_staff_id"], account["id"])
+        self.assertEqual(updates["personal_email"], "desk@example.com")
+        self.assertNotIn("role", updates)
+
+    def test_non_front_desk_role_cannot_update_front_desk_profile(self):
+        with patch("admin.validate_portal_access_token", return_value={"id": "staff-1", "role": "staff"}):
+            response = self.client.patch(
+                "/front-desk/profile",
+                headers={"Authorization": "Bearer test-token"},
+                json={
+                    "fullName": "Staff Name",
+                    "personalEmail": "staff@example.com",
+                    "nickname": "",
+                    "avatarUrl": "",
+                },
+            )
+        self.assertEqual(response.status_code, 403)
 
     def test_staff_cannot_open_the_front_desk_api_even_with_legacy_grants(self):
         with patch("admin.validate_portal_access_token", return_value={"id": "staff-1", "role": "staff", "can_create_walk_in_bookings": True, "can_process_front_desk_payments": True}):

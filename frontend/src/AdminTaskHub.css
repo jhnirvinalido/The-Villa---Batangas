@@ -5,6 +5,7 @@
 .team-work-filters .work-search {margin-left:0;}
 .team-work-filters select, .team-work-filters input[type="date"] {padding:11px;border:1px solid var(--villa-border);border-radius:10px;background:var(--villa-white);font-size:12px;max-width:100%;}
 .team-work-filters > label:not(.work-search) {display:flex;align-items:center;gap:8px;font-size:12px;flex-wrap:wrap;}
+.team-work-hub {--record-border:var(--villa-border);--record-muted-bg:#faf9f7;--record-surface:var(--villa-white);--record-muted:var(--villa-text-muted);--record-ink:var(--villa-text);--record-focus:var(--villa-brown-light);}
 .team-activity-button {margin-left:auto;}
 .assignment-status-tabs {display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;padding:5px;border:1px solid var(--villa-border);border-radius:14px;background:#f2efeb;}
 .assignment-status-tab {display:flex;align-items:center;justify-content:center;gap:10px;min-width:0;padding:13px 16px;border:1px solid transparent;border-radius:10px;background:transparent;color:var(--villa-text-muted);font-size:12px;font-weight:700;cursor:pointer;transition:background .15s,border-color .15s,color .15s,box-shadow .15s;}
@@ -26,6 +27,8 @@
 .assignment-table-wrap {width:100%;overflow-x:auto;}
 .assignment-table {width:100%;border-collapse:collapse;text-align:left;font-size:12px;}
 .assignment-table th {padding:11px 15px;background:#faf9f7;color:var(--villa-text-muted);font-size:10px;font-weight:700;white-space:nowrap;}
+.assignment-sort-heading {display:flex;align-items:center;gap:7px;width:100%;padding:0;border:0;background:transparent;color:inherit;font:inherit;font-weight:700;text-align:left;text-transform:uppercase;cursor:pointer;}
+.assignment-sort-heading:hover {color:var(--villa-brown-dark);}
 .assignment-table td {padding:12px 15px;border-top:1px solid #f0ede9;color:var(--villa-text);vertical-align:middle;}
 .assignment-table tbody tr:hover {background:#fcfaf8;}
 .assignment-table-task {display:flex;flex-direction:column;align-items:flex-start;gap:5px;max-width:260px;padding:0;border:0;background:transparent;color:var(--villa-text);text-align:left;cursor:pointer;}
@@ -71,4 +74,5 @@
 .assignment-staffing-heading,.assignment-staffing-row {display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;padding:12px 0;border-top:1px solid var(--villa-border);font-size:12px;}
 .assignment-staffing-heading>span,.assignment-staffing-row small {color:var(--villa-text-muted);font-size:11px;}
 .assignment-staffing-row>span {display:grid;gap:5px;}
+.assignment-status-screen>.record-pagination {border-top:1px solid var(--villa-border);}
 @media(max-width:620px) {.assignment-essential-tabs{grid-template-columns:repeat(3,minmax(0,1fr));}}

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import base64
+import binascii
 import hashlib
 import hmac
 import json
@@ -109,6 +110,11 @@ FRONT_DESK_PAYMENT_SELECT = (
     "id,booking_id,receipt_number,method,amount,room_balance_amount,"
     "other_charges_total,payer_name,reference,cash_tendered,change_given,"
     "cashier_staff_id,status,payment_intent_id,processed_at,notes,created_at"
+)
+
+STAFF_TIME_RECORD_SELECT = (
+    "id,staff_account_id,clock_in_at,clock_out_at,review_status,review_note,"
+    "reviewed_by_staff_id,reviewed_at,created_at,updated_at"
 )
 
 WORKFLOW_EVENT_SELECT = (
@@ -487,6 +493,13 @@ front_desk_router = APIRouter(
     tags=["Front Desk / Operations"],
     dependencies=[Depends(require_front_desk_account)],
 )
+
+
+class FrontDeskProfileUpdateRequest(ApiModel):
+    personal_email: EmailStr = Field(alias="personalEmail")
+    full_name: str = Field(min_length=3, max_length=120, alias="fullName")
+    nickname: str = Field(default="", max_length=80)
+    avatar_url: str = Field(default="", max_length=180000, alias="avatarUrl")
 
 
 def supabase_admin_request(
@@ -979,6 +992,21 @@ def staff_api(row: dict[str, Any]) -> dict[str, Any]:
     }
 
 
+def staff_time_record_api(row: dict[str, Any]) -> dict[str, Any]:
+    return {
+        "id": row.get("id"),
+        "staffAccountId": row.get("staff_account_id"),
+        "clockInAt": row.get("clock_in_at"),
+        "clockOutAt": row.get("clock_out_at"),
+        "reviewStatus": row.get("review_status"),
+        "reviewNote": row.get("review_note"),
+        "reviewedByStaffId": row.get("reviewed_by_staff_id"),
+        "reviewedAt": row.get("reviewed_at"),
+        "createdAt": row.get("created_at"),
+        "updatedAt": row.get("updated_at"),
+    }
+
+
 def maintenance_on_call(row):
     if row.get("source") == "manual-maintenance-request":
         for event in reversed(row.get("status_history") or []):
@@ -1278,6 +1306,7 @@ def front_desk_bootstrap(
         "department",
         "shift",
         "avatarUrl",
+        "personalEmail",
         "nickname",
     )
     return {
@@ -1297,6 +1326,46 @@ def front_desk_bootstrap(
     }
 
 
+@front_desk_router.patch("/profile")
+def update_front_desk_profile(
+    data: FrontDeskProfileUpdateRequest,
+    context: dict[str, Any] = Depends(require_front_desk_access),
+):
+    account_id = str(context["account"]["id"])
+    name = data.full_name.strip()
+    if len(name) < 3:
+        raise HTTPException(status_code=422, detail="Enter your full name.")
+
+    avatar = data.avatar_url.strip()
+    if avatar:
+        try:
+            prefix, encoded = avatar.split(",", 1)
+            image = base64.b64decode(encoded, validate=True)
+            if prefix != "data:image/jpeg;base64" or not image.startswith(b"\xff\xd8\xff"):
+                raise ValueError("Invalid image")
+        except (ValueError, binascii.Error):
+            raise HTTPException(status_code=422, detail="Choose a valid profile picture.") from None
+
+    saved = rows(
+        service_client()
+        .table("staff_accounts")
+        .update({
+            "full_name": name,
+            "personal_email": str(data.personal_email).strip().lower(),
+            "nickname": data.nickname.strip() or None,
+            "avatar_url": avatar or None,
+            "updated_at": now_iso(),
+            "updated_by_staff_id": account_id,
+        })
+        .eq("id", account_id)
+        .select(STAFF_SELECT)
+        .execute()
+    )
+    if not saved:
+        raise HTTPException(status_code=404, detail="Your profile could not be found.")
+    return {"data": staff_api(saved[0])}
+
+
 @admin_router.get("/staff")
 def list_staff(
     include_disabled: bool = Query(default=True, alias="includeDisabled"),
@@ -1314,6 +1383,63 @@ def get_staff(staff_id: UUID, context: dict[str, Any] = Depends(require_admin)):
     return {"data": staff_api(fetch_staff(str(staff_id)))}
 
 
+@admin_router.get("/staff-time-records")
+def list_staff_time_records(
+    review_status: Literal["open", "pending_review", "approved", "needs_correction"] | None = Query(
+        default=None,
+        alias="reviewStatus",
+    ),
+    context: dict[str, Any] = Depends(require_admin),
+):
+    query = service_client().table("staff_time_records").select(STAFF_TIME_RECORD_SELECT)
+    if review_status:
+        query = query.eq("review_status", review_status)
+    records = rows(query.order("clock_in_at", desc=True).limit(2000).execute())
+    return {"data": [staff_time_record_api(record) for record in records]}
+
+
+@admin_router.patch("/staff-time-records/{record_id}/review")
+def review_staff_time_record(
+    record_id: UUID,
+    data: StaffTimeReviewRequest,
+    context: dict[str, Any] = Depends(require_admin),
+):
+    note = (data.review_note or "").strip()
+    if data.review_status == "needs_correction" and not note:
+        raise HTTPException(status_code=422, detail="Add a note explaining the correction needed.")
+
+    client = service_client()
+    existing = rows(
+        client.table("staff_time_records")
+        .select(STAFF_TIME_RECORD_SELECT)
+        .eq("id", str(record_id))
+        .limit(1)
+        .execute()
+    )
+    if not existing:
+        raise HTTPException(status_code=404, detail="Work-hours record was not found.")
+    if not existing[0].get("clock_out_at") or existing[0].get("review_status") != "pending_review":
+        raise HTTPException(status_code=409, detail="Only completed records awaiting review can be reviewed.")
+
+    updated = rows(
+        client.table("staff_time_records")
+        .update({
+            "review_status": data.review_status,
+            "review_note": note or None,
+            "reviewed_by_staff_id": str(context["account"]["id"]),
+            "reviewed_at": now_iso(),
+            "updated_at": now_iso(),
+        })
+        .eq("id", str(record_id))
+        .eq("review_status", "pending_review")
+        .select(STAFF_TIME_RECORD_SELECT)
+        .execute()
+    )
+    if not updated:
+        raise HTTPException(status_code=409, detail="This record was already reviewed. Refresh the list.")
+    return {"data": staff_time_record_api(updated[0])}
+
+
 class StaffAccessReviewRequest(ApiModel):
     area: Literal["walk_in", "payments"]
     action: Literal["approve", "deny", "revoke"]
@@ -1321,6 +1447,11 @@ class StaffAccessReviewRequest(ApiModel):
 
 class PaymentApprovalReviewRequest(ApiModel):
     action: Literal["approve", "deny"]
+
+
+class StaffTimeReviewRequest(ApiModel):
+    review_status: Literal["approved", "needs_correction"] = Field(alias="reviewStatus")
+    review_note: str | None = Field(default=None, max_length=1000, alias="reviewNote")
 
 
 @admin_router.post("/staff/{staff_id}/access-review")
@@ -5636,12 +5767,6 @@ def guest_feedback_analysis(
     except Exception:
         result['recommendation_reports'] = []
         result['recommendation_storage_ready'] = False
-    result['automation'] = {'status':'pending'}
-    try:
-        jobs = rows(client.table('feedback_analysis_jobs').select('status,last_error').eq('evidence_fingerprint',result['summary']['fingerprint']).limit(1).execute())
-        if jobs: result['automation'] = jobs[0]
-    except Exception:
-        result['automation'] = {'status':'unavailable','last_error':'Automatic analysis needs the latest database migration.'}
     return result
 
 
@@ -5658,7 +5783,7 @@ def create_feedback_recommendations(
         client.table('feedback_recommendation_reports').select('id').limit(1).execute()
         analysis = build_report(client,filters)
     except Exception:
-        raise HTTPException(status_code=503, detail="Recommendation storage or feedback is unavailable. Apply the analysis pipeline migration.") from None
+        raise HTTPException(status_code=503, detail="Recommendation storage or feedback is unavailable. Check the feedback database setup.") from None
     try:
         draft = generate(analysis['summary'])
     except ValueError as error:

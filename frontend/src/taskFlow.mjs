@@ -1,6 +1,7 @@
 export const workStates = ['Pending', 'In Progress'];
 export const dateKey = (date = new Date()) => new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Manila', year: 'numeric', month: '2-digit', day: '2-digit' }).format(date);
 export const isWorking = (task) => workStates.includes(task.status);
+export const canEditTaskChecklist = task => task.status === 'In Progress';
 export const needsAvailabilityResponse = task => task.maintenanceOnCall?.state === 'Awaiting response';
 export const isLate = (task, now = Date.now()) => isWorking(task) && !task.maintenanceOnCall && !!task.dueDate && new Date(`${task.dueDate}T${task.dueTime || '23:59:59'}+08:00`).getTime() < now;
 export function canStartTask(task, now = Date.now()) {
@@ -49,7 +50,7 @@ export function filterTaskQueue(tasks, {view = 'My work', focus = 'All work', se
   const query = search.trim().toLowerCase();
   return orderTasks(tasks.filter(task => {
     const inView = view === 'Schedule' ? task.status !== 'Cancelled'
-      : view === 'My work' ? isWorking(task) && !needsAvailabilityResponse(task) && !isLate(task, now)
+      : view === 'My work' ? task.status !== 'Cancelled' && !needsAvailabilityResponse(task) && (!isLate(task, now) || focus === 'All work' || focus === 'Overdue')
       : view === 'In review' ? task.status === 'Pending Review'
       : ['Completed', 'Cancelled'].includes(task.status) || isLate(task, now);
     return inView && (view !== 'My work' || matchesFocus(task,focus,now)) && (!priority || task.priority === priority)

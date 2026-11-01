@@ -1,7 +1,9 @@
 import { feedbackFetch as fetch } from "./requestFeedback.mjs";
 import useLiveUpdates from "./useLiveUpdates";
 import { useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { Link, NavLink, useLocation, useNavigate, useParams } from "react-router-dom";
+import SiteFooter from "./SiteFooter";
+import "./PublicPages.css";
 import { divIcon } from "leaflet";
 import {
   MapContainer,
@@ -14,8 +16,6 @@ import {
 import "leaflet/dist/leaflet.css";
 import "./App.css";
 import VillaVideoPreview from "./VillaVideoPreview";
-import VillaEntrance from "./VillaEntrance";
-import MobileCarousel from "./MobileCarousel";
 import LandingLoader, { LoadingImage, LoadingVideo } from "./LandingLoader";
 import LandingReviews, {ReviewTicker, ReviewStars} from "./LandingReviews";
 
@@ -63,6 +63,7 @@ function VillaImageCarousel({
 }) {
   const [localIndex, setLocalIndex] = useState(0);
   const activeIndex = selectedIndex ?? localIndex;
+  const ImageFrame = onOpen ? "button" : "div";
   const select = onSelect || setLocalIndex;
   const move = (amount) => {
     if (images.length < 2) return;
@@ -87,9 +88,9 @@ function VillaImageCarousel({
 
   return (
     <div className={`villa-image-carousel villa-image-carousel-${variant}`}>
-      <button
-        type="button"
-        className={variant === "modal" ? "villa-modal-gallery-image" : "villa-image-button"}
+      <ImageFrame
+        type={onOpen ? "button" : undefined}
+        className={variant === "card" ? "villa-image-button" : "villa-modal-gallery-image"}
         onClick={onOpen}
         aria-label={`View ${title}`}
       >
@@ -104,8 +105,11 @@ function VillaImageCarousel({
           <span className="villa-image-empty">Villa photos coming soon</span>
         )}
         {children}
-      </button>
-      {images.length > 1 && (
+      </ImageFrame>
+      {variant === "detail" && images.length > 1 && <div className="villa-photo-thumbnails" role="group" aria-label={`${title} photos`}>
+        {images.map((src, index) => <button type="button" key={`${src}-${index}`} onClick={() => select(index)} aria-label={`Show ${title} photo ${index + 1}`} aria-pressed={activeIndex === index}><img src={src} alt="" loading="lazy" /></button>)}
+      </div>}
+      {images.length > 1 && variant !== "detail" && (
         <>
           <button type="button" className="villa-gallery-arrow previous" aria-label="Previous villa photo" onClick={() => move(-1)}>‹</button>
           <button type="button" className="villa-gallery-arrow next" aria-label="Next villa photo" onClick={() => move(1)}>›</button>
@@ -600,8 +604,24 @@ function normalizeCatalog(rows) {
 }
 
 
+const PUBLIC_NAV = [
+  ["/", "Home"], ["/villas", "Villas"], ["/about", "About"],
+  ["/location", "Location"], ["/faqs", "FAQs"], ["/reviews", "Reviews"],
+];
+const PAGE_TITLES = {
+  "/": "Your own little escape", "/villas": "Our villas", "/about": "About The Villa",
+  "/location": "Location & directions", "/faqs": "Frequently asked questions",
+  "/reviews": "Guest reviews", "/policies": "Booking policies",
+};
+const SECTION_PATHS = {home: "/", villas: "/villas", about: "/about", location: "/location", faqs: "/faqs", "guest-feedback": "/reviews", policies: "/policies"};
+
 function App() {
   const navigate = useNavigate();
+  const { pathname: rawPathname, hash } = useLocation();
+  const pathname = rawPathname.replace(/\/+$/, "") || "/";
+  const { villaId } = useParams();
+  const isHome = pathname === "/";
+  const pageTitle = villaId ? "Villa details" : PAGE_TITLES[pathname];
   const [catalogRevision, setCatalogRevision] = useState(0);
   const [reviewRevision, setReviewRevision] = useState(0);
   useLiveUpdates({ audience: "public", domains: ["catalog"], onChange: () => setCatalogRevision(value => value + 1) });
@@ -611,8 +631,7 @@ function App() {
   const [menuOpen, setMenuOpen] = useState(false);
   const [villas, setVillas] = useState(DEFAULT_VILLAS);
   const [catalogLoading, setCatalogLoading] = useState(true);
-  const [selectedVilla, setSelectedVilla] = useState(null);
-  const [selectedVillaImageIndex, setSelectedVillaImageIndex] = useState(0);
+  const selectedVilla = villaId ? villas.find(villa => villa.id === villaId) : null;
   const [videoOpen, setVideoOpen] = useState(false);
   const [openFaq, setOpenFaq] = useState(0);
   const [heroIndex, setHeroIndex] = useState(0);
@@ -642,30 +661,26 @@ function App() {
   const directionsUrl =
     buildDirectionsUrl(guestLocation);
 
-  const scrollTo = (id) => {
+  const goToPage = (id) => {
     setMenuOpen(false);
-
-    const destination = document.getElementById(id);
-    if (!window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
-      destination?.querySelectorAll("h2, .section-label, .section-heading > span").forEach((element, index) => {
-        element.getAnimations().forEach(animation => animation.cancel());
-        element.animate([
-          { opacity: 0.3, transform: "translateY(16px)" },
-          { opacity: 1, transform: "translateY(0)" },
-        ], { duration: 850, delay: 120 + index * 70, easing: "cubic-bezier(.16,1,.3,1)" });
-      });
-    }
-    destination?.scrollIntoView({
-      behavior: window.matchMedia("(prefers-reduced-motion: reduce)").matches ? "instant" : "smooth",
-      block: "start",
-    });
+    navigate(SECTION_PATHS[id] || "/");
   };
 
   useEffect(() => {
+    if (isHome && Object.hasOwn(SECTION_PATHS, hash.slice(1)) && hash !== "#home") {
+      navigate(SECTION_PATHS[hash.slice(1)], { replace: true });
+      return;
+    }
+    document.title = `${selectedVilla?.title || pageTitle} | The Villa`;
+    window.scrollTo({ top: 0, behavior: "instant" });
+    document.getElementById("public-main")?.focus({ preventScroll: true });
+  }, [pathname, hash, isHome, navigate, pageTitle, selectedVilla?.title]);
+
+  useEffect(() => {
+    if (!isHome) return undefined;
     const root = document.querySelector(".app");
     if (!root || !("IntersectionObserver" in window)) return undefined;
     const motion = window.matchMedia("(prefers-reduced-motion: reduce)");
-    const sections = [...root.querySelectorAll("main > section[id]")];
     const targets = [...root.querySelectorAll(".section > .container > *, .villa-grid > *, .policy-grid > *, .about-visual, .about-copy > *, .faq-item")];
     targets.forEach((element, index) => {
       element.classList.add("section-reveal");
@@ -678,28 +693,15 @@ function App() {
       });
     }, { threshold: 0.08 });
     targets.forEach(element => observer.observe(element));
-    const updateNavigation = () => {
-      const line = window.innerHeight * 0.35;
-      const current = sections.filter(section => section.getBoundingClientRect().top <= line).at(-1);
-      root.querySelectorAll(".desktop-nav button, .mobile-menu button, .footer-links button").forEach(button => {
-        const label = button.textContent.trim().toLowerCase();
-        const id = label === "feedback" ? "guest-feedback" : label;
-        if (id === current?.id) button.setAttribute("aria-current", "location");
-        else button.removeAttribute("aria-current");
-      });
-    };
     const syncMotion = () => root.classList.toggle("has-section-motion", !motion.matches);
     syncMotion();
-    updateNavigation();
-    window.addEventListener("scroll", updateNavigation, { passive: true });
     motion.addEventListener("change", syncMotion);
     return () => {
       observer.disconnect();
       root.classList.remove("has-section-motion");
       motion.removeEventListener("change", syncMotion);
-      window.removeEventListener("scroll", updateNavigation);
     };
-  }, []);
+  }, [pathname, catalogLoading, isHome]);
 
   const openVilla = (villa) => {
     try {
@@ -711,12 +713,7 @@ function App() {
       // Viewing still works if storage is unavailable.
     }
 
-    setSelectedVilla(villa);
-    setSelectedVillaImageIndex(0);
-  };
-
-  const closeVilla = () => {
-    setSelectedVilla(null);
+    navigate(`/villas/${encodeURIComponent(villa.id)}`);
   };
 
   const openBooking = (
@@ -724,7 +721,6 @@ function App() {
     villaCapacity = ""
   ) => {
     setMenuOpen(false);
-    closeVilla();
 
     const query = new URLSearchParams();
 
@@ -1067,7 +1063,7 @@ function App() {
   }, []);
 
   useEffect(() => {
-    if (!menuOpen && !selectedVilla && !videoOpen) return undefined;
+    if (!menuOpen && !videoOpen) return undefined;
 
     const previous = document.body.style.overflow;
     document.body.style.overflow = "hidden";
@@ -1075,7 +1071,6 @@ function App() {
     const handleKeyDown = (event) => {
       if (event.key === "Escape") {
         setMenuOpen(false);
-        closeVilla();
         setVideoOpen(false);
       }
     };
@@ -1086,31 +1081,22 @@ function App() {
       document.body.style.overflow = previous;
       window.removeEventListener("keydown", handleKeyDown);
     };
-  }, [menuOpen, selectedVilla, videoOpen]);
+  }, [menuOpen, videoOpen]);
 
   return (
-    <div className="app">
+    <div className={`app public-site ${isHome ? "public-home" : "public-inner-page"}`}>
+      <a className="public-skip-link" href="#public-main">Skip to content</a>
       <header className={`site-header ${scrolled ? "scrolled" : ""}`}>
         <div className="header-inner">
-          <button
-            type="button"
-            className="brand"
-            onClick={() => scrollTo("home")}
-          >
+          <Link className="brand" to="/" onClick={() => setMenuOpen(false)}>
             <img src="/favicon.png" alt="The Villa" />
             <span>
               <strong>The Villa</strong>
-              <small>Batangas Private Staycation</small>
             </span>
-          </button>
+          </Link>
 
           <nav className="desktop-nav" aria-label="Main navigation">
-            <button type="button" onClick={() => scrollTo("home")}>Home</button>
-            <button type="button" onClick={() => scrollTo("villas")}>Villas</button>
-            <button type="button" onClick={() => scrollTo("about")}>About</button>
-            <button type="button" onClick={() => scrollTo("location")}>Location</button>
-            <button type="button" onClick={() => scrollTo("faqs")}>FAQs</button>
-            <button type="button" onClick={() => scrollTo("guest-feedback")}>Feedback</button>
+            {PUBLIC_NAV.map(([path, label]) => <NavLink key={path} to={path} end={path === "/"}>{label}</NavLink>)}
           </nav>
 
           <div className="header-actions">
@@ -1127,6 +1113,7 @@ function App() {
               className={`menu-button ${menuOpen ? "active" : ""}`}
               aria-label={menuOpen ? "Close menu" : "Open menu"}
               aria-expanded={menuOpen}
+              aria-controls="public-mobile-menu"
               onClick={() => setMenuOpen((current) => !current)}
             >
               <span />
@@ -1144,22 +1131,17 @@ function App() {
         onClick={() => setMenuOpen(false)}
       />
 
-      <aside className={`mobile-menu ${menuOpen ? "open" : ""}`}>
+      <aside id="public-mobile-menu" className={`mobile-menu ${menuOpen ? "open" : ""}`} inert={!menuOpen}>
         <div className="mobile-menu-brand">
           <img src="/favicon.png" alt="" />
           <div>
             <strong>The Villa</strong>
-            <span>Private Staycation</span>
           </div>
         </div>
 
-        <nav>
-          <button type="button" onClick={() => scrollTo("home")}>Home</button>
-          <button type="button" onClick={() => scrollTo("villas")}>Villas</button>
-          <button type="button" onClick={() => scrollTo("about")}>About</button>
-          <button type="button" onClick={() => scrollTo("location")}>Location</button>
-          <button type="button" onClick={() => scrollTo("faqs")}>FAQs</button>
-            <button type="button" onClick={() => scrollTo("guest-feedback")}>Feedback</button>
+        <nav aria-label="Mobile navigation">
+          {PUBLIC_NAV.map(([path, label]) => <NavLink key={path} to={path} end={path === "/"} onClick={() => setMenuOpen(false)}>{label}</NavLink>)}
+          <NavLink to="/policies" onClick={() => setMenuOpen(false)}>Booking policies</NavLink>
         </nav>
 
         <button
@@ -1171,8 +1153,9 @@ function App() {
         </button>
       </aside>
 
-      <main>
-        <section className="hero-section" id="home">
+      <main id="public-main" tabIndex={-1}>
+        {!isHome && <h1 className="visually-hidden">{selectedVilla?.title || pageTitle}</h1>}
+        {isHome && <section className="hero-section" id="home">
           <div className="hero-carousel" aria-label="The Villa gallery">
             {HERO_SLIDES.map((slide, index) => (
               <LoadingImage
@@ -1188,7 +1171,6 @@ function App() {
           </div>
 
           <div className="hero-overlay" />
-          <VillaEntrance photoSrc={HERO_SLIDES[0].image} />
 
           <div className="container hero-inner">
             <div className="hero-content">
@@ -1211,7 +1193,7 @@ function App() {
                 <button
                   type="button"
                   className="primary-action"
-                  onClick={() => scrollTo("villas")}
+                  onClick={() => goToPage("villas")}
                 >
                   View villas
                 </button>
@@ -1224,7 +1206,7 @@ function App() {
               <button
                 type="button"
                 className="hero-rating-summary"
-                onClick={() => scrollTo("guest-feedback")}
+                onClick={() => goToPage("guest-feedback")}
                 aria-label="View ratings"
               >
                 <span className="hero-rating-stars" aria-hidden="true">
@@ -1265,9 +1247,9 @@ function App() {
             </aside>
           </div>
 
-        </section>
+        </section>}
 
-        <section className="section villas-section" id="villas">
+        {pathname === "/villas" && <section className="section villas-section" id="villas">
           <div className="container content-container">
             <div className="section-heading">
               <span>Our villas</span>
@@ -1279,7 +1261,7 @@ function App() {
             </div>
 
             {catalogLoading && <div className="landing-loading-row"><LandingLoader label="Loading villas" /></div>}
-            <MobileCarousel className="villa-grid" label="villas" count={villas.length}>
+            <div className="villa-grid" aria-label="Browse villas">
               {villas.map((villa, index) => {
                 const villaLabels = [
                   "Family escape",
@@ -1339,14 +1321,10 @@ function App() {
                       </div>
 
                       <div className="villa-card-actions">
-                        <button
-                          type="button"
-                          className="secondary-action"
-                          onClick={() => openVilla(villa)}
-                        >
+                        <Link className="secondary-action" to={`/villas/${encodeURIComponent(villa.id)}`}>
                           View details
                           <Icon name="arrow" size={14} />
-                        </button>
+                        </Link>
 
                         <button
                           type="button"
@@ -1366,11 +1344,11 @@ function App() {
                   </article>
                 );
               })}
-            </MobileCarousel>
+            </div>
           </div>
-        </section>
+        </section>}
 
-        <section className="section about-section" id="about">
+        {pathname === "/about" && <section className="section about-section" id="about">
           <div className="container content-container">
             <div className="about-shell">
               <div className="about-visual">
@@ -1447,9 +1425,9 @@ function App() {
               </div>
             </div>
           </div>
-        </section>
+        </section>}
 
-        <section className="section location-section" id="location">
+        {pathname === "/location" && <section className="section location-section" id="location">
           <div className="container content-container location-container">
             <div className="location-card">
               <div className="map-frame">
@@ -1463,9 +1441,9 @@ function App() {
               </div>
             </div>
           </div>
-        </section>
+        </section>}
 
-        <section className="section faq-section" id="faqs">
+        {pathname === "/faqs" && <section className="section faq-section" id="faqs">
           <div className="container content-container faq-layout">
             <div className="faq-intro">
               <span className="section-label">FAQs</span>
@@ -1502,9 +1480,9 @@ function App() {
               })}
             </div>
           </div>
-        </section>
+        </section>}
 
-        <section className="section landing-feedback-section" id="guest-feedback">
+        {pathname === "/reviews" && <section className="section landing-feedback-section reviews-page" id="guest-feedback">
           <div className="container content-container">
             <div className="landing-feedback-heading"><div><span className="section-label">Reviews</span><h2>A few words from our guests.</h2></div>
               {feedbackSummary?.count>0 && <div className="landing-feedback-total" aria-label={`Average guest rating ${feedbackSummary.average} out of 5 from ${feedbackSummary.count} reviews`}><div className="landing-rating-number"><small>Overall rating</small><strong>{feedbackSummary.average.toFixed(1)}<span>/ 5</span></strong></div><div className="landing-rating-detail"><ReviewStars rating={feedbackSummary.average}/><small>Based on {feedbackSummary.count} reviews</small></div></div>}
@@ -1515,9 +1493,9 @@ function App() {
             {feedbackSummaryState==='unavailable' && <p className="landing-feedback-status" role="status">Reviews are temporarily unavailable.</p>}
             {feedbackSummaryState==='ready' && !feedbackSummary?.count && <p className="landing-feedback-status">Our guests’ experiences will appear here.</p>}
           </div>
-        </section>
+        </section>}
 
-        <section className="section policies-section" id="policies">
+        {pathname === "/policies" && <section className="section policies-section" id="policies">
           <div className="container content-container">
             <div className="section-heading light">
               <span>Booking guidelines</span>
@@ -1534,77 +1512,35 @@ function App() {
             </div>
 
             <div className="center-action">
-              <button type="button" className="policy-help-link" onClick={()=>scrollTo("faqs")}>
+              <button type="button" className="policy-help-link" onClick={()=>goToPage("faqs")}>
                 Have a question? Explore our FAQs <Icon name="arrow" size={16}/>
               </button>
             </div>
           </div>
-        </section>
-      </main>
+        </section>}
 
-      <footer className="site-footer">
-        <div className="container content-container footer-main">
-          <div className="footer-brand">
-            <img src="/favicon.png" alt="The Villa" />
-            <div>
-              <strong>The Villa</strong>
-              <span>Batangas Private Staycation</span>
+        {isHome && <section className="section public-explore">
+          <div className="container content-container">
+            <div className="section-heading"><span>Make yourself at home</span><h2>A little space. A slower pace.</h2><p>Find your villa, get to know the place, and plan a stay that feels like you.</p></div>
+            <div className="public-explore-grid">
+              {[
+                ["/villas", "/family.jpg", "Find your villa", "Compare spaces, amenities, and rates for your next getaway."],
+                ["/about", "/image2.jpg", "Get to know The Villa", "Discover our private spaces for families, friends, and time together."],
+                ["/location", "/image3.jpg", "Plan your visit", "Find us in San Jose, Batangas, and get directions for your trip."],
+              ].map(([path, image, title, copy]) => <Link key={path} to={path} className="public-explore-card"><img src={image} alt="" loading="lazy"/><div><h3>{title}</h3><p>{copy}</p><span>Explore <Icon name="arrow" size={16}/></span></div></Link>)}
             </div>
           </div>
-
-          <nav className="footer-links">
-            <button type="button" onClick={() => scrollTo("villas")}>Villas</button>
-            <button type="button" onClick={() => scrollTo("location")}>Location</button>
-            <button type="button" onClick={() => scrollTo("faqs")}>FAQs</button>
-            <button type="button" onClick={() => scrollTo("guest-feedback")}>Feedback</button>
-          </nav>
-
-          <button
-            type="button"
-            className="primary-action compact"
-            onClick={() => openBooking()}
-          >
-            Book now
-          </button>
-        </div>
-
-        <div className="container content-container footer-bottom">
-          © {new Date().getFullYear()} The Villa. All rights reserved.
-        </div>
-      </footer>
-
-      {selectedVilla && (
-        <div
-          className="modal-backdrop"
-          role="dialog"
-          aria-modal="true"
-          aria-label={`${selectedVilla.title} details`}
-          onMouseDown={(event) => {
-            if (event.target === event.currentTarget) {
-              closeVilla();
-            }
-          }}
-        >
+        </section>}
+        {villaId && !selectedVilla && <section className="section container content-container"><h2>{catalogLoading ? "Loading villa…" : "Villa not found"}</h2><Link to="/villas">Browse all villas</Link></section>}
+        {selectedVilla && <section className="public-villa-detail container content-container">
+          <Link className="public-back-link" to="/villas">← Back to all villas</Link>
           <div className="villa-modal">
-            <button
-              type="button"
-              className="modal-close"
-              onClick={closeVilla}
-              aria-label="Close villa details"
-            >
-              <Icon name="close" size={19} />
-            </button>
-
             <VillaImageCarousel
               key={`${selectedVilla.id}-${selectedVilla.images.join("|")}`}
               images={selectedVilla.images}
               title={selectedVilla.title}
-              variant="modal"
-              selectedIndex={selectedVillaImageIndex}
-              onSelect={setSelectedVillaImageIndex}
-            >
-              <span className="modal-photo-tag">Private stay · San Jose, Batangas</span>
-            </VillaImageCarousel>
+              variant="detail"
+            />
 
             <div className="villa-modal-info">
               <div className="modal-body">
@@ -1637,37 +1573,40 @@ function App() {
                   </article>
                 </div>
 
-                <h3 className="modal-subheading">Amenities and facilities</h3>
-
-                <div className="amenities">
-                  {selectedVilla.amenities.map((amenity) => (
-                    <span key={amenity}>
-                      <Icon name="check" size={14} />
-                      {amenity}
-                    </span>
-                  ))}
-                </div>
-              </div>
-
-              <div className="modal-actions">
-                <button
-                  type="button"
-                  className="primary-action"
-                  onClick={() =>
-                    openBooking(
-                      selectedVilla.id,
-                      selectedVilla.capacity
-                    )
-                  }
-                >
-                  Book now
-                  <Icon name="arrow" size={16} />
-                </button>
               </div>
             </div>
+            <section className="public-villa-amenities" aria-labelledby="villa-amenities-title">
+              <h3 id="villa-amenities-title">Amenities and facilities</h3>
+              <div className="amenities">
+                {selectedVilla.amenities.map((amenity) => (
+                  <span key={amenity}>
+                    <Icon name="check" size={14} />
+                    {amenity}
+                  </span>
+                ))}
+              </div>
+            </section>
+            <div className="modal-actions public-villa-booking">
+              <button
+                type="button"
+                className="primary-action"
+                onClick={() =>
+                  openBooking(
+                    selectedVilla.id,
+                    selectedVilla.capacity
+                  )
+                }
+              >
+                Book now
+                <Icon name="arrow" size={16} />
+              </button>
+            </div>
           </div>
-        </div>
-      )}
+        </section>}
+
+      </main>
+
+      <SiteFooter />
 
       {videoOpen && (
         <div
@@ -1677,7 +1616,7 @@ function App() {
           aria-label="The Villa video"
           onMouseDown={(event) => {
             if (event.target === event.currentTarget) {
-              setVideoOpen(false);
+          setVideoOpen(false);
             }
           }}
         >

@@ -180,33 +180,26 @@ Gemini tests use mocks; no live Gemini call was made (keys are not configured).
 Actual training and grouped evaluation use the local phrase CSV. Category
 smoke evaluation does not substitute for a client-reviewed benchmark.
 
-## Automatic operation and simplified dashboard (22 October 2026)
+## Automatic sentiment analysis and manual recommendations
 
-Apply `migrations/20261022_automatic_feedback_analysis.sql` after the earlier
-pipeline migration, then restart the backend. A separate worker runs at startup
-and every 60 seconds, even with the admin page closed. It checks review content,
-model version and NLP version before persisting Naive Bayes predictions, then
-creates a Gemini recommendation draft only if the current evidence has no saved
-report and negative categorized evidence exists. Immediate new-submission
-analysis is retained. No negative evidence means no invented recommendations.
+The backend worker checks feedback every 60 seconds and persists sentiment
+analysis when feedback text, model version, or preprocessing version changes.
+It does not call Gemini or create recommendation drafts. The worker can be
+disabled in test environments with `FEEDBACK_ANALYSIS_WORKER_ENABLED=false`.
+The empty automatic-recommendation migration is not needed for this workflow.
+The existing feedback analysis schema, including
+`feedback_recommendation_reports`, must still be present for saving and viewing
+manual recommendation drafts.
 
-Supabase claims serialize generation for the same evidence fingerprint across
-API processes. Draft insertion and job completion happen atomically. A five-minute
-lease recovers interrupted work; provider failures retry after five minutes,
-with at most four claims per evidence fingerprint. An interrupted provider call
-may have been charged before recovery; exactly-once external billing is not
-promised. Unchanged snapshots reuse existing manual or approved reports. New
-feedback/model changes produce a new draft requiring administrator review.
-System-generated drafts have generation_source=automatic and no fabricated staff
-creator; approval still records the actual administrator and timestamp.
-
-`FEEDBACK_ANALYSIS_WORKER_ENABLED` defaults to true and can disable the worker
-for test environments. Missing migrations/configuration produce status messages;
-feedback collection remains available. The UI polls for updates and has no
-manual analysis/generation controls or source/date/rating filters. It retains
-one Average filtered rating card (now covering all displayed reviews), reviews,
-and recommendations, with evidence collapsed under each action. Source metadata
-remains in Supabase even though repeated source labels are omitted on cards.
+In Admin → Guest Feedback, an administrator clicks **Generate recommendations**
+to request a Gemini draft from the current negative categorized evidence. The
+button appears only when Gemini is configured, recommendation storage is
+available, and complaint evidence exists. Drafts are stored with evidence/model
+fingerprints. Administrator approval records the actor and time; approval does
+not create tasks or perform maintenance. Generating recommendations is an
+external Gemini request and may consume quota. Unchanged evidence already has
+its saved draft; new feedback changes the evidence snapshot and enables a new
+generation request.
 
 ## Exact historical dates
 

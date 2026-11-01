@@ -222,7 +222,6 @@ export default function GuestFeedback() {
             <img src="/favicon.png" alt="The Villa" />
             <div>
               <strong>The Villa</strong>
-              <span>Batangas Private Staycation</span>
             </div>
           </div>
           <div className="feedback-error-icon">!</div>
@@ -245,7 +244,6 @@ export default function GuestFeedback() {
             <img src="/favicon.png" alt="The Villa" />
             <div>
               <strong>The Villa</strong>
-              <span>Batangas Private Staycation</span>
             </div>
           </div>
 
@@ -301,7 +299,6 @@ export default function GuestFeedback() {
             <img src="/favicon.png" alt="The Villa" />
             <div>
               <strong>The Villa</strong>
-              <span>Batangas Private Staycation</span>
             </div>
           </div>
         </header>
@@ -415,7 +412,7 @@ export default function GuestFeedback() {
               </label>
               {!isCompanion && <label className="feedback-identity-option"><input type="checkbox" checked={hideIdentity} onChange={event => setHideIdentity(event.target.checked)} /><span>Show my public review as Anonymous guest.</span></label>}
               <p className="feedback-privacy-note">{isCompanion ? 'Your feedback is for our team only. It is shown as Anonymous guest in the dashboard and is excluded from public reviews and ratings.' : hideIdentity?'Your review will appear as “Anonymous” on the website and feedback dashboard.':'Your review will display your booking name on the website and feedback dashboard.'} Contact details and booking references stay private. The system retains a restricted booking association to verify your stay. Avoid identifying details in your comments.</p>
-              <p className="feedback-privacy-note">Private notes are stored separately, excluded from the feedback dashboard and AI analysis, and are not published.</p>
+              <p className="feedback-privacy-note">Private notes are stored separately, excluded from feedback reports, and are not published.</p>
             </section>
 
             {error ? <AlertMessage message={error}/> : null}

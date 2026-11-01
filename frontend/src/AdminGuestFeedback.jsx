@@ -56,7 +56,7 @@ export default function AdminGuestFeedback({apiRequest}) {
     {!loading && !error && !reviews.length && <div className="guest-feedback-empty"><MessageSquare size={32}/><h3>No feedback yet</h3><p>Guest reviews will appear here when submitted.</p></div>}
     </div></section></div>
     <section className="feedback-reviews-panel" aria-label="Internal companion feedback" style={{marginTop:24}}>
-      <div className="guest-feedback-toolbar"><div><h3>Companion feedback</h3><p>Internal responses from invited guests. Excluded from public ratings and AI analysis.</p></div><span>{companions.length} response{companions.length===1?'':'s'}{companions.length===500?' (latest 500)':''}</span></div>
+      <div className="guest-feedback-toolbar"><div><h3>Companion feedback</h3><p>Internal responses from invited guests. Excluded from public ratings and feedback reports.</p></div><span>{companions.length} response{companions.length===1?'':'s'}{companions.length===500?' (latest 500)':''}</span></div>
       {companionError && <AlertMessage message={companionError}/>}
       <div className="guest-feedback-review-grid">{companions.map(row=><article key={row.id} className="guest-feedback-review">
         <header><h3>Anonymous companion</h3><strong><Star size={15}/>{row.overall_rating}/5</strong></header>

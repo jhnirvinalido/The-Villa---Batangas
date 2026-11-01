@@ -19,6 +19,7 @@ from admin import (
     MESSAGE_SELECT,
     NOTIFICATION_SELECT,
     STAFF_SELECT,
+    STAFF_TIME_RECORD_SELECT,
     TASK_SELECT,
     BookingLifecycleRequest,
     ManualBookingRequest,
@@ -37,6 +38,7 @@ from admin import (
     rows,
     service_client,
     staff_api,
+    staff_time_record_api,
     task_api,
 )
 
@@ -1300,6 +1302,84 @@ def staff_list_notifications(context: dict[str, Any] = Depends(require_staff)):
         .order("created_at", desc=True).limit(5000).execute()
     )
     return {"data": [notification_api(item) for item in records]}
+
+
+@router.get("/time-records")
+def staff_list_time_records(context: dict[str, Any] = Depends(require_staff)):
+    records = rows(
+        service_client()
+        .table("staff_time_records")
+        .select(STAFF_TIME_RECORD_SELECT)
+        .eq("staff_account_id", context["account"]["id"])
+        .order("clock_in_at", desc=True)
+        .limit(250)
+        .execute()
+    )
+    return {"data": [staff_time_record_api(record) for record in records]}
+
+
+@router.post("/time-records/clock-in", status_code=201)
+def staff_clock_in(context: dict[str, Any] = Depends(require_staff)):
+    client = service_client()
+    account_id = str(context["account"]["id"])
+    open_record = rows(
+        client.table("staff_time_records")
+        .select("id")
+        .eq("staff_account_id", account_id)
+        .is_("clock_out_at", "null")
+        .limit(1)
+        .execute()
+    )
+    if open_record:
+        raise HTTPException(status_code=409, detail="You are already clocked in.")
+
+    record = rows(
+        client.table("staff_time_records")
+        .insert({
+            "staff_account_id": account_id,
+            "clock_in_at": now_iso(),
+            "review_status": "open",
+        })
+        .select(STAFF_TIME_RECORD_SELECT)
+        .execute()
+    )
+    if not record:
+        raise HTTPException(status_code=500, detail="Your clock-in could not be saved.")
+    return {"data": staff_time_record_api(record[0])}
+
+
+@router.post("/time-records/clock-out")
+def staff_clock_out(context: dict[str, Any] = Depends(require_staff)):
+    client = service_client()
+    account_id = str(context["account"]["id"])
+    open_record = rows(
+        client.table("staff_time_records")
+        .select(STAFF_TIME_RECORD_SELECT)
+        .eq("staff_account_id", account_id)
+        .is_("clock_out_at", "null")
+        .limit(1)
+        .execute()
+    )
+    if not open_record:
+        raise HTTPException(status_code=409, detail="You are not currently clocked in.")
+
+    updated = rows(
+        client.table("staff_time_records")
+        .update({
+            "clock_out_at": now_iso(),
+            "review_status": "pending_review",
+            "updated_at": now_iso(),
+        })
+        .eq("id", str(open_record[0]["id"]))
+        .eq("staff_account_id", account_id)
+        .eq("review_status", "open")
+        .is_("clock_out_at", "null")
+        .select(STAFF_TIME_RECORD_SELECT)
+        .execute()
+    )
+    if not updated:
+        raise HTTPException(status_code=409, detail="Your work-hours record changed. Refresh and try again.")
+    return {"data": staff_time_record_api(updated[0])}
 
 
 @router.patch("/notifications/{notification_id}/read")
