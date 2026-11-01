@@ -89,6 +89,11 @@ class BackendFlowTests(unittest.TestCase):
             message=smtp.return_value.__enter__.return_value.send_message.call_args.args[0]
             self.assertNotIn('/feedback',message.as_string())
             self.assertNotIn('Share Your Experience',str(message['Subject']))
+            self.assertIn('Payment receipt',str(message['Subject']))
+            html=message.get_body(preferencelist=('html',)).get_content()
+            self.assertIn('Nature of service',html)
+            self.assertIn('Amount paid',html)
+            self.assertIn('Balance due',html)
     def test_get_and_post_validator_reject_invalid_expired_revoked_and_unpaid(self):
         record=self.token_booking()
         self.client.table.return_value.select.return_value.eq.return_value.limit.return_value.execute.return_value=SimpleNamespace(data=[record])

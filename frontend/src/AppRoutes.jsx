@@ -10,6 +10,7 @@ import BookForm from "./BookForm";
 import ProtectedRoute from "./ProtectedRoute";
 import AdminLogin from "./AdminLogin";
 import AdminDashboard from "./AdminDashboard";
+import FrontDeskDashboard from "./FrontDeskDashboard";
 import StaffDashboard from "./staffDashboard";
 
 export default function AppRoutes() {
@@ -31,6 +32,8 @@ export default function AppRoutes() {
         />
 
         {/* Admin and staff remain protected. */}
+        <Route path="/login" element={<AdminLogin />} />
+        <Route path="/maintenance/*" element={<ProtectedRoute allowedRoles={["maintenance"]}><StaffDashboard /></ProtectedRoute>} />
         <Route
           path="/admin-login"
           element={<AdminLogin />}
@@ -50,6 +53,20 @@ export default function AppRoutes() {
           element={
             <ProtectedRoute allowedRoles={["staff"]}>
               <StaffDashboard />
+            </ProtectedRoute>
+          }
+        />
+
+        <Route
+          path="/front-desk-login"
+          element={<Navigate to="/login" replace />}
+        />
+
+        <Route
+          path="/front-desk/*"
+          element={
+            <ProtectedRoute allowedRoles={["front_desk"]}>
+              <FrontDeskDashboard />
             </ProtectedRoute>
           }
         />

@@ -8,6 +8,7 @@ from decimal import Decimal
 from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import MagicMock
+import uuid
 
 from test_manual_checkout import HTTPError, load_functions
 
@@ -18,7 +19,9 @@ class PublicCheckoutTests(unittest.TestCase):
         tree = ast.parse((Path(__file__).parents[1] / 'booking.py').read_text())
         names = {'create_public_booking', '_sync_public_checkout_draft',
                  'cancel_public_booking', '_require_booking_token',
-                 '_public_checkout_draft', 'process_public_checkout_reconciliation'}
+                 '_public_checkout_draft', 'process_public_checkout_reconciliation',
+                 '_create_public_booking_checkout', '_payment_intent_state',
+                 '_sync_public_payment_intent'}
         nodes = [node for node in tree.body if isinstance(node, ast.FunctionDef) and node.name in names]
         for node in nodes:
             node.decorator_list = []
@@ -32,7 +35,8 @@ class PublicCheckoutTests(unittest.TestCase):
         self.booking = {'id':'draft-id', 'booking_code':'V-1', 'user_id':None,
                         'amount_paid':0, 'total_amount':1000, 'payment_due_amount':500,
                         'booking_status':'Pending Payment', 'payment_method_code':'qrph',
-                        'paymongo_checkout_session_id':'cs_1', 'hold_expires_at':'2099-01-01T00:00:00+00:00'}
+                        'paymongo_checkout_session_id':'cs_1', 'hold_expires_at':'2099-01-01T00:00:00+00:00',
+                        'villa_name':'Villa 1'}
         self.draft = {'booking_payload':self.booking}
         self.session = {'id':'cs_1','attributes':{}}
         self.payment = {'id':'pay_1','attributes':{'amount':50000,'currency':'PHP','status':'paid'}}
@@ -40,6 +44,216 @@ class PublicCheckoutTests(unittest.TestCase):
                         _public_checkout_draft=lambda *_:self.draft,
                         _paymongo_request=MagicMock(return_value={'data':self.session}),
                         _send_booking_confirmation_email=MagicMock())
+        self.env.update(
+            PAYMONGO_PUBLIC_KEY='pk_test_public',
+            PAYMONGO_PAYMENT_INTENTS_URL='https://api.paymongo.com/v1/payment_intents',
+            PAYMONGO_CREATE_CHECKOUT_URL='https://api.paymongo.com/v2/checkout_sessions',
+            PAYMONGO_METHOD_DETAILS={
+                'gcash': {'label': 'GCash', 'flow_type': 'wallet_redirect'},
+                'maya': {'label': 'Maya', 'flow_type': 'wallet_redirect'},
+                'debit': {'label': 'Credit or Debit Card', 'flow_type': 'card'},
+                'qrph': {'label': 'QR Ph', 'flow_type': 'qr'},
+            },
+            PAYMONGO_METHOD_MAP={
+                'gcash': ['gcash'],
+                'maya': ['paymaya'],
+                'debit': ['card'],
+                'qrph': ['qrph'],
+            },
+            Decimal=Decimal,
+            datetime=datetime,
+            timezone=timezone,
+            uuid=uuid,
+            _centavos=lambda value: int(Decimal(str(value)) * 100),
+            _money=lambda value: Decimal(str(value or 0)).quantize(Decimal('.01')),
+            _paymongo_mode=lambda: 'test',
+            _public_checkout_urls=lambda _: ('https://villa.test/success', 'https://villa.test/cancel'),
+        )
+
+    def test_guest_gcash_checkout_uses_paymongo_hosted_checkout(self):
+        self.env['PAYMONGO_PUBLIC_KEY'] = ''
+        self.env['_paymongo_request'].return_value = {
+            'data': {
+                'id': 'cs_gcash_1',
+                'attributes': {'checkout_url': 'https://paymongo.test/gcash'},
+            }
+        }
+        result = self.env['_create_public_booking_checkout'](
+            'draft-id',
+            SimpleNamespace(payment_method='gcash', payment_scope='selected'),
+            x_booking_token='guest-token',
+            draft_booking=self.booking,
+        )
+        request = self.env['_paymongo_request'].call_args
+        attributes = request.kwargs['payload']['data']['attributes']
+        self.assertEqual(request.args[1], self.env['PAYMONGO_CREATE_CHECKOUT_URL'])
+        self.assertEqual(attributes['payment_method_types'], ['gcash'])
+        self.assertEqual(result['checkout_session_id'], 'cs_gcash_1')
+        self.assertEqual(result['checkout_url'], 'https://paymongo.test/gcash')
+        self.assertEqual(self.booking['paymongo_checkout_session_id'], 'cs_gcash_1')
+        self.assertIsNone(self.booking['paymongo_payment_intent_id'])
+
+    def test_guest_other_methods_use_selected_hosted_checkout_type(self):
+        for method, expected_type in (
+            ('maya', 'paymaya'),
+            ('debit', 'card'),
+            ('qrph', 'qrph'),
+        ):
+            with self.subTest(method=method):
+                booking = {**self.booking}
+                self.env['_paymongo_request'].reset_mock()
+                self.env['_paymongo_request'].return_value = {
+                    'data': {
+                        'id': f'cs_{method}_1',
+                        'attributes': {'checkout_url': f'https://paymongo.test/{method}'},
+                    }
+                }
+
+                result = self.env['_create_public_booking_checkout'](
+                    'draft-id',
+                    SimpleNamespace(payment_method=method, payment_scope='selected'),
+                    x_booking_token='guest-token',
+                    draft_booking=booking,
+                )
+
+                attributes = self.env['_paymongo_request'].call_args.kwargs[
+                    'payload'
+                ]['data']['attributes']
+                self.assertEqual(attributes['payment_method_types'], [expected_type])
+                self.assertEqual(result['checkout_session_id'], f'cs_{method}_1')
+                self.assertEqual(booking['paymongo_checkout_session_id'], f'cs_{method}_1')
+                self.assertIsNone(booking.get('paymongo_payment_intent_id'))
+
+    def test_paid_gcash_payment_intent_finalizes_public_checkout(self):
+        self.booking.update(
+            paymongo_payment_intent_id='pi_gcash_1',
+            paymongo_reference_number='V-1-SELECTED-TEST',
+            payment_method_code='gcash',
+        )
+        payment = {
+            'id': 'pay_gcash_1',
+            'attributes': {
+                'amount': 50000,
+                'currency': 'PHP',
+                'status': 'paid',
+                'source': {'type': 'gcash'},
+            },
+        }
+        self.env['_paymongo_request'].return_value = {
+            'data': {
+                'id': 'pi_gcash_1',
+                'attributes': {
+                    'status': 'succeeded',
+                    'metadata': {
+                        'reference_number': 'V-1-SELECTED-TEST',
+                        'booking_id': 'draft-id',
+                        'booking_channel': 'public',
+                        'payment_method': 'gcash',
+                    },
+                    'payments': [payment],
+                },
+            }
+        }
+        saved = {**self.booking, 'booking_status': 'Confirmed', '_checkout_finalized': True}
+        self.env['_apply_payment'] = MagicMock(return_value=saved)
+        result = self.env['_sync_public_checkout_draft'](
+            self.client,
+            {'booking_payload': self.booking},
+        )
+        self.assertEqual(result['state'], 'paid')
+        self.env['_apply_payment'].assert_called_once()
+        call = self.env['_apply_payment'].call_args
+        self.assertTrue(call.kwargs['public_draft'])
+        self.assertEqual(call.args[2]['attributes']['payment_intent']['id'], 'pi_gcash_1')
+        self.assertIsNone(call.args[2]['id'])
+        self.env['_send_booking_confirmation_email'].assert_called_once()
+
+    def test_paid_gcash_intent_requires_matching_booking_and_amount(self):
+        self.booking.update(
+            paymongo_payment_intent_id='pi_gcash_1',
+            paymongo_reference_number='V-1-SELECTED-TEST',
+            payment_method_code='gcash',
+        )
+        intent = {
+            'id': 'pi_gcash_1',
+            'attributes': {
+                'status': 'succeeded',
+                'metadata': {
+                    'booking_id': 'draft-id',
+                    'booking_channel': 'public',
+                    'payment_method': 'gcash',
+                },
+                'payments': [{
+                    'id': 'pay_gcash_1',
+                    'attributes': {
+                        'amount': 50000,
+                        'currency': 'PHP',
+                        'status': 'paid',
+                    },
+                }],
+            },
+        }
+        self.env['_paymongo_request'].return_value = {'data': intent}
+        self.env['_apply_payment'] = MagicMock()
+
+        with self.assertRaises(HTTPError):
+            self.env['_sync_public_payment_intent'](
+                self.client,
+                {**self.booking, 'id': 'another-booking'},
+                'pi_gcash_1',
+            )
+
+        intent['attributes']['payments'][0]['attributes']['amount'] = 49999
+        with self.assertRaises(HTTPError):
+            self.env['_sync_public_payment_intent'](
+                self.client,
+                self.booking,
+                'pi_gcash_1',
+            )
+
+        self.env['_apply_payment'].assert_not_called()
+
+    def test_reconciliation_checks_public_gcash_intent_without_checkout_session(self):
+        candidate = {
+            'id': 'draft-id',
+            'booking_payload': {
+                **self.booking,
+                'paymongo_checkout_session_id': None,
+                'paymongo_payment_intent_id': 'pi_gcash_1',
+            },
+            'paymongo_checkout_session_id': None,
+            'next_check_at': '2026-10-30T00:00:00+00:00',
+        }
+        query = MagicMock()
+        self.client.table.return_value = query
+        query.select.return_value = query
+        query.lte.return_value = query
+        query.order.return_value = query
+        query.limit.return_value = query
+        query.update.return_value = query
+        query.eq.return_value = query
+        query.execute.side_effect = [
+            SimpleNamespace(data=[candidate]),
+            SimpleNamespace(data=[{'id': 'draft-id'}]),
+        ]
+        draft = {
+            'booking_payload': {
+                **candidate['booking_payload'],
+            },
+        }
+        self.env['_public_checkout_draft'] = MagicMock(return_value=draft)
+        self.env['_sync_public_checkout_draft'] = MagicMock(
+            return_value={'state': 'pending'}
+        )
+
+        checked = self.env['process_public_checkout_reconciliation'](
+            self.client
+        )
+
+        self.assertEqual(checked, 1)
+        self.env['_sync_public_checkout_draft'].assert_called_once_with(
+            self.client, draft
+        )
 
     def test_creation_stores_only_checkout_draft_and_no_email(self):
         self.env['_prepare_public_booking'] = MagicMock(return_value={'booking':self.booking,'booking_access_token':'secret'})

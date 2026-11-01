@@ -18,6 +18,7 @@ import GuestFeedback from "./GuestFeedback.jsx";
 import MaintenanceResponse from "./MaintenanceResponse.jsx";
 import AdminLogin from "./AdminLogin.jsx";
 import AdminDashboard from "./AdminDashboard.jsx";
+import FrontDeskDashboard from "./FrontDeskDashboard.jsx";
 import StaffDashboard from "./staffDashboard.jsx";
 import ProtectedRoute from "./ProtectedRoute.jsx";
 
@@ -97,6 +98,7 @@ ReactDOM.createRoot(
       />
 
       {/* Admin authentication */}
+      <Route path="/login" element={<AdminLogin />} />
       <Route
         path="/admin-login"
         element={<AdminLogin />}
@@ -124,7 +126,22 @@ ReactDOM.createRoot(
         }
       />
 
+      <Route
+        path="/front-desk-login"
+        element={<Navigate to="/login" replace />}
+      />
+
+      <Route
+        path="/front-desk/*"
+        element={
+          <ProtectedRoute allowedRoles={["front_desk"]}>
+            <FrontDeskDashboard />
+          </ProtectedRoute>
+        }
+      />
+
       {/* Protected staff dashboard */}
+      <Route path="/maintenance/*" element={<ProtectedRoute allowedRoles={["maintenance"]}><StaffDashboard /></ProtectedRoute>} />
       <Route
         path="/staff"
         element={

@@ -4,6 +4,9 @@ The root Dockerfile builds React and runs FastAPI with the resulting static
 files. Both use one HTTPS origin; Supabase remains the database/auth/storage
 provider. Local development is unchanged when FRONTEND_DIST is unset.
 
+See [the Render system architecture](./the-villa-render-architecture.svg) for
+the current deployment and integration overview.
+
 ## Create the service
 
 1. Push these changes to your GitHub repository. Never commit `.env` files.

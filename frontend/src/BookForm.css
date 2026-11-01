@@ -908,6 +908,7 @@ button {
   min-width: 0;
   padding: 0;
   overflow: hidden;
+  cursor: pointer;
   border: 1px solid var(--booking-border);
   border-radius: 13px;
   color: var(--booking-text);
@@ -921,10 +922,15 @@ button {
     transform 0.16s ease;
 }
 
-.booking-villa-card:hover:not(:disabled) {
+.booking-villa-card:hover {
   transform: translateY(-1px);
   border-color: #c9b7aa;
   box-shadow: 0 7px 18px rgba(17, 24, 39, 0.08);
+}
+
+.booking-villa-card:focus-visible {
+  outline: 3px solid rgba(122, 86, 63, 0.35);
+  outline-offset: 2px;
 }
 
 .booking-villa-card.selected {
@@ -956,11 +962,85 @@ button {
   background: #ece8e4;
 }
 
-.booking-villa-photo img {
+.booking-villa-photo-open {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  padding: 0;
+  overflow: hidden;
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+}
+
+.booking-villa-photo-open img {
+  display: block;
   width: 100%;
   height: 100%;
   min-height: 145px;
   object-fit: cover;
+}
+
+.booking-villa-photo-arrow,
+.booking-villa-gallery-arrow {
+  position: absolute;
+  z-index: 4;
+  top: 50%;
+  display: grid;
+  width: 30px;
+  height: 30px;
+  padding: 0;
+  place-items: center;
+  transform: translateY(-50%);
+  border: 1px solid rgba(255, 255, 255, 0.75);
+  border-radius: 50%;
+  color: #fff;
+  background: rgba(35, 27, 22, 0.62);
+  cursor: pointer;
+  transition: background 0.16s ease, transform 0.16s ease;
+}
+
+.booking-villa-photo-arrow:hover,
+.booking-villa-gallery-arrow:hover {
+  transform: translateY(-50%) scale(1.06);
+  background: rgba(35, 27, 22, 0.86);
+}
+
+.booking-villa-photo-arrow.previous,
+.booking-villa-gallery-arrow.previous {
+  left: 8px;
+}
+
+.booking-villa-photo-arrow.next,
+.booking-villa-gallery-arrow.next {
+  right: 8px;
+}
+
+.booking-villa-photo-count,
+.booking-villa-gallery-count {
+  position: absolute;
+  z-index: 4;
+  right: 8px;
+  bottom: 8px;
+  padding: 4px 7px;
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  border-radius: 999px;
+  color: #fff;
+  background: rgba(35, 27, 22, 0.62);
+  font-size: 9px;
+  font-weight: 700;
+}
+
+.booking-villa-details-empty {
+  display: grid;
+  width: 100%;
+  height: 100%;
+  min-height: inherit;
+  place-items: center;
+  padding: 10px;
+  color: #67594e;
+  font-size: 10px;
+  text-align: center;
 }
 
 .booking-preferred-badge,
@@ -982,6 +1062,7 @@ button {
   font-weight: 800;
   text-overflow: ellipsis;
   white-space: nowrap;
+  pointer-events: none;
 }
 
 .booking-preferred-badge {
@@ -1006,6 +1087,8 @@ button {
 .booking-villa-copy {
   min-width: 0;
   padding: 11px;
+  display: flex;
+  flex-direction: column;
 }
 
 .booking-villa-title-row {
@@ -1013,6 +1096,25 @@ button {
   align-items: flex-start;
   justify-content: space-between;
   gap: 10px;
+}
+
+.booking-villa-title-button {
+  padding: 0;
+  border: 0;
+  color: inherit;
+  background: transparent;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 700;
+  text-align: left;
+  cursor: pointer;
+}
+
+.booking-villa-title-button:hover,
+.booking-villa-title-button:focus-visible {
+  color: var(--booking-primary);
+  text-decoration: underline;
+  text-underline-offset: 3px;
 }
 
 .booking-villa-title-row h3 {
@@ -1081,6 +1183,217 @@ button {
 
 .booking-villa-card.unavailable .booking-villa-status {
   color: var(--booking-danger);
+}
+
+.booking-villa-details-actions button {
+  min-height: 32px;
+  padding: 6px 10px;
+  border: 1px solid #d8c8bc;
+  border-radius: 8px;
+  font-size: 9px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.booking-villa-details-secondary {
+  color: var(--booking-primary-dark, #5f402e);
+  background: #fff;
+}
+
+.booking-villa-details-select {
+  color: #fff;
+  background: var(--booking-primary);
+}
+
+.booking-villa-details-actions button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.booking-villa-details-dialog {
+  position: fixed;
+  width: min(920px, calc(100vw - 32px));
+  max-width: none;
+  max-height: calc(100dvh - 32px);
+  margin: auto;
+  padding: 0;
+  overflow: auto;
+  overscroll-behavior: contain;
+  border: 1px solid #eaded4;
+  border-radius: 18px;
+  color: var(--booking-text);
+  background: #fffdfb;
+  box-shadow: 0 28px 80px rgba(23, 17, 13, 0.3);
+  grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.1fr);
+  animation: bookingDetailsEnter 220ms ease-out both;
+}
+
+.booking-villa-details-dialog[open] {
+  display: grid;
+}
+
+.booking-villa-details-dialog::backdrop {
+  background: rgba(23, 17, 13, 0.64);
+  backdrop-filter: blur(5px);
+}
+
+.booking-villa-details-close {
+  position: absolute;
+  z-index: 5;
+  top: 12px;
+  right: 12px;
+  width: 36px;
+  height: 36px;
+  padding: 0;
+  border: 1px solid #e8dfd8;
+  border-radius: 50%;
+  color: var(--booking-primary-dark, #5f402e);
+  background: rgba(255, 255, 255, 0.96);
+  display: grid;
+  place-items: center;
+  cursor: pointer;
+}
+
+.booking-villa-details-gallery {
+  position: relative;
+  min-height: 360px;
+  overflow: hidden;
+  background: #ece8e4;
+}
+
+.booking-villa-details-gallery > img {
+  position: absolute;
+  inset: 0;
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.booking-villa-details-gallery .booking-villa-details-empty {
+  min-height: 360px;
+}
+
+.booking-villa-gallery-count {
+  right: 14px;
+  bottom: 14px;
+}
+
+.booking-villa-details-content {
+  min-width: 0;
+  padding: 32px;
+}
+
+.booking-villa-details-eyebrow {
+  color: var(--booking-primary);
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+.booking-villa-details-heading {
+  display: flex;
+  justify-content: space-between;
+  gap: 14px;
+  margin-top: 7px;
+}
+
+.booking-villa-details-heading h2 {
+  margin: 0;
+  color: var(--booking-primary-dark, #5f402e);
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: clamp(22px, 3vw, 32px);
+  line-height: 1.1;
+}
+
+.booking-villa-details-heading p {
+  margin: 11px 0 0;
+  color: var(--booking-muted);
+  font-size: 12px;
+  line-height: 1.6;
+}
+
+.booking-villa-details-heading > strong {
+  flex: 0 0 auto;
+  color: var(--booking-primary);
+  font-size: 13px;
+  text-align: right;
+  white-space: nowrap;
+}
+
+.booking-villa-details-heading > strong small {
+  display: block;
+  margin-top: 3px;
+  color: var(--booking-muted);
+  font-size: 9px;
+  font-weight: 500;
+}
+
+.booking-villa-details-specs {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+  margin: 20px 0;
+}
+
+.booking-villa-details-specs span {
+  min-width: 0;
+  padding: 10px;
+  border: 1px solid #eee6df;
+  border-radius: 9px;
+  color: #5f5b58;
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 10px;
+}
+
+.booking-villa-details-specs svg,
+.booking-villa-details-amenities svg {
+  flex: 0 0 auto;
+  color: var(--booking-success);
+}
+
+.booking-villa-details-content > h3 {
+  margin: 0 0 10px;
+  color: var(--booking-primary-dark, #5f402e);
+  font-size: 13px;
+}
+
+.booking-villa-details-amenities {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.booking-villa-details-amenities li {
+  display: flex;
+  align-items: flex-start;
+  gap: 7px;
+  color: #5f5b58;
+  font-size: 10px;
+  line-height: 1.4;
+}
+
+.booking-villa-details-empty-copy {
+  color: var(--booking-muted);
+  font-size: 11px;
+}
+
+.booking-villa-details-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 22px;
+}
+
+@keyframes bookingDetailsEnter {
+  from { opacity: 0; transform: translateY(8px) scale(0.985); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
 }
 
 .booking-inline-loading {
@@ -1714,8 +2027,24 @@ button {
   }
 
   .booking-villa-photo,
-  .booking-villa-photo img {
+  .booking-villa-photo-open img {
     min-height: 130px;
+  }
+
+  .booking-villa-details-dialog {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .booking-villa-details-gallery {
+    min-height: min(42vh, 300px);
+  }
+
+  .booking-villa-details-gallery .booking-villa-details-empty {
+    min-height: min(42vh, 300px);
+  }
+
+  .booking-villa-details-content {
+    padding: 22px;
   }
 
   .booking-summary {
@@ -1781,8 +2110,37 @@ button {
   }
 
   .booking-villa-photo,
-  .booking-villa-photo img {
+  .booking-villa-photo-open img {
     min-height: 136px;
+  }
+
+  .booking-villa-details-dialog {
+    width: calc(100vw - 20px);
+    max-height: calc(100dvh - 20px);
+    border-radius: 14px;
+  }
+
+  .booking-villa-details-content {
+    padding: 18px;
+  }
+
+  .booking-villa-details-heading {
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .booking-villa-details-heading > strong {
+    text-align: left;
+  }
+
+  .booking-villa-details-heading > strong small {
+    display: inline;
+    margin-left: 4px;
+  }
+
+  .booking-villa-details-specs,
+  .booking-villa-details-amenities {
+    grid-template-columns: 1fr;
   }
 
   .booking-calendar-grid {
@@ -1840,7 +2198,7 @@ button {
 .booking-multi-villa-notice span {font-size:12px;}
 .booking-multi-villa-notice small {color:#b42318;font-size:11px;}
 .booking-field input[readonly] {background:#f3f4f6;cursor:not-allowed;font-weight:700;}
-/* Payment-method selector: brand-inspired tiles only; payment details stay on PayMongo. */
+/* Payment-method selector tiles; payment details are entered on PayMongo. */
 .booking-payment-method-grid {grid-template-columns:repeat(2,minmax(0,1fr));gap:11px;}
 .booking-payment-method-grid button.booking-wallet-tile {
   position:relative;display:flex;flex-direction:column;align-items:stretch;justify-content:space-between;
@@ -2040,6 +2398,87 @@ button {
 @media(max-width:600px) { .confirmation-step { padding: 8px 0; } .booking-thankyou-card { padding: 24px 18px; border-radius: 16px; } .booking-thankyou-logo { width: 76px; height: 76px; margin-bottom: 14px; } }
 @media(max-width:360px) { .booking-thankyou-card .booking-confirmation-buttons { flex-direction: column; } }
 
+.booking-payment-success-dialog {
+  width: min(390px, calc(100vw - 32px));
+  max-width: none;
+  margin: auto;
+  padding: 30px 26px 24px;
+  border: 1px solid #e9e2d8;
+  border-radius: 20px;
+  color: var(--booking-text);
+  background: #fffdfb;
+  box-shadow: 0 24px 70px rgba(23, 17, 13, 0.24);
+  text-align: center;
+  animation: bookingDetailsEnter 220ms ease-out both;
+}
+.booking-payment-success-dialog::backdrop {
+  background: rgba(23, 17, 13, 0.58);
+  backdrop-filter: blur(4px);
+}
+.booking-payment-success-icon {
+  display: grid;
+  width: 54px;
+  height: 54px;
+  margin: 0 auto 12px;
+  place-items: center;
+  border-radius: 50%;
+  color: #fff;
+  background: #287c50;
+  font-size: 23px;
+}
+.booking-payment-success-dialog .booking-result-kicker {
+  display: block;
+  margin-top: 0;
+}
+.booking-payment-success-dialog h2 {
+  margin: 8px 0;
+  color: #53412f;
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: 27px;
+  font-weight: 500;
+}
+.booking-payment-success-dialog p {
+  margin: 0;
+  color: var(--booking-muted);
+  font-size: 12px;
+  line-height: 1.6;
+}
+.booking-payment-success-code {
+  display: grid;
+  gap: 5px;
+  margin-top: 18px;
+  padding: 12px;
+  border: 1px solid #e9e2d8;
+  border-radius: 11px;
+  background: #fbfaf7;
+}
+.booking-payment-success-code span {
+  color: var(--booking-muted);
+  font-size: 9px;
+}
+.booking-payment-success-code strong {
+  color: var(--booking-primary-dark);
+  font-size: 18px;
+  letter-spacing: 0.04em;
+  overflow-wrap: anywhere;
+}
+.booking-payment-success-dialog .booking-payment-success-pending {
+  margin-top: 12px;
+}
+.booking-payment-success-dialog > button {
+  width: 100%;
+  min-height: 42px;
+  margin-top: 20px;
+  padding: 0 14px;
+  border: 0;
+  border-radius: 9px;
+  color: #fff;
+  background: var(--booking-primary);
+  font-size: 11px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
 /* Bare bronze dots: no panel, overlay tint, or visible loading copy. */
 .booking-modal-backdrop.booking-dots-backdrop {
   background: transparent;
@@ -2071,7 +2510,9 @@ button {
 @keyframes bookingContentEnter { from { opacity:0; transform:translateY(14px); } to { opacity:1; transform:translateY(0); } }
 @keyframes bookingActiveStep { from { transform:scale(.85); } to { transform:scale(1); } }
 @media(prefers-reduced-motion:reduce) {
-  .booking-card-body, .booking-step > *, .booking-progress-dot.active { animation:none; }
+  .booking-card-body, .booking-step > *, .booking-progress-dot.active,
+  .booking-villa-details-dialog { animation:none; }
+  .booking-payment-success-dialog { animation:none; }
   .booking-page button, .booking-page input, .booking-page select, .booking-page textarea, .booking-progress-dot, .booking-progress-item > i { transition:none; }
 }
 

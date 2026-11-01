@@ -19,7 +19,7 @@ export function bookingAnalytics(bookings, villas, year, frontDeskPayments = [],
   const monthlyBookings = Array(12).fill(0), monthlyRevenue = Array(12).fill(0);
   const bookingStatus = {Pending:0, Confirmed:0, 'Checked In':0, Completed:0};
   const paymentStatus = {Paid:0, Partial:0, Unpaid:0};
-  const bookingChannel = {Airbnb:0, 'The Villa':0};
+  const bookingChannel = {Airbnb:0, 'Manual Booking (Messenger)':0, 'The Villa':0};
   const assignmentProgress = {
     Pending: Number(assignmentSummary.pending) || 0,
     'In Progress': Number(assignmentSummary.inProgress) || 0,
@@ -54,7 +54,19 @@ export function bookingAnalytics(bookings, villas, year, frontDeskPayments = [],
       Number(b.refundedAmount || b.refunded_amount || 0) > 0;
     const confirmed = !cancelled && /confirm|checked|complet/.test(status);
     const ids = [...new Set(b.villaIds?.length ? b.villaIds : [b.villaName])];
-    const external = String(b.bookingChannel ?? b.booking_channel ?? '').toLowerCase() === 'airbnb';
+    const channel = String(b.bookingChannel ?? b.booking_channel ?? '')
+      .trim()
+      .toLowerCase()
+      .replace(/[_-]+/g, ' ')
+      .replace(/\s+/g, ' ');
+    const external = channel === 'airbnb' || channel.includes('airbnb');
+    const manual = [
+      'manual',
+      'manual booking',
+      'messenger',
+      'messenger booking',
+      'manual booking (messenger)',
+    ].includes(channel) || channel.includes('manual') || channel.includes('messenger');
     bookingDetails.set(String(b.id), {ids, cancelled, external});
     // Payments are dated by receipt, not by the reservation's future stay date.
     for (const p of b.paymentHistory || []) {
@@ -71,6 +83,8 @@ export function bookingAnalytics(bookings, villas, year, frontDeskPayments = [],
     bookingStatus[bucket]++;
     if (external) {
       bookingChannel.Airbnb++;
+    } else if (manual) {
+      bookingChannel['Manual Booking (Messenger)']++;
     } else {
       bookingChannel['The Villa']++;
       const paid = Number(b.amountPaid ?? b.amount_paid) || 0;

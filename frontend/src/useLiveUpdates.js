@@ -3,22 +3,23 @@ import { createSSEParser, coalescedRefresh } from './liveTransport.mjs';
 
 const API = ((typeof window !== 'undefined' && window.__THE_VILLA_API_BASE__) || import.meta.env.VITE_API_URL || 'http://127.0.0.1:8000').replace(/\/$/, '');
 const channels = new Map();
-function token() {
+function token(sessionKey) {
   for (const storage of [sessionStorage, localStorage]) {
-    try { const auth = JSON.parse(storage.getItem('theVillaPortalAuth') || 'null'); if (auth?.access_token) return auth.access_token; } catch { /* Missing storage is handled as unauthenticated. */ }
+    try { const auth = JSON.parse(storage.getItem(sessionKey) || 'null'); if (auth?.access_token) return auth.access_token; } catch { /* Missing storage is handled as unauthenticated. */ }
   }
   return '';
 }
 
-function channelFor(audience) {
-  if (channels.has(audience)) return channels.get(audience);
+function channelFor(audience, sessionKey) {
+  const channelKey = `${audience}:${sessionKey}`;
+  if (channels.has(channelKey)) return channels.get(channelKey);
   const channel = { listeners: new Set(), controller: null, timer: null, stopped: false, status: 'connecting', databaseLive: false, refreshAuth: null, bookingToken: '', delay: 1000 };
   channel.notify = (event, payload) => { for (const listener of channel.listeners) listener(event, payload); };
   channel.connect = async () => {
     if (channel.stopped) return;
     channel.controller = new AbortController();
     try {
-      const access = audience === 'portal' ? token() : '';
+      const access = audience === 'portal' ? token(sessionKey) : '';
       const isBooking = audience.startsWith('booking:');
       const bookingId = isBooking ? audience.slice('booking:'.length) : '';
       if (isBooking && (!bookingId || !channel.bookingToken)) throw new Error('Booking session missing');
@@ -54,17 +55,17 @@ function channelFor(audience) {
       channel.delay = Math.min(channel.delay * 2, 30000);
     }
   };
-  channels.set(audience, channel); return channel;
+  channels.set(channelKey, channel); return channel;
 }
 
-export default function useLiveUpdates({ audience = 'portal', domains, onChange, refreshAuth, bookingToken = '', enabled = true, safetyRefreshMs = 0 }) {
+export default function useLiveUpdates({ audience = 'portal', domains, onChange, refreshAuth, bookingToken = '', enabled = true, safetyRefreshMs = 0, sessionKey = 'theVillaPortalAuth' }) {
   const callback = useRef(onChange); callback.current = onChange;
   const auth = useRef(refreshAuth); auth.current = refreshAuth;
   const [status, setStatus] = useState('connecting');
   const domainKey = [...domains].sort().join(',');
   useEffect(() => {
     if (!enabled) return;
-    const channel = channelFor(audience);
+    const channel = channelFor(audience, sessionKey);
     channel.bookingToken = bookingToken;
     channel.stopped = false;
     if (auth.current) channel.refreshAuth = () => auth.current?.();
@@ -92,9 +93,9 @@ export default function useLiveUpdates({ audience = 'portal', domains, onChange,
       document.removeEventListener('visibilitychange', focus);
       channel.listeners.delete(listener);
       if (!channel.listeners.size) {
-        channel.stopped = true; clearTimeout(channel.timer); channel.controller?.abort(); channels.delete(audience);
+        channel.stopped = true; clearTimeout(channel.timer); channel.controller?.abort(); channels.delete(`${audience}:${sessionKey}`);
       }
     };
-  }, [audience, bookingToken, domainKey, enabled, safetyRefreshMs]);
+  }, [audience, bookingToken, domainKey, enabled, safetyRefreshMs, sessionKey]);
   return status;
 }

@@ -12,6 +12,7 @@ from admin import (
     confirm_manual_airbnb_stay,
     create_manual_airbnb_stay_hold,
     list_manual_airbnb_stays,
+    mark_manual_airbnb_payment_confirmed,
     manual_booking_airbnb_availability,
 )
 
@@ -199,11 +200,125 @@ class AirbnbAvailabilityTests(TestCase):
         self.assertEqual(booking["customer_name"], "Airbnb Guest")
         self.assertEqual(booking["booking_channel"], "airbnb")
         self.assertEqual(booking["payment_status"], "External")
+        self.assertEqual(booking["airbnb_payment_status"], "unconfirmed")
+        self.assertIsNone(booking["airbnb_payment_recorded_at"])
         self.assertEqual(booking["amount_paid"], 0)
         self.assertEqual(booking["balance_amount"], 0)
         self.assertEqual(booking["total_amount"], 5000)
         assign.assert_called_once_with(booking, client)
         self.assertEqual(result["assignment"]["status"], "assigned")
+
+    def test_confirm_airbnb_booking_can_record_verified_external_payment_status(self):
+        stay_id = "11111111-1111-4111-8111-111111111111"
+        actor_id = "22222222-2222-4222-8222-222222222222"
+        stay = {
+            "id": stay_id,
+            "check_in_date": "2099-01-01",
+            "check_out_date": "2099-01-02",
+            "guest_count": 1,
+            "villa_ids": ["villa-a"],
+            "status": "held",
+            "expires_at": "2099-01-01T12:00:00+00:00",
+        }
+
+        class Query:
+            def select(self, *_):
+                return self
+
+            def eq(self, *_):
+                return self
+
+            def limit(self, *_):
+                return self
+
+            def execute(self):
+                return type("Response", (), {"data": [stay]})()
+
+        class Client:
+            def table(self, _):
+                return Query()
+
+            def rpc(self, _name, params):
+                self.booking = params["p_booking"]
+                return type(
+                    "RpcQuery",
+                    (),
+                    {"execute": lambda _self: type("Response", (), {"data": params["p_booking"]})()},
+                )()
+
+        client = Client()
+        request = AirbnbStayConfirmRequest(
+            guest_name="Airbnb Guest",
+            mark_paid_in_airbnb=True,
+        )
+        with patch("admin.service_client", return_value=client), \
+             patch("admin.get_villa_catalog_map", return_value=self.catalog), \
+             patch("booking._villa_operational", return_value=True), \
+             patch("booking_assignments.schedule_prearrival_assignment", return_value={"status": "assigned"}):
+            confirm_manual_airbnb_stay(stay_id, request, {"account": {"id": actor_id}})
+
+        self.assertEqual(client.booking["airbnb_payment_status"], "paid")
+        self.assertEqual(client.booking["airbnb_payment_recorded_by_staff_id"], actor_id)
+        self.assertTrue(client.booking["airbnb_payment_recorded_at"])
+        self.assertEqual(client.booking["amount_paid"], 0)
+        self.assertEqual(client.booking["balance_amount"], 0)
+
+    def test_admin_can_mark_existing_airbnb_booking_paid_without_entering_amount(self):
+        actor_id = "22222222-2222-4222-8222-222222222222"
+        booking_id = "33333333-3333-4333-8333-333333333333"
+        stay_id = "11111111-1111-4111-8111-111111111111"
+
+        class Query:
+            def __init__(self, data, client=None, table_name=None):
+                self.data = data
+                self.client = client
+                self.table_name = table_name
+                self.update_values = None
+
+            def select(self, *_):
+                return self
+
+            def eq(self, *_):
+                return self
+
+            def limit(self, *_):
+                return self
+
+            def update(self, values):
+                self.update_values = values
+                return self
+
+            def execute(self):
+                if self.update_values is not None:
+                    self.client.saved_update = self.update_values
+                    return type("Response", (), {"data": [{**self.data[0], **self.update_values}]})()
+                return type("Response", (), {"data": self.data})()
+
+        class Client:
+            def table(self, name):
+                records = {
+                    "airbnb_stays": [{"id": stay_id, "status": "booked", "booking_id": booking_id}],
+                    "bookings": [{
+                        "id": booking_id,
+                        "booking_code": "TV-AIRBNB",
+                        "booking_channel": "airbnb",
+                        "airbnb_payment_status": "unconfirmed",
+                        "airbnb_payment_recorded_at": None,
+                    }],
+                }
+                return Query(records[name], self, name)
+
+        client = Client()
+        with patch("admin.service_client", return_value=client):
+            result = mark_manual_airbnb_payment_confirmed(
+                stay_id,
+                {"account": {"id": actor_id}},
+            )
+
+        self.assertEqual(result["data"]["airbnb_payment_status"], "paid")
+        self.assertEqual(client.saved_update["airbnb_payment_recorded_by_staff_id"], actor_id)
+        self.assertTrue(client.saved_update["airbnb_payment_recorded_at"])
+        self.assertNotIn("amount_paid", client.saved_update)
 
     def test_airbnb_confirmation_requires_guest_name_without_numeric_characters(self):
         with self.assertRaises(ValidationError):

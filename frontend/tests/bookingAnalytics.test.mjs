@@ -98,11 +98,23 @@ test('pending payment counts outstanding balances and channel totals exclude can
     {...reservation,id:'expired',bookingStatus:'Expired',amountPaid:0},
   ],villas,2026,[],{pending:2,inProgress:1,review:1,overdue:1,completed:3});
   assert.equal(data.totalBookings,4);
-  assert.deepEqual(data.bookingChannel,{Airbnb:1,'The Villa':3});
+  assert.deepEqual(data.bookingChannel,{Airbnb:1,'Manual Booking (Messenger)':0,'The Villa':3});
   assert.equal(data.pendingPaymentCount,2);
   assert.deepEqual(data.paymentStatus,{Paid:1,Partial:1,Unpaid:1});
   assert.deepEqual(data.assignmentProgress,{
     Pending:2,'In Progress':1,'Pending Review':1,Overdue:1,Completed:3,
+  });
+});
+
+test('manual Messenger bookings have their own booking channel',()=>{
+  const data=bookingAnalytics([
+    {...reservation,id:'messenger',booking_channel:'manual'},
+    {...reservation,id:'messenger-tag',booking_channel:'messenger booking'},
+    {...reservation,id:'website',booking_channel:'public'},
+    {...reservation,id:'airbnb',booking_channel:'airbnb'},
+  ],villas,2026);
+  assert.deepEqual(data.bookingChannel,{
+    Airbnb:1,'Manual Booking (Messenger)':2,'The Villa':1,
   });
 });
 

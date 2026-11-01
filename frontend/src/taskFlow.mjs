@@ -11,6 +11,10 @@ export function canStartTask(task, now = Date.now()) {
   return Number.isFinite(scheduledAt) && dateKey(new Date(now)) === task.dueDate && now <= scheduledAt;
 }
 export const checklistCount = (task) => ({ done: (task.checklist || []).filter(item => item.done).length, total: (task.checklist || []).length });
+export const setChecklistItemDone = (checklist, itemId, done) =>
+  (checklist || []).map(item => item.id === itemId ? { ...item, done } : item);
+export const setChecklistDone = (checklist, done) =>
+  (checklist || []).map(item => ({ ...item, done }));
 export const readyForReview = (task) => task.status === 'In Progress' && checklistCount(task).total > 0 && checklistCount(task).done === checklistCount(task).total;
 export function orderTasks(tasks, now = Date.now()) {
   const rank = task => isLate(task, now) ? 0 : task.status === 'In Progress' ? 1 : task.status === 'Pending' ? 2 : task.status === 'Pending Review' ? 3 : 4;

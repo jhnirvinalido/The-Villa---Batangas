@@ -71,10 +71,14 @@ class StaffAccountResponse(BaseModel):
     employee_code: str | None = None
     full_name: str
     email: str
-    role: Literal["admin", "staff"]
+    role: Literal["admin", "staff", "front_desk", "maintenance"]
     department: str | None = None
     position: str | None = None
     is_active: bool
+    walk_in_access_requested: bool = False
+    can_create_walk_in_bookings: bool = False
+    payment_access_requested: bool = False
+    can_process_front_desk_payments: bool = False
 
 
 def _attr(
@@ -194,6 +198,8 @@ def _read_staff_account(
             "id,auth_user_id,employee_code,"
             "full_name,email,username,phone,"
             "role,department,position,shift,"
+            "walk_in_access_requested,can_create_walk_in_bookings,"
+            "payment_access_requested,can_process_front_desk_payments,"
             "is_active,account_status,"
             "must_change_password,last_login_at,"
             "password_reset_at,created_at,"
@@ -489,6 +495,8 @@ def validate_portal_access_token(
     required_role: Literal[
         "admin",
         "staff",
+        "front_desk",
+        "maintenance",
     ]
     | None = None,
 ) -> dict[str, Any]:
@@ -523,6 +531,8 @@ def validate_portal_access_token(
     if role not in {
         "admin",
         "staff",
+        "front_desk",
+        "maintenance",
     }:
         raise HTTPException(
             status_code=403,
@@ -540,6 +550,10 @@ def validate_portal_access_token(
             "Administrator"
             if required_role
             == "admin"
+            else "Front Desk / Operations"
+            if required_role == "front_desk"
+            else "Maintenance"
+            if required_role == "maintenance"
             else "Staff"
         )
 
@@ -780,8 +794,7 @@ def _session_response(
     }
 
 
-@router.post("/login")
-def staff_admin_login(
+def _portal_password_login(
     data: StaffLoginRequest,
 ):
     email = str(
@@ -845,8 +858,17 @@ def staff_admin_login(
     )
 
 
-@router.post("/refresh")
-def refresh_staff_admin_session(
+@router.post("/login")
+def staff_admin_login(data: StaffLoginRequest):
+    return _portal_password_login(data)
+
+
+@router.post("/front-desk/login")
+def front_desk_login(data: StaffLoginRequest):
+    return _portal_password_login(data)
+
+
+def _refresh_portal_session(
     data:
         StaffSessionRefreshRequest,
 ):
@@ -902,6 +924,16 @@ def refresh_staff_admin_session(
         account,
         "Login session refreshed.",
     )
+
+
+@router.post("/refresh")
+def refresh_staff_admin_session(data: StaffSessionRefreshRequest):
+    return _refresh_portal_session(data)
+
+
+@router.post("/front-desk/refresh")
+def refresh_front_desk_session(data: StaffSessionRefreshRequest):
+    return _refresh_portal_session(data)
 
 
 @router.get("/me")

@@ -18,7 +18,8 @@ Reference: https://www.airbnb.com/help/article/99
 ## Approval flow
 
 Apply `backend/migrations/20261030_airbnb_stay_holds.sql` and then
-`backend/migrations/20261030_airbnb_stay_to_booking.sql` before using this
+`backend/migrations/20261030_airbnb_stay_to_booking.sql`, followed by
+`backend/migrations/20261030_airbnb_stay_payment_record.sql`, before using this
 workflow.
 
 1. Open **Check Airbnb dates** on the Manual Booking page and enter the
@@ -32,10 +33,13 @@ workflow.
    the hold into a normal confirmed booking, so the booking blocks dates and
    appears in booking operations.
 4. Housekeeping preparation is assigned through the normal workflow. The
-   Airbnb payment remains external: The Villa records no payment, balance, or
+   confirmation form can record that an admin verified payment as paid in
+   Airbnb; leave it unchecked until verified. The record stores the status,
+   timestamp, and staff account only—not an amount, Villa payment, balance, or
    Airbnb payout. The booking's The Villa catalog price is an internal
    reference only, not the amount Airbnb charged or paid out; exclude Airbnb
-   stays from payment and revenue reporting.
+   stays from payment and revenue reporting. Existing bookings can be marked
+   paid in the Airbnb holds and stays list after verification.
 5. If the Airbnb request is not accepted, release the hold in The Villa or let
    its 10-minute expiry clear it. A saved Airbnb booking is no longer a hold;
    do not use **Release** on an accepted stay.

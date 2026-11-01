@@ -17,6 +17,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Any, Literal
 from urllib.parse import urlencode
 from uuid import UUID
+from zoneinfo import ZoneInfo
 from fastapi.responses import HTMLResponse, JSONResponse
 
 import requests
@@ -87,6 +88,9 @@ PAYMONGO_CREATE_CHECKOUT_URL = (
 PAYMONGO_RETRIEVE_CHECKOUT_URL = (
     "https://api.paymongo.com/v1/checkout_sessions"
 )
+PAYMONGO_PAYMENT_INTENTS_URL = (
+    "https://api.paymongo.com/v1/payment_intents"
+)
 
 # Set to a publicly reachable HTTPS API URL in production, e.g. https://api.example.com
 # When unset, admin requests use their FastAPI request origin for checkout callbacks.
@@ -94,6 +98,11 @@ BACKEND_PUBLIC_URL = os.getenv("BACKEND_PUBLIC_URL", "").strip().rstrip("/")
 
 
 logger = logging.getLogger("thevilla.booking")
+PHILIPPINE_TIMEZONE = ZoneInfo("Asia/Manila")
+
+
+def _philippine_today() -> date:
+    return datetime.now(PHILIPPINE_TIMEZONE).date()
 
 
 def _smtp_configured() -> bool:
@@ -203,7 +212,7 @@ def _send_booking_confirmation_email(
     booking: dict[str, Any],
     feedback_token: str | None = None,
 ) -> bool:
-    """Send the guest-facing booking acknowledgement (not a paid receipt).
+    """Send the guest-facing booking acknowledgement or payment receipt.
 
     Keep feedback_token for compatibility with the existing caller, but do
     not include any feedback requests in the guest's booking email.
@@ -236,17 +245,113 @@ def _send_booking_confirmation_email(
     total_amount = _money_text(booking.get("total_amount"))
     payment_due_amount = _money_text(booking.get("payment_due_amount"))
     booking_status = str(booking.get("booking_status") or "Pending Payment")
+    amount_paid = _money(booking.get("amount_paid"))
+    is_paid_receipt = amount_paid > 0
+    receipt_number = str(
+        booking.get("receipt_number") or f"RCPT-{booking_code}"
+    )
+    invoice_date = _format_email_date(
+        booking.get("paid_at") or booking.get("updated_at")
+    )
+    balance_value = booking.get("balance_amount")
+    balance_amount = _money(
+        balance_value
+        if balance_value is not None
+        else _money(booking.get("total_amount")) - amount_paid
+    )
+    try:
+        stay_nights = max(
+            (
+                date.fromisoformat(str(booking.get("check_out_date"))[:10])
+                - date.fromisoformat(str(booking.get("check_in_date"))[:10])
+            ).days,
+            1,
+        )
+    except (TypeError, ValueError):
+        stay_nights = 1
+    unit_price = _money(booking.get("total_amount")) / stay_nights
+    email_heading = "Payment receipt" if is_paid_receipt else "Booking received"
+    email_subtitle = (
+        "Your payment is confirmed. Please keep this receipt for your records."
+        if is_paid_receipt
+        else "Your reservation details have been saved successfully."
+    )
+    email_intro = (
+        "Thank you for choosing The Villa! Your payment has been confirmed."
+        if is_paid_receipt
+        else "Thank you for choosing The Villa! We have received your reservation details."
+    )
+    confirmation_note = (
+        "Your stay is confirmed. Keep your TV booking code and receipt for reference."
+        if is_paid_receipt
+        else "Please keep your booking reference handy and complete the selected payment to secure your stay."
+    )
+    receipt_text = (
+        f"""
+Payment receipt: {receipt_number}
+Receipt date: {invoice_date}
+Service: Villa accommodation ({stay_nights} {("night" if stay_nights == 1 else "nights")})
+Villa: {villa_name}
+Stay: {check_in} to {check_out}
+Total sales: {_money_text(booking.get("total_amount"))}
+Amount paid: {_money_text(amount_paid)}
+Balance due: {_money_text(balance_amount)}
+"""
+        if is_paid_receipt
+        else ""
+    )
+    safe_receipt_number = escape(receipt_number)
+    safe_invoice_date = escape(invoice_date)
+    safe_nights = escape(str(stay_nights))
+    safe_unit_price = escape(_money_text(unit_price))
+    safe_amount_paid = escape(_money_text(amount_paid))
+    safe_balance = escape(_money_text(balance_amount))
+    safe_villa = escape(villa_name)
+    safe_total = escape(total_amount)
+    receipt_html = (
+        f"""
+        <div style="margin-top:24px;padding:20px;border:1px solid #e7ddd5;border-radius:10px;background:#fff;">
+          <div style="display:flex;justify-content:space-between;gap:12px;margin-bottom:14px;">
+            <strong style="font-size:16px;color:#5f402e;">Service invoice</strong>
+            <span style="font-size:12px;color:#6b7280;">{safe_receipt_number} · {safe_invoice_date}</span>
+          </div>
+          <table role="presentation" style="width:100%;border-collapse:collapse;font-size:12px;">
+            <thead>
+              <tr style="background:#faf7f4;text-align:left;">
+                <th style="padding:10px 8px;">Nature of service</th>
+                <th style="padding:10px 8px;text-align:right;">Quantity</th>
+                <th style="padding:10px 8px;text-align:right;">Unit cost</th>
+                <th style="padding:10px 8px;text-align:right;">Amount</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td style="padding:12px 8px;border-bottom:1px solid #eee8e3;">Villa accommodation<br><span style="color:#6b7280;">{safe_villa}</span></td>
+                <td style="padding:12px 8px;text-align:right;border-bottom:1px solid #eee8e3;">{safe_nights} {("night" if stay_nights == 1 else "nights")}</td>
+                <td style="padding:12px 8px;text-align:right;border-bottom:1px solid #eee8e3;">{safe_unit_price}</td>
+                <td style="padding:12px 8px;text-align:right;border-bottom:1px solid #eee8e3;">{safe_total}</td>
+              </tr>
+            </tbody>
+          </table>
+          <table role="presentation" style="width:100%;margin-top:12px;border-collapse:collapse;font-size:13px;">
+            <tr><td style="padding:6px 8px;color:#6b7280;">Total sales</td><td style="padding:6px 8px;text-align:right;font-weight:600;">{safe_total}</td></tr>
+            <tr><td style="padding:6px 8px;color:#6b7280;">Amount paid</td><td style="padding:6px 8px;text-align:right;font-weight:600;">{safe_amount_paid}</td></tr>
+            <tr><td style="padding:8px;border-top:1px solid #e7ddd5;font-weight:700;">Balance due</td><td style="padding:8px;border-top:1px solid #e7ddd5;text-align:right;font-weight:700;">{safe_balance}</td></tr>
+          </table>
+        </div>
+        """
+        if is_paid_receipt
+        else ""
+    )
 
     safe_guest = escape(guest_name)
     safe_code = escape(booking_code)
-    safe_villa = escape(villa_name)
     safe_check_in = escape(check_in)
     safe_check_out = escape(check_out)
     safe_check_in_time = escape(check_in_time)
     safe_guest_count = escape(str(guest_count))
     safe_payment_label = escape(payment_label)
     safe_payment_method = escape(payment_method)
-    safe_total = escape(total_amount)
     safe_due = escape(payment_due_amount)
     safe_status = escape(booking_status)
 
@@ -259,11 +364,15 @@ def _send_booking_confirmation_email(
         if logo_src else ""
     )
 
-    subject = f"Booking received | {booking_code} | The Villa"
+    subject = (
+        f"Payment receipt | {receipt_number} | The Villa"
+        if is_paid_receipt
+        else f"Booking received | {booking_code} | The Villa"
+    )
 
     plain_text = f"""Hello {guest_name},
 
-Thank you for choosing The Villa! We have received your reservation details.
+{email_intro}
 
 Booking reference: {booking_code}
 Villa: {villa_name}
@@ -274,10 +383,11 @@ Guests: {guest_count}
 Payment option: {payment_label}
 Payment method: {payment_method}
 Total: {total_amount}
-Initial payment due: {payment_due_amount}
+{"Initial payment due: " + payment_due_amount if not is_paid_receipt else ""}
 Booking status: {booking_status}
 
-We look forward to welcoming you to The Villa! Please keep your booking reference handy and complete the selected payment to secure your stay.
+{receipt_text}
+{confirmation_note}
 
 If you have any questions or special requests before your visit, feel free to contact our team.
 
@@ -296,8 +406,8 @@ The Villa Team
             {logo_cell}
             <td style="vertical-align:middle;">
               <div style="font-size:12px;letter-spacing:.12em;text-transform:uppercase;color:#7a563f;font-weight:700;">The Villa</div>
-              <h1 style="margin:5px 0 3px;font-size:25px;line-height:1.25;color:#24201d;">Booking received</h1>
-              <p style="margin:0;color:#6b7280;font-size:14px;line-height:1.5;">Your reservation details have been saved successfully.</p>
+              <h1 style="margin:5px 0 3px;font-size:25px;line-height:1.25;color:#24201d;">{escape(email_heading)}</h1>
+              <p style="margin:0;color:#6b7280;font-size:14px;line-height:1.5;">{escape(email_subtitle)}</p>
             </td>
           </tr>
         </table>
@@ -305,7 +415,7 @@ The Villa Team
 
       <div style="padding:28px 32px;">
         <p style="margin:0 0 18px;font-size:15px;">Hello {safe_guest},</p>
-        <p style="margin:0 0 18px;font-size:14px;line-height:1.6;">Thank you for choosing The Villa! We have received your reservation details.</p>
+        <p style="margin:0 0 18px;font-size:14px;line-height:1.6;">{escape(email_intro)}</p>
 
         <div style="padding:16px 18px;background:#faf7f4;border:1px solid #e7ddd5;border-radius:10px;margin-bottom:22px;">
           <div style="font-size:11px;color:#7a563f;text-transform:uppercase;letter-spacing:.08em;font-weight:700;">Booking reference</div>
@@ -320,13 +430,15 @@ The Villa Team
           <tr><td style="padding:9px 0;color:#6b7280;">Payment option</td><td style="padding:9px 0;text-align:right;font-weight:600;">{safe_payment_label}</td></tr>
           <tr><td style="padding:9px 0;color:#6b7280;">Payment method</td><td style="padding:9px 0;text-align:right;font-weight:600;">{safe_payment_method}</td></tr>
           <tr><td style="padding:9px 0;color:#6b7280;">Total</td><td style="padding:9px 0;text-align:right;font-weight:600;">{safe_total}</td></tr>
-          <tr><td style="padding:9px 0;color:#6b7280;">Initial payment due</td><td style="padding:9px 0;text-align:right;font-weight:600;">{safe_due}</td></tr>
+          {f'<tr><td style="padding:9px 0;color:#6b7280;">Initial payment due</td><td style="padding:9px 0;text-align:right;font-weight:600;">{safe_due}</td></tr>' if not is_paid_receipt else ""}
           <tr><td style="padding:9px 0;color:#6b7280;">Status</td><td style="padding:9px 0;text-align:right;font-weight:600;">{safe_status}</td></tr>
         </table>
 
+        {receipt_html}
+
         <div style="margin-top:22px;padding:16px 18px;background:#edf8f1;border:1px solid #d8ebde;border-radius:10px;color:#285e40;font-size:13px;line-height:1.65;">
-          <strong style="display:block;margin-bottom:5px;font-size:14px;">We look forward to welcoming you!</strong>
-          Thank you for choosing The Villa. Please keep your booking reference handy and complete your selected payment to secure your stay. We look forward to making your visit comfortable and memorable.
+          <strong style="display:block;margin-bottom:5px;font-size:14px;">{escape("Payment confirmed!" if is_paid_receipt else "We look forward to welcoming you!")}</strong>
+          {escape(confirmation_note)} We look forward to making your visit comfortable and memorable.
         </div>
 
         <p style="margin:20px 0 0;color:#6b7280;font-size:13px;line-height:1.65;">
@@ -2143,6 +2255,50 @@ def _session_payment_state(
     }
 
 
+def _payment_intent_state(intent: dict[str, Any]) -> dict[str, Any]:
+    attributes = intent.get("attributes", {}) or {}
+    status = str(attributes.get("status") or "awaiting_payment_method").lower()
+    payments = attributes.get("payments") or []
+    paid_payment = next(
+        (
+            payment
+            for payment in reversed(payments)
+            if str(
+                (payment.get("attributes") or {}).get("status") or ""
+            ).lower() == "paid"
+        ),
+        None,
+    ) if isinstance(payments, list) else None
+
+    if status == "succeeded" or paid_payment:
+        return {
+            "state": "paid",
+            "paid": True,
+            "payment": paid_payment,
+            "message": "Payment confirmed by PayMongo.",
+        }
+    if status in {"canceled", "cancelled"}:
+        return {
+            "state": "cancelled",
+            "paid": False,
+            "payment": None,
+            "message": "The payment was cancelled.",
+        }
+    if status in {"failed", "awaiting_payment_method"}:
+        return {
+            "state": "failed",
+            "paid": False,
+            "payment": None,
+            "message": "The payment was not completed. You can start another payment.",
+        }
+    return {
+        "state": "pending",
+        "paid": False,
+        "payment": None,
+        "message": "Waiting for payment confirmation.",
+    }
+
+
 def _save_checkout_attempt(
     supabase: Client,
     *,
@@ -2626,7 +2782,7 @@ def booking_availability(
 ):
     _auth(request)
 
-    if check_in_date < date.today():
+    if check_in_date < _philippine_today():
         raise HTTPException(
             status_code=422,
             detail="Choose today or a future date.",
@@ -3057,7 +3213,7 @@ def create_booking(
             detail="The selected villa does not exist.",
         )
 
-    if data.check_in_date < date.today():
+    if data.check_in_date < _philippine_today():
         raise HTTPException(
             status_code=422,
             detail="Choose today or a future booking date.",
@@ -4006,6 +4162,76 @@ async def paymongo_webhook(
         )
     )
 
+    if event_type == "payment.paid":
+        payment_data = (
+            (event.get("attributes", {}) or {}).get("data")
+            or event.get("data")
+            or {}
+        )
+        payment_attributes = payment_data.get("attributes", {}) or {}
+        payment_intent_id = str(
+            payment_attributes.get("payment_intent_id") or ""
+        ).strip()
+        if not payment_intent_id:
+            return {
+                "received": True,
+                "ignored": True,
+                "reason": "The paid payment has no Payment Intent reference.",
+            }
+
+        intent_response = _paymongo_request(
+            "GET",
+            f"{PAYMONGO_PAYMENT_INTENTS_URL}/{payment_intent_id}",
+            payment_method=str(
+                (payment_attributes.get("source") or {}).get("type") or ""
+            ),
+        )
+        intent = intent_response.get("data") or {}
+        if str(intent.get("id") or "") != payment_intent_id:
+            raise HTTPException(
+                status_code=502,
+                detail="PayMongo returned a mismatched Payment Intent for its webhook.",
+            )
+        intent_attributes = intent.get("attributes", {}) or {}
+        metadata = intent_attributes.get("metadata", {}) or {}
+        booking_id = str(metadata.get("booking_id") or "").strip()
+        if metadata.get("booking_channel") != "public" or not booking_id:
+            return {
+                "received": True,
+                "ignored": True,
+                "reason": "The Payment Intent is not for a public booking.",
+            }
+
+        service = _service()
+        draft = _public_checkout_draft(service, booking_id)
+        if draft:
+            draft_booking = draft.get("booking_payload") or {}
+            if (
+                str(draft_booking.get("paymongo_payment_intent_id") or "")
+                != payment_intent_id
+            ):
+                return {
+                    "received": True,
+                    "ignored": True,
+                    "reason": "The Payment Intent is no longer active for this booking.",
+                }
+            _sync_public_checkout_draft(service, draft)
+            return {"received": True}
+
+        booking = _get_booking(service, booking_id)
+        if str(booking.get("paymongo_payment_intent_id") or "") != payment_intent_id:
+            return {
+                "received": True,
+                "ignored": True,
+                "reason": "The Payment Intent does not match the booking.",
+            }
+        _sync_public_payment_intent(
+            service,
+            booking,
+            payment_intent_id,
+        )
+        return {"received": True}
+
     if (
         event_type
         != "checkout_session.payment.paid"
@@ -4315,7 +4541,7 @@ def public_booking_availability(
     check_in_date: date,
     guest_count: int = 1,
 ):
-    if check_in_date < date.today():
+    if check_in_date < _philippine_today():
         raise HTTPException(
             status_code=422,
             detail="Choose today or a future booking date.",
@@ -4591,7 +4817,7 @@ def _prepare_public_booking(data: PublicBookingCreateRequest, *, draft_only: boo
             detail="The selected villa does not exist.",
         )
 
-    if data.check_in_date < date.today():
+    if data.check_in_date < _philippine_today():
         raise HTTPException(
             status_code=422,
             detail="Choose today or a future booking date.",
@@ -5205,6 +5431,7 @@ def _create_public_booking_checkout(
             "payment_last_checked_at": now,
             "paymongo_checkout_session_id": checkout_session_id,
             "paymongo_checkout_url": checkout_url,
+            "paymongo_payment_intent_id": None,
             "paymongo_reference_number": reference,
             "paymongo_status": "checkout_created",
             "updated_at": now,
@@ -5331,6 +5558,22 @@ def sync_public_booking_payment(
             "receipt_ready": bool(booking.get("receipt_number")),
             "message": "Payment is fully settled and the booking is confirmed.",
             "booking": _safe_public_booking(booking),
+        }
+
+    payment_intent_id = str(
+        booking.get("paymongo_payment_intent_id") or ""
+    ).strip()
+    if payment_intent_id:
+        result = _sync_public_payment_intent(
+            service,
+            booking,
+            payment_intent_id,
+        )
+        return {
+            **result,
+            "synced": result["state"] == "paid",
+            "receipt_ready": result["state"] == "paid",
+            "booking": _safe_public_booking(result["booking"]),
         }
 
     session_id = str(
@@ -5629,7 +5872,6 @@ def process_public_checkout_reconciliation(service=None, limit=25):
     response = (
         service.table("public_booking_checkouts")
         .select("id,booking_payload,paymongo_checkout_session_id,next_check_at")
-        .not_.is_("paymongo_checkout_session_id", "null")
         .lte("next_check_at", now_iso)
         .order("next_check_at")
         .limit(limit)
@@ -5658,16 +5900,29 @@ def process_public_checkout_reconciliation(service=None, limit=25):
             if (
                 booking.get("paymongo_checkout_session_id")
                 != candidate.get("paymongo_checkout_session_id")
+                or booking.get("paymongo_payment_intent_id")
+                != (candidate.get("booking_payload") or {}).get(
+                    "paymongo_payment_intent_id"
+                )
             ):
                 logger.error(
-                    "Public checkout reconciliation found a mismatched session reference."
+                    "Public checkout reconciliation found a mismatched payment reference."
                 )
+                continue
+            if not (
+                booking.get("paymongo_checkout_session_id")
+                or booking.get("paymongo_payment_intent_id")
+            ):
                 continue
 
             result = _sync_public_checkout_draft(service, draft)
             if result.get("state") == "expired":
                 service.table("public_booking_checkouts").update({
                     "paymongo_checkout_session_id": None,
+                    "next_check_at": None,
+                }).eq("id", candidate["id"]).execute()
+            elif result.get("state") in {"failed", "cancelled"}:
+                service.table("public_booking_checkouts").update({
                     "next_check_at": None,
                 }).eq("id", candidate["id"]).execute()
             checked += 1
@@ -5686,6 +5941,17 @@ def process_public_checkout_reconciliation(service=None, limit=25):
 
 def _sync_public_checkout_draft(service, draft):
     booking = draft["booking_payload"]
+    payment_intent_id = str(
+        booking.get("paymongo_payment_intent_id") or ""
+    ).strip()
+    if payment_intent_id:
+        return _sync_public_payment_intent(
+            service,
+            booking,
+            payment_intent_id,
+            public_draft=True,
+        )
+
     session_id = booking.get("paymongo_checkout_session_id")
     if not session_id:
         return {"state": "not_started", "booking": booking, "message": "Payment has not started. No booking was saved."}
@@ -5707,3 +5973,90 @@ def _sync_public_checkout_draft(service, draft):
     if saved.pop("_checkout_finalized", False):
         _send_booking_confirmation_email(saved)
     return {"state": "paid", "message": "Payment confirmed. Your booking is saved.", "booking": saved}
+
+
+def _sync_public_payment_intent(
+    service,
+    booking: dict[str, Any],
+    payment_intent_id: str,
+    *,
+    public_draft: bool = False,
+) -> dict[str, Any]:
+    result = _paymongo_request(
+        "GET",
+        f"{PAYMONGO_PAYMENT_INTENTS_URL}/{payment_intent_id}",
+        payment_method=str(booking.get("payment_method_code") or ""),
+    )
+    intent = result.get("data") or {}
+    if str(intent.get("id") or "") != payment_intent_id:
+        raise HTTPException(
+            status_code=502,
+            detail="PayMongo returned a mismatched payment intent.",
+        )
+    intent_attributes = intent.get("attributes") or {}
+    metadata = intent_attributes.get("metadata") or {}
+    if (
+        str(booking.get("paymongo_payment_intent_id") or "").strip()
+        != payment_intent_id
+        or str(metadata.get("booking_id") or "").strip()
+        != str(booking.get("id") or "").strip()
+        or metadata.get("booking_channel") != "public"
+        or metadata.get("payment_method")
+        != booking.get("payment_method_code")
+    ):
+        raise HTTPException(
+            status_code=409,
+            detail="The PayMongo payment intent does not match this booking.",
+        )
+
+    state = _payment_intent_state(intent)
+    if not state["paid"]:
+        return {
+            "state": state["state"],
+            "message": state["message"],
+            "booking": booking,
+        }
+
+    payment = state["payment"]
+    if not payment:
+        raise HTTPException(
+            status_code=502,
+            detail="PayMongo confirmed the payment intent without returning its paid payment.",
+        )
+    attributes = payment.get("attributes") or {}
+    if (
+        str(attributes.get("currency") or "").upper() != "PHP"
+        or _money(
+            Decimal(str(attributes.get("amount", 0))) / Decimal("100")
+        ) != _money(booking.get("payment_due_amount"))
+    ):
+        raise HTTPException(
+            status_code=409,
+            detail="Verified payment does not match the booking amount or currency.",
+        )
+
+    session = {
+        "id": None,
+        "attributes": {
+            "reference_number": (
+                metadata.get("reference_number")
+                or booking.get("paymongo_reference_number")
+            ),
+            "payment_intent": {"id": payment_intent_id},
+            "metadata": metadata,
+        },
+    }
+    saved = _apply_payment(
+        service,
+        booking,
+        session,
+        payment,
+        public_draft=public_draft,
+    )
+    if public_draft and saved.pop("_checkout_finalized", False):
+        _send_booking_confirmation_email(saved)
+    return {
+        "state": "paid",
+        "message": "Payment confirmed. Your booking is saved.",
+        "booking": saved,
+    }

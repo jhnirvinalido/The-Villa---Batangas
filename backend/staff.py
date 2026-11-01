@@ -3,6 +3,9 @@ from __future__ import annotations
 from task_workflow import staff_checklist_update, task_start_is_available
 
 import secrets
+import logging
+from datetime import date
+from decimal import Decimal
 from typing import Any, Literal
 from uuid import UUID
 
@@ -17,6 +20,10 @@ from admin import (
     NOTIFICATION_SELECT,
     STAFF_SELECT,
     TASK_SELECT,
+    BookingLifecycleRequest,
+    ManualBookingRequest,
+    check_in_booking as admin_check_in_booking,
+    checkout_booking as admin_checkout_booking,
     bearer_token,
     fetch_staff_by_auth,
     fetch_task,
@@ -32,6 +39,8 @@ from admin import (
     staff_api,
     task_api,
 )
+
+logger = logging.getLogger("thevilla.staff")
 
 router = APIRouter(
     prefix="/staff",
@@ -71,6 +80,26 @@ class StaffSettingsRequest(ApiModel):
     )
 
 
+class GuestServicesWalkInRequest(ManualBookingRequest):
+    payment_choice: Literal["full"] = "full"
+    payment_method: Literal["cash", "qrph"] = "cash"
+    cash_tendered: Decimal | None = Field(
+        default=None,
+        gt=0,
+        max_digits=12,
+        decimal_places=2,
+    )
+
+
+class StaffAccessRequest(ApiModel):
+    area: Literal["walk_in", "payments"]
+
+
+class StaffPaymentApprovalRequest(ApiModel):
+    payment_method: Literal["cash", "qrph"]
+    payment_timing: Literal["check_in", "check_out"]
+
+
 def require_staff(
     request: Request,
 ) -> dict[str, Any]:
@@ -81,9 +110,10 @@ def require_staff(
     account = (
         validate_portal_access_token(
             token,
-            required_role="staff",
         )
     )
+    if str(account.get("role") or "").lower() not in {"staff", "maintenance"}:
+        raise HTTPException(status_code=403, detail="Staff or Maintenance access is required.")
 
     return {
         "token": token,
@@ -96,6 +126,387 @@ def require_staff(
                 now_iso(),
         },
     }
+
+
+def require_walk_in_access(
+    context: dict[str, Any] = Depends(require_staff),
+) -> dict[str, Any]:
+    raise HTTPException(
+        status_code=403,
+        detail="Walk-in booking is only available to the Front Desk / Operations role.",
+    )
+
+
+def require_front_desk_payment_access(
+    context: dict[str, Any] = Depends(require_staff),
+) -> dict[str, Any]:
+    raise HTTPException(
+        status_code=403,
+        detail="Payment settlement is only available to the Front Desk / Operations role.",
+    )
+
+
+@router.post("/access-requests")
+def request_staff_access(
+    data: StaffAccessRequest,
+    context: dict[str, Any] = Depends(require_staff),
+):
+    raise HTTPException(
+        status_code=403,
+        detail="Ask an administrator to assign the Front Desk / Operations role in Staff Directory.",
+    )
+
+
+def guest_services_availability(
+    check_in_date: date,
+    guest_count: int = 1,
+    context: dict[str, Any] = Depends(require_walk_in_access),
+):
+    from booking import public_booking_availability
+
+    return public_booking_availability(
+        check_in_date=check_in_date,
+        guest_count=guest_count,
+    )
+
+
+def create_guest_services_walk_in(
+    data: GuestServicesWalkInRequest,
+    request: Request,
+    context: dict[str, Any] = Depends(require_walk_in_access),
+):
+    walk_in_marker = f"[Walk-in booking staff:{context['account']['id']}]"
+    if data.payment_method == "qrph":
+        from admin import create_manual_booking
+
+        data.notes = (
+            f"{walk_in_marker}{' ' + data.notes.strip() if data.notes else ''}"
+        )
+        return create_manual_booking(data, request, context)
+
+    if data.cash_tendered is None:
+        raise HTTPException(
+            status_code=422,
+            detail="Enter the cash received from the guest.",
+        )
+
+    from admin import complete_front_desk_settlement, fetch_booking, money, rows, service_client
+    from booking import (
+        PublicBookingCreateRequest,
+        _prepare_public_booking,
+        _send_booking_confirmation_email,
+    )
+
+    creation = _prepare_public_booking(
+        PublicBookingCreateRequest(
+            first_name=data.first_name,
+            last_name=data.last_name,
+            email=data.email,
+            phone=data.phone,
+            villa_id=data.villa_ids[0],
+            villa_ids=data.villa_ids,
+            check_in_date=data.check_in_date,
+            check_in_time="3:00 PM",
+            guest_count=data.guest_count,
+            notes=f"{walk_in_marker}{' ' + data.notes.strip() if data.notes else ''}",
+            payment_choice="full",
+            payment_method="qrph",
+        ),
+        draft_only=True,
+    )
+    booking = creation["booking"]
+    total_amount = money(booking.get("total_amount"))
+    cash_tendered = money(data.cash_tendered)
+    if cash_tendered < total_amount:
+        raise HTTPException(
+            status_code=409,
+            detail=f"Cash is insufficient by PHP {float(total_amount - cash_tendered):,.2f}.",
+        )
+
+    booking["payment_method"] = "Cash"
+    booking["payment_method_code"] = "cash"
+    try:
+        inserted = rows(
+            service_client()
+            .table("bookings")
+            .insert(booking)
+            .select("*")
+            .execute()
+        )
+    except Exception as error:
+        message = str(error).lower()
+        if any(marker in message for marker in ("duplicate key", "already booked", "bookings_active_villa_date_unique")):
+            raise HTTPException(
+                status_code=409,
+                detail="The villa availability changed. Refresh availability and try again.",
+            ) from error
+        logger.exception("Could not save walk-in booking.")
+        raise HTTPException(
+            status_code=400,
+            detail="The walk-in booking could not be stored. Check the booking database configuration.",
+        ) from error
+    if not inserted:
+        raise HTTPException(status_code=500, detail="The walk-in booking could not be returned.")
+
+    booking = inserted[0]
+    settled = False
+    try:
+        settlement = complete_front_desk_settlement(
+            booking=booking,
+            cashier=context["account"],
+            method="Cash",
+            payer_name=booking["customer_name"],
+            other_charges=[],
+            reference=f"WALKIN-{booking['booking_code']}",
+            cash_tendered=cash_tendered,
+            change_given=cash_tendered - total_amount,
+            notes="Full walk-in payment",
+        )
+        settled = True
+        confirmed_rows = rows(
+            service_client()
+            .table("bookings")
+            .update({
+                "booking_status": "Confirmed",
+                "stay_status": "Not Checked In",
+                "hold_expires_at": None,
+                "updated_at": now_iso(),
+            })
+            .eq("id", str(booking["id"]))
+            .select("*")
+            .execute()
+        )
+        if not confirmed_rows:
+            raise HTTPException(
+                status_code=500,
+                detail="Payment was recorded, but the booking confirmation needs administrator review.",
+            )
+        booking = confirmed_rows[0]
+    except Exception:
+        if not settled:
+            try:
+                latest = fetch_booking(str(booking["id"]))
+                settled = (
+                    str(latest.get("payment_status") or "").lower() == "paid"
+                    and Decimal(str(latest.get("amount_paid") or 0)) >= total_amount
+                )
+                if not settled:
+                    (
+                        service_client()
+                        .table("bookings")
+                        .update({
+                            "booking_status": "Cancelled",
+                            "hold_expires_at": None,
+                            "updated_at": now_iso(),
+                        })
+                        .eq("id", str(booking["id"]))
+                        .execute()
+                    )
+            except Exception:
+                logger.exception("Could not release the failed walk-in booking hold %s.", booking["id"])
+        raise
+
+    try:
+        from booking_assignments import schedule_prearrival_assignment
+
+        schedule_prearrival_assignment(booking, service_client())
+    except Exception:
+        logger.exception(
+            "Walk-in booking %s was paid and confirmed, but its housekeeping assignment needs retry.",
+            booking.get("booking_code"),
+        )
+
+    email_sent = _send_booking_confirmation_email(booking)
+    payment = settlement.get("payment") or {}
+    return {
+        "message": "Walk-in booking confirmed and cash payment recorded.",
+        "data": {
+            "booking": booking,
+            "payment": payment,
+            "change_given": float(cash_tendered - total_amount),
+            "email_sent": email_sent,
+        },
+    }
+
+
+def sync_guest_services_walk_in_payment(
+    booking_id: UUID,
+    context: dict[str, Any] = Depends(require_walk_in_access),
+):
+    from admin import fetch_booking, rows, service_client
+    from booking import sync_manual_checkout_payment
+
+    staff_id = str(context["account"]["id"])
+    staged = rows(
+        service_client()
+        .table("manual_booking_checkouts")
+        .select("id,created_by_staff_id")
+        .eq("id", str(booking_id))
+        .limit(1)
+        .execute()
+    )
+    if staged:
+        if str(staged[0].get("created_by_staff_id") or "") != staff_id:
+            raise HTTPException(status_code=404, detail="Walk-in checkout was not found.")
+    else:
+        booking = fetch_booking(str(booking_id))
+        marker = f"[Walk-in booking staff:{staff_id}]"
+        if not str(booking.get("notes") or "").startswith(marker):
+            raise HTTPException(status_code=404, detail="Walk-in checkout was not found.")
+
+    result = sync_manual_checkout_payment(str(booking_id))
+    booking = result["booking"]
+    return {
+        "state": result["state"],
+        "data": {
+            "id": booking["id"],
+            "booking_code": booking.get("booking_code"),
+            "booking_status": booking.get("booking_status"),
+            "payment_status": booking.get("payment_status"),
+            "amount_paid": booking.get("amount_paid"),
+            "balance_amount": booking.get("balance_amount"),
+            "hold_expires_at": booking.get("hold_expires_at"),
+        },
+    }
+
+
+def guest_services_bookings(
+    context: dict[str, Any] = Depends(require_front_desk_payment_access),
+):
+    from admin import apply_payment_timing_preferences, load_bookings_with_payments, load_payment_timing_events
+
+    client = service_client()
+    bookings = apply_payment_timing_preferences(
+        load_bookings_with_payments(client),
+        load_payment_timing_events(client),
+    )
+    active = [
+        booking
+        for booking in bookings
+        if str(booking.get("booking_status") or "").strip().lower()
+        in {"confirmed", "checked in"}
+    ]
+    return {"data": active}
+
+
+def request_guest_services_payment_approval(
+    booking_id: UUID,
+    data: StaffPaymentApprovalRequest,
+    context: dict[str, Any] = Depends(require_front_desk_payment_access),
+):
+    from admin import (
+        PAYMENT_TIMING_LABELS,
+        booking_initial_payment_verified,
+        fetch_booking,
+        money,
+        notify_admins,
+        validate_payment_timing_for_booking,
+    )
+
+    booking = fetch_booking(str(booking_id))
+    if str(booking.get("booking_status") or "").strip().lower() not in {
+        "confirmed",
+        "checked in",
+    }:
+        raise HTTPException(status_code=409, detail="Only confirmed active stays can request payment approval.")
+    if str(booking.get("payment_choice") or "").strip().lower() != "half":
+        raise HTTPException(status_code=409, detail="This booking has no scheduled front-desk balance.")
+    if not booking_initial_payment_verified(booking):
+        raise HTTPException(status_code=409, detail="The original customer downpayment has not been verified.")
+
+    timing = validate_payment_timing_for_booking(booking, data.payment_timing)
+    amount = money(booking.get("balance_amount"))
+    if amount <= 0:
+        raise HTTPException(status_code=409, detail="This booking has no remaining balance.")
+
+    client = service_client()
+    pending = rows(
+        client.table("front_desk_payment_approval_requests")
+        .select("*")
+        .eq("booking_id", str(booking_id))
+        .eq("status", "pending")
+        .limit(1)
+        .execute()
+    )
+    if pending:
+        request_row = pending[0]
+        if (
+            str(request_row.get("requested_by_staff_id")) == str(context["account"]["id"])
+            and request_row.get("payment_method") == data.payment_method
+            and request_row.get("payment_timing") == timing
+            and money(request_row.get("amount")) == amount
+        ):
+            return {"data": request_row}
+        raise HTTPException(
+            status_code=409,
+            detail="An administrator already has a pending payment request for this booking.",
+        )
+
+    request_rows = rows(
+        client.table("front_desk_payment_approval_requests")
+        .insert({
+            "booking_id": str(booking_id),
+            "requested_by_staff_id": str(context["account"]["id"]),
+            "payment_method": data.payment_method,
+            "payment_timing": timing,
+            "amount": float(amount),
+            "status": "pending",
+        })
+        .select("*")
+        .execute()
+    )
+    if not request_rows:
+        raise HTTPException(status_code=500, detail="The payment approval request could not be saved.")
+
+    request_row = request_rows[0]
+    booking_code = str(booking.get("booking_code") or booking_id)
+    timing_label = PAYMENT_TIMING_LABELS[timing]
+    try:
+        notify_admins(
+            "Payment approval needed",
+            f"{context['account'].get('full_name') or 'On-site staff'} requested "
+            f"{data.payment_method.upper()} payment of PHP {amount:,.2f} for "
+            f"{booking_code} ({timing_label}).",
+            notification_type="front_desk_payment_approval",
+            icon="shield",
+        )
+    except Exception:
+        logger.exception("Could not notify administrators about payment approval request %s.", request_row["id"])
+    return {"message": "Payment approval request sent to the administrator.", "data": request_row}
+
+
+def get_guest_services_payment_approval(
+    request_id: UUID,
+    context: dict[str, Any] = Depends(require_front_desk_payment_access),
+):
+    request_rows = rows(
+        service_client()
+        .table("front_desk_payment_approval_requests")
+        .select("id,booking_id,requested_by_staff_id,payment_method,payment_timing,amount,status,created_at,updated_at")
+        .eq("id", str(request_id))
+        .eq("requested_by_staff_id", str(context["account"]["id"]))
+        .limit(1)
+        .execute()
+    )
+    if not request_rows:
+        raise HTTPException(status_code=404, detail="Your payment approval request was not found.")
+    return {"data": request_rows[0]}
+
+
+def guest_services_check_in_booking(
+    booking_id: UUID,
+    data: BookingLifecycleRequest,
+    context: dict[str, Any] = Depends(require_front_desk_payment_access),
+):
+    return admin_check_in_booking(booking_id, data, context)
+
+
+def guest_services_checkout_booking(
+    booking_id: UUID,
+    data: BookingLifecycleRequest,
+    context: dict[str, Any] = Depends(require_front_desk_payment_access),
+):
+    return admin_checkout_booking(booking_id, data, context)
 
 
 def staff_settings_api(row: dict[str, Any]) -> dict[str, Any]:
@@ -382,7 +793,7 @@ def staff_bootstrap(
     from read_batches import parallel_reads
     loaded = parallel_reads({
         "directory": lambda: load_optional_rows("staff_accounts", STAFF_SELECT,
-            filters=[("role", "staff"), ("is_active", True), ("account_status", "Active")], order_column="full_name", limit=5000),
+            filters=[("role", current_account.get("role", "staff")), ("is_active", True), ("account_status", "Active")], order_column="full_name", limit=5000),
         "admins": lambda: load_optional_rows("staff_accounts", STAFF_SELECT,
             filters=[("role", "admin"), ("is_active", True), ("account_status", "Active")], order_column="full_name", limit=1),
         "tasks": lambda: load_all_staff_tasks(staff_id),

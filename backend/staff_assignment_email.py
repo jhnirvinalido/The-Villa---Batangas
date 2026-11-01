@@ -71,7 +71,7 @@ def deliver_assignment_email(client, job, config):
         _finish(client, job, "retry", "Assignment data could not be loaded")
         return "retry"
     if (not staff or not task or staff.get("is_active") is not True
-            or str(staff.get("role") or "").lower() != "staff"
+            or str(staff.get("role") or "").lower() not in {"staff", "maintenance"}
             or str(staff.get("account_status") or "").lower() != "active"
             or str(task.get("assigned_staff_id")) != str(staff["id"])
             or task.get("status") not in {"Pending", "In Progress", "Pending Review"}):

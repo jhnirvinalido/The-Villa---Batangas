@@ -8999,6 +8999,53 @@
   display: block;
 }
 
+.admin-account-access-review {
+  display: grid;
+  gap: 12px;
+  padding: 14px;
+  border: 1px solid #e8e2d9;
+  border-radius: 12px;
+  background: #fbfaf7;
+}
+
+.admin-account-access-review > div:first-child p {
+  margin: 4px 0 0;
+  color: #777168;
+  font-size: 12px;
+}
+
+.admin-account-access-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding-top: 10px;
+  border-top: 1px solid #e8e2d9;
+}
+
+.admin-account-access-row > span,
+.admin-account-access-row > div {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.admin-account-access-row > span {
+  align-items: flex-start;
+  flex-direction: column;
+}
+
+.admin-account-access-row small {
+  color: #777168;
+  font-size: 11px;
+}
+
+.admin-account-access-row button {
+  min-height: 34px;
+  padding: 6px 10px;
+  font-size: 12px;
+}
+
 .admin-account-checkbox small {
   margin-top: 2px;
   color: var(--villa-text-muted);
@@ -17141,6 +17188,47 @@
 .admin-ops-charge-breakdown {display:grid;gap:8px;padding:12px 14px;border:1px solid var(--villa-border);border-radius:11px;background:var(--villa-cream);margin-bottom:14px;font-size:11px;}
 .admin-ops-charge-breakdown > strong{color:var(--villa-brown-dark);font-size:11px;}
 .admin-ops-charge-breakdown > div{display:flex;justify-content:space-between;gap:10px;align-items:center;color:var(--villa-text-muted);}
+
+.admin-payment-approval-backdrop { z-index: 24000; }
+.admin-payment-approval-modal { width:min(100%,480px);padding:24px;border:1px solid #e8dfd1;border-radius:18px;background:#fff;box-shadow:0 24px 70px rgb(34 25 14 / 28%); }
+.admin-payment-approval-modal > header { display:flex;align-items:center;gap:12px; }
+.admin-payment-approval-modal > header > span { display:grid;place-items:center;width:42px;height:42px;border-radius:12px;background:#f6f0e5;color:#806333; }
+.admin-payment-approval-modal > header small { color:#8b6a36;font-size:10px;font-weight:800;letter-spacing:.12em; }
+.admin-payment-approval-modal h2 { margin:3px 0 0;color:#30291f;font-size:21px; }
+.admin-payment-approval-intro { margin:18px 0;color:#70695e;font-size:13px;line-height:1.55; }
+.admin-payment-approval-details { display:grid;gap:0;margin:0;padding:4px 14px;border:1px solid #eee8df;border-radius:12px;background:#fbfaf8; }
+.admin-payment-approval-details > div { display:flex;justify-content:space-between;gap:14px;padding:11px 0;border-bottom:1px solid #eee8df;font-size:12px; }
+.admin-payment-approval-details > div:last-child { border-bottom:0; }
+.admin-payment-approval-details dt { color:#777168; }
+.admin-payment-approval-details dd { margin:0;color:#342d22;font-weight:700;text-align:right; }
+.admin-payment-approval-modal > footer { display:flex;justify-content:flex-end;gap:10px;margin-top:20px; }
+@media (max-width:560px) {
+  .admin-payment-approval-modal { padding:18px; }
+  .admin-payment-approval-details > div { display:grid;gap:4px; }
+  .admin-payment-approval-details dd { text-align:left; }
+}
+
+.admin-front-desk { display:grid;gap:18px; }
+.admin-dashboard-tabs { margin-bottom:18px; }
+.admin-front-desk-heading { display:flex;align-items:center;justify-content:space-between;gap:20px;padding:20px 22px;border:1px solid #e8e1d7;border-radius:16px;background:linear-gradient(120deg,#fff 55%,#f8f3ea); }
+.admin-front-desk-heading h2 { margin:5px 0 0;color:#30291f;font-size:22px; }
+.admin-front-desk-heading p { max-width:760px;margin:6px 0 0;color:#777168;font-size:13px;line-height:1.55; }
+.admin-front-desk-heading > svg { flex:0 0 auto;color:#8b6a36; }
+.admin-front-desk-tabs { display:flex;gap:6px;overflow-x:auto;border-bottom:1px solid #e7e0d6;scrollbar-width:thin; }
+.admin-front-desk-tabs button { flex:0 0 auto;padding:11px 14px;border:0;border-bottom:2px solid transparent;background:transparent;color:#716b62;font:inherit;font-size:12px;font-weight:750;white-space:nowrap;cursor:pointer; }
+.admin-front-desk-tabs button.active { border-bottom-color:#967540;color:#49391e; }
+.admin-front-desk-tabs button:hover { color:#49391e; }
+.admin-front-desk-list { min-width:0; }
+.admin-front-desk-list .admin-panel-header { gap:14px; }
+.admin-front-desk-list .admin-table-wrap { max-height:calc(100vh - 360px);overflow:auto; }
+.admin-front-desk-list .admin-data-table th { position:sticky;top:0;z-index:1;background:#faf8f4; }
+.admin-front-desk-list .admin-data-table td small { display:block;margin-top:3px;color:#777168;font-size:11px; }
+.admin-operation-muted { color:#777168;font-size:12px; }
+@media (max-width:760px) {
+  .admin-front-desk-heading { align-items:flex-start;padding:16px; }
+  .admin-front-desk-heading h2 { font-size:19px; }
+  .admin-front-desk-list .admin-table-wrap { max-height:none; }
+}
 .admin-ops-charge-breakdown b{color:var(--villa-text);}
 
 /* Checked-in-only guest operations queue: uses the existing Villa palette. */
@@ -17257,3 +17345,34 @@
 .admin-data-table .admin-preparation-needed { color:#9a6700; font-weight:600; }
 
 .assignment-auto-hint { margin:6px 0 0; max-width:620px; color:var(--admin-muted,#756e68); font-size:12px; line-height:1.6; }
+
+/* Shared booking workspace for Admin and Front Desk. */
+.dashboard-page-heading>p { margin:2px 0 0; color:var(--villa-text-muted); font-size:12px; line-height:1.6; }
+.admin-sidebar-footer a.admin-sidebar-nav-btn { display:flex; text-decoration:none; margin-bottom:8px; }
+.admin-data-notice { display:flex; align-items:center; justify-content:space-between; gap:16px; padding:14px 18px; margin-bottom:18px; border:1px solid #e5cdb2; border-radius:12px; background:#fffaf2; color:#765a37; font-size:12px; line-height:1.6; }
+.admin-stay-summary { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:14px; margin-bottom:20px; }
+.admin-stay-summary button { display:grid; gap:10px; text-align:left; padding:19px 20px; border:1px solid var(--villa-border); border-radius:14px; background:var(--villa-white); color:var(--villa-text); transition:border-color .15s,box-shadow .15s; }
+.admin-stay-summary button:hover { border-color:var(--villa-brown-light); box-shadow:var(--villa-shadow); }
+.admin-stay-summary span { display:flex; align-items:center; gap:9px; color:var(--villa-text-muted); font-size:12px; }
+.admin-stay-summary span svg { color:var(--villa-brown); }
+.admin-stay-summary strong { font-size:28px; font-weight:650; line-height:1.15; }
+.admin-stay-summary small { color:var(--villa-text-muted); font-size:10px; }
+.admin-booking-scopes { display:flex; gap:4px; flex-wrap:wrap; padding:4px; border:1px solid var(--villa-border); border-radius:11px; background:#f0ede8; }
+.admin-booking-scopes button { padding:9px 13px; border:1px solid transparent; border-radius:8px; background:transparent; color:var(--villa-text-muted); font:inherit; font-size:12px; font-weight:600; }
+.admin-booking-scopes button[aria-pressed="true"] { border-color:var(--villa-border); background:#fff; color:var(--villa-brown-dark); box-shadow:0 2px 5px #311c1108; }
+.admin-booking-date { display:flex; align-items:center; gap:7px; min-height:42px; max-width:100%; padding:0 10px; border:1px solid var(--villa-border); border-radius:9px; background:#fff; color:var(--villa-text-muted); font-size:11px; }
+.admin-booking-date input { width:130px; min-width:0; padding:8px 0; border:0; background:transparent; color:var(--villa-text); font:inherit; font-size:12px; outline:0; }
+.admin-booking-date:focus-within { border-color:var(--villa-brown); box-shadow:0 0 0 3px #a86f4d1f; }
+.admin-bookings-controls button:focus-visible,.admin-stay-summary button:focus-visible { outline:2px solid var(--villa-brown-light); outline-offset:3px; }
+@media(max-width:680px) {
+  .admin-stay-summary { gap:8px; }
+  .admin-stay-summary button { padding:13px 10px; gap:8px; }
+  .admin-stay-summary span { flex-direction:column; align-items:flex-start; gap:6px; font-size:11px; }
+  .admin-stay-summary strong { font-size:24px; }
+  .admin-stay-summary small { line-height:1.5; }
+  .admin-booking-scopes { width:100%; }
+  .admin-booking-scopes button { flex:1; padding:9px 6px; font-size:11px; }
+  .admin-booking-date { flex:1 1 190px; }
+  .admin-booking-date input { flex:1; }
+  .admin-data-notice { flex-wrap:wrap; }
+}

@@ -34,6 +34,15 @@ class StreamHealthTests(unittest.IsolatedAsyncioTestCase):
 
 
 class BookingLiveUpdateTests(unittest.TestCase):
+    def test_maintenance_events_keep_staff_visibility_and_assignment_scope(self):
+        hub = LiveHub()
+        technician = Subscriber('maintenance', account_id='technician-1')
+        other = Subscriber('maintenance', account_id='technician-2')
+        hub.subscribers.update({technician, other})
+        hub._publish({'tasks', 'payments'}, staff_ids={'technician-1'})
+        self.assertEqual(technician.queue.get_nowait()['domains'], ['tasks'])
+        self.assertTrue(other.queue.empty())
+
     def test_booking_invalidations_are_private_and_scoped(self):
         hub = LiveHub()
         guest = Subscriber("booking", booking_id="booking-1")

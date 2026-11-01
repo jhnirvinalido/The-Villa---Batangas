@@ -23,7 +23,9 @@ def model_status():
     try:
         artifact,_=load_model()
         evaluation=artifact['evaluation']
-        return {'available':True,'pilot':True,'version':artifact['version'],'training_rows':artifact['training_rows'],'training_unit':artifact.get('training_unit','reviews'),'training_reviews':artifact.get('training_reviews',artifact['training_rows']),'class_distribution':artifact['class_distribution'],'label_source':artifact['label_source'],'cross_validation_accuracy':evaluation['model']['accuracy'],'macro_f1':evaluation['model']['macro_f1'],'baseline_accuracy':evaluation['majority_baseline']['accuracy'],'gemini_available':bool(os.getenv('GEMINI_API_KEY') and os.getenv('GEMINI_MODEL')),'requires_human_review':True}
+        model_metrics=evaluation.get('model',evaluation.get('tuned'))
+        baseline_metrics=evaluation.get('baseline',evaluation.get('majority_baseline'))
+        return {'available':True,'pilot':True,'version':artifact['version'],'training_rows':artifact['training_rows'],'training_unit':artifact.get('training_unit','reviews'),'training_reviews':artifact.get('training_reviews',artifact['training_rows']),'class_distribution':artifact['class_distribution'],'label_source':artifact['label_source'],'cross_validation_accuracy':model_metrics['accuracy'],'macro_f1':model_metrics['macro_f1'],'baseline_accuracy':baseline_metrics['accuracy'],'gemini_available':bool(os.getenv('GEMINI_API_KEY') and os.getenv('GEMINI_MODEL')),'requires_human_review':True}
     except Exception:
         return {'available':False,'pilot':True,'gemini_available':bool(os.getenv('GEMINI_API_KEY') and os.getenv('GEMINI_MODEL')),'requires_human_review':True}
 
@@ -31,6 +33,8 @@ def predict_feedback(row):
     artifact,model=load_model()
     text=analysis_input(row)['text']
     result=model.predict_one(text)
+    if not result['known_feature_occurrences']:
+        result={**result,'label':None}
     return {**result,'model_version':artifact['version'],'pilot':True,'requires_human_review':True}
 
 def save_pilot_prediction(client,row):

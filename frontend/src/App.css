@@ -602,8 +602,26 @@ main {
   transition: transform 0.55s ease;
 }
 
+.villa-gallery-photo {
+  animation: villaPhotoEnter 420ms cubic-bezier(0.2, 0.7, 0.2, 1);
+}
+
+.villa-gallery-photo-slide {
+  animation-name: villaPhotoSlide;
+}
+
 .villa-card:hover .villa-image-button img {
   transform: scale(1.055);
+}
+
+@keyframes villaPhotoEnter {
+  from { opacity: 0.55; transform: scale(1.025); }
+  to { opacity: 1; transform: scale(1); }
+}
+
+@keyframes villaPhotoSlide {
+  from { opacity: 0.65; transform: translateX(6%); }
+  to { opacity: 1; transform: translateX(0); }
 }
 
 .villa-image-empty {
@@ -3386,7 +3404,7 @@ main {
 .site-header nav button,.footer-links button { position:relative; transition:color 220ms ease; }
 .site-header nav button::after,.footer-links button::after { content:""; position:absolute; height:1px; bottom:0; left:0; right:0; background:var(--brand); transform:scaleX(0); transform-origin:left; transition:transform 350ms cubic-bezier(.16,1,.3,1); }
 .site-header nav button[aria-current="location"]::after,.site-header nav button:hover::after,.footer-links button[aria-current="location"]::after { transform:scaleX(1); }
-@media(prefers-reduced-motion:reduce) { html,body,#root { scroll-behavior:auto; } .app .section-reveal { opacity:1!important; transform:none!important; transition:none!important; } .app .hero-slide,.site-header nav button::after,.footer-links button::after { transition:none; } }
+@media(prefers-reduced-motion:reduce) { html,body,#root { scroll-behavior:auto; } .app .section-reveal { opacity:1!important; transform:none!important; transition:none!important; } .app .hero-slide,.site-header nav button::after,.footer-links button::after { transition:none; } .villa-gallery-photo { animation:none; } }
 
 /* Section details arrive in layers, with a bronze heading accent. */
 .app .section-heading h2, .app .faq-intro h2, .app .landing-feedback-heading h2 { position:relative; }

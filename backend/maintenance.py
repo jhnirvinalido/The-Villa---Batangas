@@ -122,7 +122,7 @@ def serialize(row, staff=None):
 
 def technician(staff_id):
     staff = fetch_staff(str(staff_id))
-    if (str(staff.get("role", "")).lower() != "staff"
+    if (str(staff.get("role", "")).lower() not in {"staff", "maintenance"}
             or str(staff.get("department", "")).lower() != "maintenance"
             or not staff.get("is_active") or staff.get("account_status") != "Active"):
         raise HTTPException(status_code=422, detail="Choose an active Maintenance staff member.")

@@ -143,7 +143,9 @@ export default function ManualBooking({ apiRequest, onViewBookings, onBookingCre
   const [selectedAirbnbVillaIds, setSelectedAirbnbVillaIds] = useState([]);
   const [airbnbStays, setAirbnbStays] = useState([]);
   const [airbnbConfirmingStayId, setAirbnbConfirmingStayId] = useState("");
-  const [airbnbGuestForm, setAirbnbGuestForm] = useState({ guest_name: "", guest_email: "", guest_phone: "" });
+  const [airbnbGuestForm, setAirbnbGuestForm] = useState({
+    guest_name: "", guest_email: "", guest_phone: "", mark_paid_in_airbnb: false,
+  });
   const [airbnbStaysLoading, setAirbnbStaysLoading] = useState(true);
   const [airbnbChecking, setAirbnbChecking] = useState(false);
   const [airbnbSaving, setAirbnbSaving] = useState("");
@@ -298,6 +300,10 @@ export default function ManualBooking({ apiRequest, onViewBookings, onBookingCre
         !window.confirm("Release these dates from The Villa calendar? Do this only if the Airbnb request was not accepted or the Airbnb stay was cancelled.")) {
       return;
     }
+    if (action === "payment-confirmed" &&
+        !window.confirm("Confirm that you verified this reservation is paid on Airbnb? This records the status only; no amount will be added to The Villa accounting.")) {
+      return;
+    }
     setAirbnbError("");
     setAirbnbNotice("");
     setAirbnbSaving(`${stay.id}:${action}`);
@@ -333,11 +339,14 @@ export default function ManualBooking({ apiRequest, onViewBookings, onBookingCre
             guest_name: guestName,
             guest_email: airbnbGuestForm.guest_email.trim() || null,
             guest_phone: airbnbGuestForm.guest_phone.trim() || null,
+            mark_paid_in_airbnb: airbnbGuestForm.mark_paid_in_airbnb,
           }),
         },
       );
       setAirbnbConfirmingStayId("");
-      setAirbnbGuestForm({ guest_name: "", guest_email: "", guest_phone: "" });
+      setAirbnbGuestForm({
+        guest_name: "", guest_email: "", guest_phone: "", mark_paid_in_airbnb: false,
+      });
       setAirbnbNotice(result?.message || "Airbnb booking saved. Housekeeping preparation will be assigned.");
       await refreshAirbnbStays();
     } catch (requestError) {
@@ -613,8 +622,9 @@ export default function ManualBooking({ apiRequest, onViewBookings, onBookingCre
         <div className="manual-header-identity">
           <div className="manual-header-mark"><CalendarCheck2 size={24} strokeWidth={1.8} /></div>
           <div>
-            <div className="manual-header-kicker">RESERVATION MANAGEMENT</div>
-            <h1>Manual Booking</h1> 
+            <div className="manual-header-kicker">ADMIN · AIRBNB &amp; MESSENGER</div>
+            <h1>External Bookings</h1>
+            <p className="manual-header-description">Record Airbnb and Messenger inquiries handled by the admin team. Record on-site walk-ins in Front Desk / Operations.</p>
           </div>
         </div>
         <button type="button" className="manual-btn-primary" onClick={() => setAirbnbModalOpen(true)}>
@@ -697,7 +707,7 @@ export default function ManualBooking({ apiRequest, onViewBookings, onBookingCre
             )}
           </div>
         )}
-        <p className="manual-airbnb-note">Select the villas and create a 10-minute hold before accepting on Airbnb. After Airbnb accepts, enter the guest’s name to save a confirmed booking in The Villa and trigger housekeeping preparation. Airbnb payment is handled externally and is not recorded here. Holds expire automatically; release dates only if the request was not accepted. Do not use the direct Manual Booking form for Airbnb stays because it creates a PayMongo checkout.</p>
+        <p className="manual-airbnb-note">Select the villas and create a 10-minute hold before accepting on Airbnb. After Airbnb accepts, enter the guest’s name to save a confirmed booking in The Villa and trigger housekeeping preparation. You can record the paid status after verifying it in Airbnb; no amount is added to The Villa accounting. Holds expire automatically; release dates only if the request was not accepted. Do not use the direct Manual Booking form for Airbnb stays because it creates a PayMongo checkout.</p>
         <section className="manual-airbnb-stays" aria-labelledby="manual-airbnb-stays-title">
           <div className="manual-airbnb-stays-heading">
             <h3 id="manual-airbnb-stays-title">Airbnb holds and stays</h3>
@@ -715,9 +725,25 @@ export default function ManualBooking({ apiRequest, onViewBookings, onBookingCre
                     <span>{(stay.villa_names || []).join(", ") || "Villa selection unavailable"}</span>
                     {stay.status === "booked" && stay.guest_name && <span>Guest: {stay.guest_name}</span>}
                     {stay.status === "booked" && stay.booking_code && <span>Booking: {stay.booking_code}</span>}
+                    {stay.status === "booked" && (
+                      <span>
+                        Payment: {stay.airbnb_payment_status === "paid" ? "Paid in Airbnb" : "Not marked paid in Airbnb"}
+                        {stay.airbnb_payment_recorded_at && ` · recorded ${formatDateTime(stay.airbnb_payment_recorded_at)}`}
+                      </span>
+                    )}
                     {stay.status === "held" && <span>Expires {formatDateTime(stay.expires_at)}</span>}
                   </div>
                   <div className="manual-airbnb-stay-actions">
+                    {stay.status === "booked" && stay.airbnb_payment_status !== "paid" && (
+                      <button
+                        type="button"
+                        className="manual-btn-outline"
+                        disabled={!!airbnbSaving}
+                        onClick={() => updateAirbnbStay(stay, "payment-confirmed")}
+                      >
+                        {airbnbSaving === `${stay.id}:payment-confirmed` ? "Saving…" : "Mark paid in Airbnb"}
+                      </button>
+                    )}
                     {["held", "confirmed"].includes(stay.status) && (
                       <button
                         type="button"
@@ -726,7 +752,9 @@ export default function ManualBooking({ apiRequest, onViewBookings, onBookingCre
                         onClick={() => {
                           setAirbnbError("");
                           setAirbnbConfirmingStayId(current => current === stay.id ? "" : stay.id);
-                          setAirbnbGuestForm({ guest_name: "", guest_email: "", guest_phone: "" });
+                          setAirbnbGuestForm({
+                            guest_name: "", guest_email: "", guest_phone: "", mark_paid_in_airbnb: false,
+                          });
                         }}
                       >
                         {airbnbConfirmingStayId === stay.id ? "Close booking form" : stay.status === "held" ? "Airbnb accepted" : "Save booking"}
@@ -778,7 +806,18 @@ export default function ManualBooking({ apiRequest, onViewBookings, onBookingCre
                           autoComplete="tel"
                         />
                       </label>
-                      <p>Payment is managed by Airbnb; no payment is recorded in The Villa.</p>
+                      <label className="manual-airbnb-payment-confirm">
+                        <input
+                          type="checkbox"
+                          checked={airbnbGuestForm.mark_paid_in_airbnb}
+                          onChange={event => setAirbnbGuestForm(current => ({
+                            ...current,
+                            mark_paid_in_airbnb: event.target.checked,
+                          }))}
+                        />
+                        I verified that this reservation is marked paid in Airbnb.
+                      </label>
+                      <p>Only the payment status is recorded here—no amount or Villa revenue is added.</p>
                       <div>
                         <button type="button" className="manual-btn-outline" disabled={!!airbnbSaving} onClick={() => setAirbnbConfirmingStayId("")}>Cancel</button>
                         <button type="submit" className="manual-btn-primary" disabled={!!airbnbSaving}>

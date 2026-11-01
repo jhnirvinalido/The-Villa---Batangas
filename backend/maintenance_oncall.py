@@ -254,7 +254,7 @@ def begin_dispatch(row, snapshot, *, now=None, window=None):
 
 def choose_technician(client, *, exclude=()):
     candidates = rows(client.table('staff_accounts').select('id,full_name,position,personal_email,role,department,is_active,account_status')
-                      .eq('role', 'staff').eq('department', 'Maintenance').eq('is_active', True).eq('account_status', 'Active').execute())
+                      .in_('role', ['staff', 'maintenance']).eq('department', 'Maintenance').eq('is_active', True).eq('account_status', 'Active').execute())
     candidates = [person for person in candidates
                   if str(person['id']) not in exclude and str(person.get('personal_email') or '').strip()]
     if not candidates:
@@ -399,7 +399,7 @@ def notify_maintenance_team(client, row):
     snapshot = domain.details(row)
     suggested = parse(snapshot.get('suggestedArrival'))
     when = suggested.astimezone(ZoneInfo('Asia/Manila')).strftime('%b %d at %I:%M %p') if suggested else 'a date before the next guest check-in'
-    recipients = rows(client.table('staff_accounts').select('id').eq('role', 'staff')
+    recipients = rows(client.table('staff_accounts').select('id').in_('role', ['staff', 'maintenance'])
                       .eq('department', 'Maintenance').eq('is_active', True)
                       .eq('account_status', 'Active').execute())
     for recipient in recipients:

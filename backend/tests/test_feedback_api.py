@@ -1,4 +1,5 @@
 """HTTP contract tests. Dummy environment; all database/SMTP calls are mocked."""
+import json
 import os
 import sys
 import unittest
@@ -156,6 +157,96 @@ class FeedbackAPITests(unittest.TestCase):
         saved=self.db.table.return_value.insert.call_args.args[0]
         self.assertEqual(saved['created_by_staff_id'],'admin-test')
         self.assertEqual(saved['evidence_fingerprint'],'snapshot')
+
+    def test_candidate_feedback_to_gemini_draft_requires_admin_approval(self):
+        main.app.dependency_overrides[admin.require_admin]=lambda:{'account':{'id':'admin-test'}}
+        candidate=Path(__file__).parents[1]/'ml'/'candidates'/'20261031_human_approved_232'/'sentiment_model.json'
+        submitted_record={
+            'id':'EX-3D1FFDEE0B00','booking_id':self.booking_id,
+            'comments':'The WiFi connection was unstable',
+             'overall_rating':2,'guest_name':'Private Guest','guest_email':'private@example.com',
+             'private_note':'Do not share this private note.'}
+        records=[
+            submitted_record,
+            {'id':'EX-9D34EAF1982F','comments':'Villa 1','overall_rating':4},
+            {'id':'EX-1689BA283B2D','comments':'ganda din ng area at super linis at ang bango!',
+             'overall_rating':5},
+        ]
+        from feedback_analysis import AnalysisFilters,build_report
+        filters=AnalysisFilters()
+        stored={
+            'id':self.booking_id,'status':'draft','filters':filters.model_dump(mode='json'),
+            'evidence_fingerprint':'','recommendation':{},
+        }
+        response=MagicMock(ok=True)
+        response.json.return_value={'candidates':[{'finishReason':'STOP','content':{'parts':[{
+            'text':json.dumps({'actions':[{
+                'category':'Internet connectivity',
+                'action':'Ask staff to test Wi-Fi coverage in each villa and inspect extender placement.',
+                'rationale':'A guest reported unstable Wi-Fi; verify the connection before choosing a service change.',
+            }]})
+        }]}}]}
+        self.db.rpc.return_value.execute.return_value=SimpleNamespace(
+            data={'submitted':True,'duplicate':False})
+        self.db.table.return_value.select.return_value.eq.return_value.limit.return_value.execute.side_effect=[
+            SimpleNamespace(data=[submitted_record]),SimpleNamespace(data=[stored])]
+        self.db.table.return_value.select.return_value.limit.return_value.execute.return_value=SimpleNamespace(data=[])
+        self.db.table.return_value.insert.return_value.execute.return_value=SimpleNamespace(data=[stored])
+        self.db.table.return_value.update.return_value.eq.return_value.eq.return_value.execute.return_value=SimpleNamespace(data=[{**stored,'status':'approved'}])
+        self.db.table.return_value.update.return_value.eq.return_value.execute.return_value=SimpleNamespace(data=[submitted_record])
+        with patch.dict(os.environ,{
+                'FEEDBACK_MODEL_PATH':str(candidate),
+                'GEMINI_API_KEY':'integration-test-key','GEMINI_MODEL':'integration-test-model',
+             }),patch.object(admin,'service_client',return_value=self.db),\
+             patch.object(booking,'_service',return_value=self.db),\
+             patch.object(booking,'_require_feedback_booking',return_value=self.record),\
+             patch('live_updates.emit_table'),\
+             patch('feedback_analysis.records_for',return_value=records),\
+             patch('ml.recommendations.requests.post',return_value=response) as gemini:
+            submission=self.client.post(self.url,json={
+                'token':'t'*40,'overall_rating':2,
+                'comments':'The WiFi connection was unstable','hide_identity':True,
+            })
+            self.assertEqual(submission.status_code,200)
+            self.assertTrue(submission.json()['submitted'])
+            submitted_analysis=self.db.table.return_value.update.call_args_list[0].args[0]
+            self.assertEqual(submitted_analysis['sentiment_label'],'negative')
+
+            analysis=build_report(self.db,filters)
+            self.assertEqual(analysis['summary']['phrase_sentiments'],
+                             {'negative':1,'neutral':1,'positive':1})
+            self.assertEqual(analysis['summary']['top_complaints'][0]['category'],
+                             'Internet connectivity')
+            stored['evidence_fingerprint']=analysis['summary']['fingerprint']
+            stored['recommendation']={
+                'actions':[{'category':'Internet connectivity',
+                            'action':'Ask staff to test Wi-Fi coverage in each villa and inspect extender placement.',
+                            'rationale':'A guest reported unstable Wi-Fi; verify the connection before choosing a service change.',
+                            'negative_review_count':1,
+                            'evidence':['The WiFi connection was unstable']}],
+                'model':'integration-test-model','requires_admin_approval':True,
+            }
+            generated=self.client.post('/admin/guest-feedback/recommendations',json={})
+            self.assertEqual(generated.status_code,200)
+            self.assertEqual(generated.json()['data']['status'],'draft')
+            recommendation=generated.json()['data']['recommendation']
+            self.assertTrue(recommendation['requires_admin_approval'])
+            self.assertEqual(recommendation['actions'][0]['negative_review_count'],1)
+            request_payload=gemini.call_args.kwargs['json']
+            serialized_payload=json.dumps(request_payload)
+            for private_value in ('Private Guest','private@example.com','Do not share this private note.'):
+                self.assertNotIn(private_value,serialized_payload)
+            self.assertNotIn('EX-3D1FFDEE0B00',serialized_payload)
+
+            approved=self.client.post(
+                f'/admin/guest-feedback/recommendations/{self.booking_id}/approve')
+        self.assertEqual(approved.status_code,200)
+        self.assertEqual(approved.json()['data']['status'],'approved')
+        update=self.db.table.return_value.update.call_args.args[0]
+        self.assertEqual(update['approved_by_staff_id'],'admin-test')
+        self.assertTrue(update['approved_at'])
+        tables={call.args[0] for call in self.db.table.call_args_list}
+        self.assertEqual(tables,{'guest_feedback','feedback_recommendation_reports'})
 
     def test_public_written_reviews_need_no_login_and_exclude_sensitive_fields(self):
         record={'id':'review','overall_rating':2,'comments':'Maria Cruz reported a problem with the pool.',

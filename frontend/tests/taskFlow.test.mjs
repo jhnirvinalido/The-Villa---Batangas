@@ -32,6 +32,17 @@ test('review is allowed only after work starts and every assigned step is comple
   assert.equal(readyForReview({status:'In Progress',checklist:[{done:true},{done:false}]}),false);
   assert.equal(readyForReview({status:'In Progress',checklist:[{done:true}]}),true);
 });
+test('checklist helpers update one step or all steps without mutating input',async()=>{
+  const {setChecklistDone,setChecklistItemDone}=await import('../src/taskFlow.mjs');
+  const checklist=[{id:'a',label:'First',done:false},{id:'b',label:'Second',done:false}];
+  assert.deepEqual(setChecklistItemDone(checklist,'a',true),[
+    {id:'a',label:'First',done:true},{id:'b',label:'Second',done:false},
+  ]);
+  assert.deepEqual(setChecklistDone(checklist,true),[
+    {id:'a',label:'First',done:true},{id:'b',label:'Second',done:true},
+  ]);
+  assert.deepEqual(checklist,[{id:'a',label:'First',done:false},{id:'b',label:'Second',done:false}]);
+});
 
 test('returned feedback is visible only while corrections are in progress',async()=>{
   const {returnedFeedback}=await import('../src/taskFlow.mjs');

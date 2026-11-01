@@ -69,6 +69,22 @@ function VillaImageCarousel({
     select((activeIndex + amount + images.length) % images.length);
   };
 
+  useEffect(() => {
+    if (
+      variant !== "card" ||
+      images.length < 2 ||
+      window.matchMedia("(prefers-reduced-motion: reduce)").matches
+    ) {
+      return undefined;
+    }
+
+    const interval = window.setInterval(() => {
+      select((activeIndex + 1) % images.length);
+    }, 4500);
+
+    return () => window.clearInterval(interval);
+  }, [activeIndex, images.length, select, variant]);
+
   return (
     <div className={`villa-image-carousel villa-image-carousel-${variant}`}>
       <button
@@ -78,7 +94,12 @@ function VillaImageCarousel({
         aria-label={`View ${title}`}
       >
         {images[activeIndex] ? (
-          <LoadingImage key={images[activeIndex]} src={images[activeIndex]} alt={title} />
+          <img
+            key={images[activeIndex]}
+            className={`villa-gallery-photo${variant === "card" ? " villa-gallery-photo-slide" : ""}`}
+            src={images[activeIndex]}
+            alt={title}
+          />
         ) : (
           <span className="villa-image-empty">Villa photos coming soon</span>
         )}

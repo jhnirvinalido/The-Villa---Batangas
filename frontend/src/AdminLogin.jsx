@@ -2,6 +2,7 @@ import { AlertMessage } from "./SystemFeedback";
 import { feedbackFetch as fetch } from "./requestFeedback.mjs";
 import { getApiErrorMessage, getUserFacingError } from "./errorMessages.mjs";
 import { staffLoginReturnPath } from "./staffNotificationFeed.mjs";
+import { LEGACY_FRONT_DESK_SESSION_KEY, portalLoginDestination } from "./portalRouting.mjs";
 import { useState } from "react";
 import {
   Eye,
@@ -29,6 +30,7 @@ function clearOldPortalSessions() {
     "theVillaApiToken",
     "theVillaRefreshToken",
     PORTAL_SESSION_KEY,
+    LEGACY_FRONT_DESK_SESSION_KEY,
   ];
 
   keys.forEach((key) => {
@@ -40,11 +42,11 @@ function clearOldPortalSessions() {
 function savePortalSession(session) {
   /*
   |--------------------------------------------------------------------------
-  | ONE PORTAL SESSION SOURCE
+  | SHARED LOGIN, ROLE-BASED WORKSPACES
   |--------------------------------------------------------------------------
   |
-  | Store the management session only in sessionStorage. The "Remember my
-  | email" checkbox remembers only the email address, not the login token.
+  | Each signed-in account opens its own workspace. Remembering an email does not
+  | remember its login tokens.
   |
   */
 
@@ -60,10 +62,11 @@ function savePortalSession(session) {
 export default function VillaLogin() {
   const navigate = useNavigate();
   const location = useLocation();
+  const rememberedEmailKey = REMEMBERED_EMAIL_KEY;
 
   const [email, setEmail] = useState(() => {
     try {
-      return localStorage.getItem(REMEMBERED_EMAIL_KEY) || "";
+      return localStorage.getItem(rememberedEmailKey) || "";
     } catch {
       return "";
     }
@@ -183,7 +186,9 @@ export default function VillaLogin() {
 
       if (
         role !== "admin" &&
-        role !== "staff"
+        role !== "staff" &&
+        role !== "front_desk" &&
+        role !== "maintenance"
       ) {
         throw new Error(
           "This account is not authorized for the management portal."
@@ -352,24 +357,24 @@ export default function VillaLogin() {
       );
 
       savePortalSession(
-        session
+        session,
       );
 
       if (rememberMe) {
         localStorage.setItem(
-          REMEMBERED_EMAIL_KEY,
+          rememberedEmailKey,
           normalizedEmail
         );
       } else {
         localStorage.removeItem(
-          REMEMBERED_EMAIL_KEY
+          rememberedEmailKey
         );
       }
 
       navigate(
-        role === "admin"
-          ? "/admin-dashboard"
-          : staffLoginReturnPath(location.state?.from),
+        role === "staff"
+          ? staffLoginReturnPath(location.state?.from)
+          : portalLoginDestination(role, location.state?.from),
         {
           replace: true,
         }
@@ -448,10 +453,10 @@ export default function VillaLogin() {
 
           <header className="villa-login-heading">
             <div className="villa-login-portal-label">
-              <ShieldCheck size={14} /> Authorized staff access
+              <ShieldCheck size={14} /> Management portal
             </div>
             <h1>Welcome back</h1>
-            <p>Sign in to manage your property and take care of what matters.</p>
+            <p>Admin, Front Desk / Operations, Staff, and Maintenance sign in here. Your account opens your assigned workspace.</p>
           </header>
 
           {errorMessage && <AlertMessage message={errorMessage}/>}

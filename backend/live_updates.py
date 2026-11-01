@@ -95,7 +95,7 @@ class LiveHub:
         for sub in tuple(self.subscribers):
             if sub.role == "public":
                 audience_domains = PUBLIC
-            elif sub.role == "staff":
+            elif sub.role in {"staff", "maintenance"}:
                 audience_domains = STAFF
             elif sub.role == "booking":
                 audience_domains = BOOKING
@@ -108,7 +108,7 @@ class LiveHub:
                 not booking_ids or sub.booking_id not in booking_ids
             ):
                 continue
-            if sub.role == "staff" and staff_ids is not None and sub.account_id not in staff_ids:
+            if sub.role in {"staff", "maintenance"} and staff_ids is not None and sub.account_id not in staff_ids:
                 continue
             if recipient_ids is not None and sub.role != "public" and sub.account_id not in recipient_ids:
                 continue

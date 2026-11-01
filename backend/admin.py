@@ -50,11 +50,12 @@ logger = logging.getLogger("thevilla.admin")
 
 router = APIRouter()
 admin_router = APIRouter(prefix="/admin", tags=["Admin Database"])
-front_desk_router = APIRouter(prefix="/front-desk", tags=["Front Desk Settlement"])
 
 STAFF_SELECT = (
     "id,auth_user_id,employee_code,full_name,email,personal_email,username,phone,role,"
-    "department,position,shift,is_active,account_status,must_change_password,"
+    "department,position,shift,walk_in_access_requested,can_create_walk_in_bookings,"
+    "payment_access_requested,can_process_front_desk_payments,"
+    "is_active,account_status,must_change_password,"
     "last_login_at,password_reset_at,created_at,updated_at,avatar_url,nickname"
 )
 
@@ -130,7 +131,7 @@ class StaffCreateRequest(ApiModel):
     email: EmailStr
     username: str | None = Field(default=None, min_length=3, max_length=80)
     phone: str | None = Field(default=None, max_length=40)
-    role: Literal["admin", "staff"] = "staff"
+    role: Literal["admin", "staff", "front_desk", "maintenance"] = "staff"
     department: str = Field(min_length=2, max_length=80)
     position: str = Field(min_length=2, max_length=120)
     shift: str | None = Field(default="8:00 AM – 5:00 PM", max_length=80)
@@ -147,13 +148,11 @@ class StaffUpdateRequest(ApiModel):
     nickname: str | None = Field(default=None, max_length=80)
     phone: str | None = Field(default=None, max_length=40)
     avatar_url: str | None = Field(default=None, max_length=180000, alias="avatarUrl")
-    role: Literal["admin", "staff"] | None = None
+    role: Literal["admin", "staff", "front_desk", "maintenance"] | None = None
     department: str | None = Field(default=None, min_length=2, max_length=80)
     position: str | None = Field(default=None, min_length=2, max_length=120)
     shift: str | None = Field(default=None, max_length=80)
     must_change_password: bool | None = Field(default=None, alias="mustChangePassword")
-
-
 class StaffStatusRequest(ApiModel):
     account_status: Literal["Active", "Disabled"] = Field(alias="accountStatus")
 
@@ -213,6 +212,7 @@ class CashSettlementRequest(ApiModel):
     cash_tendered: Decimal = Field(gt=0, max_digits=12, decimal_places=2)
     other_charges: list[OtherChargeRequest] = Field(default_factory=list)
     notes: str | None = Field(default=None, max_length=2000)
+    approval_request_id: UUID | None = None
 
 
 class QrPhSettlementRequest(ApiModel):
@@ -220,6 +220,7 @@ class QrPhSettlementRequest(ApiModel):
     payment_timing: Literal["check_in", "check_out"]
     other_charges: list[OtherChargeRequest] = Field(default_factory=list)
     notes: str | None = Field(default=None, max_length=2000)
+    approval_request_id: UUID | None = None
 
 
 class PaymentTimingPreferenceRequest(ApiModel):
@@ -258,6 +259,7 @@ class AirbnbStayConfirmRequest(ApiModel):
     guest_name: str = Field(min_length=1, max_length=200)
     guest_email: EmailStr | None = None
     guest_phone: str | None = Field(default=None, max_length=40)
+    mark_paid_in_airbnb: bool = False
 
     _validate_guest_name = field_validator("guest_name")(validate_person_name)
 
@@ -452,6 +454,39 @@ def supabase_admin_headers() -> dict[str, str]:
         "Accept": "application/json",
         "Content-Type": "application/json",
     }
+
+
+def require_front_desk_access(
+    request: Request,
+) -> dict[str, Any]:
+    token = bearer_token(request)
+    account = validate_portal_access_token(token)
+    role = str(account.get("role") or "").strip().lower()
+    if role not in {"admin", "front_desk"}:
+        raise HTTPException(
+            status_code=403,
+            detail="Administrator or Front Desk / Operations access is required.",
+        )
+    return {
+        "token": token,
+        "account": account,
+        "session": save_session(request, token, account),
+    }
+
+
+def require_front_desk_account(
+    context: dict[str, Any] = Depends(require_front_desk_access),
+) -> dict[str, Any]:
+    if str(context["account"].get("role") or "").strip().lower() != "front_desk":
+        raise HTTPException(status_code=403, detail="Your account is not assigned to the Front Desk / Operations workspace.")
+    return context
+
+
+front_desk_router = APIRouter(
+    prefix="/front-desk",
+    tags=["Front Desk / Operations"],
+    dependencies=[Depends(require_front_desk_account)],
+)
 
 
 def supabase_admin_request(
@@ -801,8 +836,20 @@ def normalize_username(value: str) -> str:
 
 
 def employee_code(role: str) -> str:
-    prefix = "ADMIN" if role == "admin" else "ST"
+    prefix = {"admin": "ADMIN", "front_desk": "FD", "maintenance": "MT"}.get(role, "ST")
     return f"{prefix}-{datetime.now().strftime('%Y%m%d')}-{secrets.randbelow(9000) + 1000}"
+
+
+def is_front_desk_role_schema_error(error: Exception) -> bool:
+    message = str(error).lower()
+    return "front_desk" in message and any(
+        marker in message
+        for marker in (
+            "violates check constraint",
+            "invalid input value for enum",
+            "staff_accounts_role_check",
+        )
+    )
 
 
 def task_code() -> str:
@@ -916,6 +963,10 @@ def staff_api(row: dict[str, Any]) -> dict[str, Any]:
         "department": row.get("department"),
         "position": row.get("position"),
         "shift": row.get("shift"),
+        "walkInAccessRequested": bool(row.get("walk_in_access_requested")),
+        "canCreateWalkInBookings": bool(row.get("can_create_walk_in_bookings")),
+        "paymentAccessRequested": bool(row.get("payment_access_requested")),
+        "canProcessFrontDeskPayments": bool(row.get("can_process_front_desk_payments")),
         "online": False,
         "isActive": bool(row.get("is_active")),
         "accountStatus": row.get("account_status")
@@ -1090,7 +1141,8 @@ def get_or_create_session(context: dict[str, Any] = Depends(require_admin)):
 
 
 @admin_router.delete("/session")
-def logout_session(context: dict[str, Any] = Depends(require_admin)):
+@front_desk_router.delete("/session")
+def logout_session(context: dict[str, Any] = Depends(require_front_desk_access)):
     """
     Sign out through Supabase Auth.
 
@@ -1197,6 +1249,53 @@ def bootstrap(context: dict[str, Any] = Depends(require_admin)):
     }
 
 
+@admin_router.get("/front-desk/bootstrap")
+@front_desk_router.get("/bootstrap")
+def front_desk_bootstrap(
+    context: dict[str, Any] = Depends(require_front_desk_access),
+):
+    snapshot = bootstrap(context)["data"]
+    profile = snapshot.get("profile") or {}
+    staff_fields = (
+        "id",
+        "name",
+        "fullName",
+        "role",
+        "position",
+        "department",
+        "shift",
+        "isActive",
+        "accountStatus",
+        "online",
+    )
+    profile_fields = (
+        "id",
+        "name",
+        "fullName",
+        "role",
+        "portalRole",
+        "position",
+        "department",
+        "shift",
+        "avatarUrl",
+        "nickname",
+    )
+    return {
+        "data": {
+            "profile": {key: profile[key] for key in profile_fields if key in profile},
+            "bookings": snapshot.get("bookings"),
+            "bookingError": snapshot.get("bookingError"),
+            "staff": None if snapshot.get("staff") is None else [
+                {key: item[key] for key in staff_fields if key in item}
+                for item in (snapshot.get("staff") or [])
+            ],
+            "tasks": snapshot.get("tasks"),
+            "notifications": snapshot.get("notifications"),
+            "paymentTransactions": snapshot.get("paymentTransactions"),
+            "snapshotErrors": snapshot.get("snapshotErrors"),
+        }
+    }
+
 
 @admin_router.get("/staff")
 def list_staff(
@@ -1214,6 +1313,142 @@ def list_staff(
 def get_staff(staff_id: UUID, context: dict[str, Any] = Depends(require_admin)):
     return {"data": staff_api(fetch_staff(str(staff_id)))}
 
+
+class StaffAccessReviewRequest(ApiModel):
+    area: Literal["walk_in", "payments"]
+    action: Literal["approve", "deny", "revoke"]
+
+
+class PaymentApprovalReviewRequest(ApiModel):
+    action: Literal["approve", "deny"]
+
+
+@admin_router.post("/staff/{staff_id}/access-review")
+def review_staff_access_request(
+    staff_id: UUID,
+    data: StaffAccessReviewRequest,
+    context: dict[str, Any] = Depends(require_admin),
+):
+    raise HTTPException(
+        status_code=409,
+        detail="Assign the Front Desk / Operations role from Staff Directory instead.",
+    )
+
+
+@admin_router.get("/front-desk/payment-approval-requests")
+def list_front_desk_payment_approval_requests(
+    context: dict[str, Any] = Depends(require_admin),
+):
+    client = service_client()
+    request_rows = rows(
+        client.table("front_desk_payment_approval_requests")
+        .select("*")
+        .eq("status", "pending")
+        .order("created_at")
+        .limit(100)
+        .execute()
+    )
+    if not request_rows:
+        return {"data": []}
+
+    booking_map = {
+        str(item["id"]): item
+        for item in load_bookings_with_payments(client)
+    }
+    staff_ids = list({
+        str(item["requested_by_staff_id"])
+        for item in request_rows
+        if item.get("requested_by_staff_id")
+    })
+    staff_rows = rows(
+        client.table("staff_accounts")
+        .select("id,full_name")
+        .in_("id", staff_ids)
+        .execute()
+    ) if staff_ids else []
+    staff_map = {str(item["id"]): item for item in staff_rows}
+    return {
+        "data": [
+            {
+                **item,
+                "booking": booking_map.get(str(item.get("booking_id")), {}),
+                "requester": staff_map.get(str(item.get("requested_by_staff_id")), {}),
+            }
+            for item in request_rows
+        ]
+    }
+
+
+@admin_router.post("/front-desk/payment-approval-requests/{request_id}/review")
+def review_front_desk_payment_approval_request(
+    request_id: UUID,
+    data: PaymentApprovalReviewRequest,
+    context: dict[str, Any] = Depends(require_admin),
+):
+    client = service_client()
+    pending = rows(
+        client
+        .table("front_desk_payment_approval_requests")
+        .select("*")
+        .eq("id", str(request_id))
+        .eq("status", "pending")
+        .limit(1)
+        .execute()
+    )
+    if not pending:
+        raise HTTPException(
+            status_code=409,
+            detail="This payment request has already been reviewed or is no longer available.",
+        )
+    request_row = pending[0]
+    if data.action == "approve":
+        booking = fetch_booking(str(request_row["booking_id"]))
+        if str(booking.get("booking_status") or "").strip().lower() not in {
+            "confirmed",
+            "checked in",
+        }:
+            raise HTTPException(status_code=409, detail="This booking is no longer an active stay.")
+        validate_payment_timing_for_booking(
+            booking,
+            str(request_row["payment_timing"]),
+        )
+        if money(booking.get("balance_amount")) != money(request_row.get("amount")):
+            raise HTTPException(
+                status_code=409,
+                detail="The booking balance changed. Ask the staff member to submit a new request.",
+            )
+
+    reviewed = rows(
+        client
+        .table("front_desk_payment_approval_requests")
+        .update({
+            "status": "approved" if data.action == "approve" else "denied",
+            "reviewed_by_staff_id": str(context["account"]["id"]),
+            "updated_at": now_iso(),
+        })
+        .eq("id", str(request_id))
+        .eq("status", "pending")
+        .select("*")
+        .execute()
+    )
+    if not reviewed:
+        raise HTTPException(
+            status_code=409,
+            detail="This payment request has already been reviewed or is no longer available.",
+        )
+
+    request_row = reviewed[0]
+    decision = "approved" if data.action == "approve" else "denied"
+    create_notification(
+        str(request_row["requested_by_staff_id"]),
+        "Front-desk payment request reviewed",
+        f"Your {request_row['payment_method'].upper()} request for "
+        f"{PAYMENT_TIMING_LABELS[request_row['payment_timing']].lower()} "
+        f"was {decision}.",
+        notification_type="front_desk_payment_approval",
+        icon="shield",
+    )
+    return {"message": f"Payment request {decision}.", "data": request_row}
 
 @admin_router.post(
     "/staff",
@@ -1336,8 +1571,7 @@ def create_staff(
                     data.role,
 
                 "department":
-                    data.department
-                    .strip(),
+                    "Maintenance" if data.role == "maintenance" else data.department.strip(),
 
                 "position":
                     data.position
@@ -1442,6 +1676,17 @@ def create_staff(
             "Staff account creation failed."
         )
 
+        if data.role == "front_desk" and is_front_desk_role_schema_error(error):
+            raise HTTPException(
+                status_code=503,
+                detail=(
+                    "The database needs an update before Front Desk / Operations "
+                    "accounts can be created. Apply "
+                    "backend/migrations/20261103_allow_front_desk_portal_role.sql "
+                    "and retry."
+                ),
+            ) from error
+
         raise HTTPException(
             status_code=400,
             detail=(
@@ -1503,8 +1748,10 @@ def update_staff(
         db_updates["role"] = data.role
         metadata["role"] = data.role
         auth_updates["app_metadata"] = {"role": data.role}
+        if data.role == "maintenance":
+            db_updates["department"] = "Maintenance"
     if data.department is not None:
-        db_updates["department"] = data.department.strip()
+        db_updates["department"] = "Maintenance" if (data.role or current.get("role")) == "maintenance" else data.department.strip()
     if data.position is not None:
         db_updates["position"] = data.position.strip()
     if data.shift is not None:
@@ -2783,6 +3030,101 @@ def validate_payment_timing_for_booking(
     return timing
 
 
+def get_payment_approval_request(
+    *,
+    approval_request_id: UUID | None,
+    booking: dict[str, Any],
+    context: dict[str, Any],
+    payment_method: str,
+    payment_timing: str,
+    amount: Decimal,
+) -> dict[str, Any] | None:
+    account = context["account"]
+    if str(account.get("role") or "").lower() == "admin":
+        if approval_request_id is not None:
+            raise HTTPException(
+                status_code=422,
+                detail="Administrators do not use staff payment approval requests.",
+            )
+        return None
+
+    if approval_request_id is None:
+        raise HTTPException(
+            status_code=403,
+            detail="Administrator approval is required before collecting this staff payment.",
+        )
+
+    request_rows = rows(
+        service_client()
+        .table("front_desk_payment_approval_requests")
+        .select("*")
+        .eq("id", str(approval_request_id))
+        .limit(1)
+        .execute()
+    )
+    if not request_rows:
+        raise HTTPException(status_code=404, detail="The payment approval request was not found.")
+
+    approval = request_rows[0]
+    if (
+        str(approval.get("requested_by_staff_id")) != str(account.get("id"))
+        or str(approval.get("booking_id")) != str(booking.get("id"))
+        or str(approval.get("status")) != "approved"
+        or str(approval.get("payment_method")) != payment_method
+        or str(approval.get("payment_timing")) != payment_timing
+        or money(approval.get("amount")) != money(amount)
+    ):
+        raise HTTPException(
+            status_code=409,
+            detail="This payment approval is no longer valid for the selected booking, method, or amount.",
+        )
+    return approval
+
+
+def claim_payment_approval_request(approval: dict[str, Any]) -> None:
+    claimed = rows(
+        service_client()
+        .table("front_desk_payment_approval_requests")
+        .update({"status": "processing", "updated_at": now_iso()})
+        .eq("id", str(approval["id"]))
+        .eq("status", "approved")
+        .select("id")
+        .execute()
+    )
+    if not claimed:
+        raise HTTPException(
+            status_code=409,
+            detail="This payment approval has already been used or is being processed.",
+        )
+
+
+def complete_payment_approval_request(approval_request_id: str) -> None:
+    client = service_client()
+    updated = rows(
+        client
+        .table("front_desk_payment_approval_requests")
+        .update({"status": "completed", "updated_at": now_iso()})
+        .eq("id", approval_request_id)
+        .eq("status", "processing")
+        .select("id")
+        .execute()
+    )
+    if not updated:
+        current = rows(
+            client.table("front_desk_payment_approval_requests")
+            .select("status")
+            .eq("id", approval_request_id)
+            .limit(1)
+            .execute()
+        )
+        if current and current[0].get("status") == "completed":
+            return
+        raise HTTPException(
+            status_code=409,
+            detail="Payment was recorded, but its approval request status needs administrator review.",
+        )
+
+
 def record_payment_timing_event(
     *,
     booking: dict[str, Any],
@@ -3788,10 +4130,11 @@ def sync_booking_tasks_after_lifecycle(
 
 
 @admin_router.post("/bookings/{booking_id}/check-in")
+@front_desk_router.post("/bookings/{booking_id}/check-in")
 def check_in_booking(
     booking_id: UUID,
     data: BookingLifecycleRequest,
-    context: dict[str, Any] = Depends(require_admin),
+    context: dict[str, Any] = Depends(require_front_desk_access),
 ):
     booking_id_value = str(booking_id)
     booking = fetch_booking(booking_id_value)
@@ -3823,6 +4166,15 @@ def check_in_booking(
         raise HTTPException(
             status_code=409,
             detail="The required customer payment must be verified before check-in.",
+        )
+    if (
+        str(booking.get("payment_choice") or "").strip().lower() == "half"
+        and latest_payment_timing_for_booking(booking_id_value) == "check_in"
+        and money(booking.get("balance_amount")) > 0
+    ):
+        raise HTTPException(
+            status_code=409,
+            detail="Collect the remaining balance at check-in before completing guest check-in.",
         )
 
     # Server-side restriction: check-in is allowed only on the booked check-in
@@ -4049,10 +4401,11 @@ def create_checkout_turnover_task(
 
 
 @admin_router.post("/bookings/{booking_id}/checkout")
+@front_desk_router.post("/bookings/{booking_id}/checkout")
 def checkout_booking(
     booking_id: UUID,
     data: BookingLifecycleRequest,
-    context: dict[str, Any] = Depends(require_admin),
+    context: dict[str, Any] = Depends(require_front_desk_access),
 ):
     booking_id_value = str(booking_id)
     booking = fetch_booking(booking_id_value)
@@ -4147,10 +4500,11 @@ def checkout_booking(
 # ============================================================
 
 @front_desk_router.put("/bookings/{booking_id}/payment-timing")
+@admin_router.put("/front-desk/bookings/{booking_id}/payment-timing")
 def set_front_desk_payment_timing(
     booking_id: UUID,
     data: PaymentTimingPreferenceRequest,
-    context: dict[str, Any] = Depends(require_admin),
+    context: dict[str, Any] = Depends(require_front_desk_access),
 ):
     booking = fetch_booking(str(booking_id))
     timing = save_payment_timing_preference(
@@ -4176,7 +4530,8 @@ def set_front_desk_payment_timing(
 
 
 @front_desk_router.get("/payments")
-def list_front_desk_payments(context: dict[str, Any] = Depends(require_admin)):
+@admin_router.get("/front-desk/payments")
+def list_front_desk_payments(context: dict[str, Any] = Depends(require_front_desk_access)):
     client = service_client()
     payment_rows = rows(
         client.table("front_desk_payments")
@@ -4208,10 +4563,11 @@ def list_front_desk_payments(context: dict[str, Any] = Depends(require_admin)):
 
 
 @front_desk_router.post("/bookings/{booking_id}/cash-settlement")
+@admin_router.post("/front-desk/bookings/{booking_id}/cash-settlement")
 def cash_settlement(
     booking_id: UUID,
     data: CashSettlementRequest,
-    context: dict[str, Any] = Depends(require_admin),
+    context: dict[str, Any] = Depends(require_front_desk_access),
 ):
     booking = fetch_booking(str(booking_id))
     payment_timing = validate_payment_timing_for_booking(booking, data.payment_timing)
@@ -4230,6 +4586,19 @@ def cash_settlement(
     ]
     charges_total = sum((money(item["amount"]) for item in charges), Decimal("0.00"))
     amount_due = room_balance + charges_total
+    if str(context["account"].get("role") or "").lower() == "staff" and data.other_charges:
+        raise HTTPException(
+            status_code=422,
+            detail="Additional charges must be reviewed separately by an administrator.",
+        )
+    approval = get_payment_approval_request(
+        approval_request_id=data.approval_request_id,
+        booking=booking,
+        context=context,
+        payment_method="cash",
+        payment_timing=payment_timing,
+        amount=amount_due,
+    )
     cash_tendered = money(data.cash_tendered)
     if cash_tendered < amount_due:
         raise HTTPException(
@@ -4238,6 +4607,8 @@ def cash_settlement(
         )
 
     receipt_reference = f"CASH-{datetime.now().strftime('%Y%m%d%H%M%S')}-{secrets.token_hex(2).upper()}"
+    if approval:
+        claim_payment_approval_request(approval)
     result = complete_front_desk_settlement(
         booking=booking,
         cashier=context["account"],
@@ -4256,14 +4627,17 @@ def cash_settlement(
         payment_timing=payment_timing,
         method="Cash",
     )
+    if approval:
+        complete_payment_approval_request(str(approval["id"]))
     return {"message": "Cash settlement completed.", "data": result}
 
 
 @front_desk_router.post("/bookings/{booking_id}/qrph-intent")
+@admin_router.post("/front-desk/bookings/{booking_id}/qrph-intent")
 def create_qrph_intent(
     booking_id: UUID,
     data: QrPhSettlementRequest,
-    context: dict[str, Any] = Depends(require_admin),
+    context: dict[str, Any] = Depends(require_front_desk_access),
 ):
     if not PAYMONGO_PUBLIC_KEY:
         raise HTTPException(status_code=503, detail="PAYMONGO_PUBLIC_KEY is not configured.")
@@ -4285,7 +4659,24 @@ def create_qrph_intent(
     ]
     charges_total = sum((money(item["amount"]) for item in charges), Decimal("0.00"))
     amount_due = room_balance + charges_total
-    nonce = secrets.token_hex(6).upper()
+    if str(context["account"].get("role") or "").lower() == "staff" and data.other_charges:
+        raise HTTPException(
+            status_code=422,
+            detail="Additional charges must be reviewed separately by an administrator.",
+        )
+    approval = get_payment_approval_request(
+        approval_request_id=data.approval_request_id,
+        booking=booking,
+        context=context,
+        payment_method="qrph",
+        payment_timing=payment_timing,
+        amount=amount_due,
+    )
+    nonce = (
+        str(approval["id"]).replace("-", "")[:12].upper()
+        if approval
+        else secrets.token_hex(6).upper()
+    )
     reference = f"{booking.get('booking_code')}-FD-{nonce}"[:255]
 
     result = paymongo_request(
@@ -4311,7 +4702,11 @@ def create_qrph_intent(
                 }
             }
         },
-        idempotency_key=f"front-desk-{booking_id}-{centavos(amount_due)}-{nonce}",
+        idempotency_key=(
+            f"front-desk-approval-{approval['id']}"
+            if approval
+            else f"front-desk-{booking_id}-{centavos(amount_due)}-{nonce}"
+        ),
     )
 
     intent = result.get("data", {}) or {}
@@ -4339,8 +4734,11 @@ def create_qrph_intent(
             "expires_at": expires_at,
             "notes": encode_settlement_notes(data.notes, payment_timing),
             "raw_payload": result,
+            "approval_request_id": str(approval["id"]) if approval else None,
         }
     ).execute()
+    if approval:
+        claim_payment_approval_request(approval)
 
     return {
         "message": "PayMongo QRPh Payment Intent created.",
@@ -4378,6 +4776,8 @@ def finalize_qrph_intent(payment_intent_id: str) -> dict[str, Any]:
     )
     if existing_payment:
         booking = fetch_booking(str(stored_intent["booking_id"]))
+        if stored_intent.get("approval_request_id"):
+            complete_payment_approval_request(str(stored_intent["approval_request_id"]))
         return {
             "booking": booking,
             "payment": front_desk_payment_api(existing_payment[0], booking=booking),
@@ -4411,6 +4811,7 @@ def finalize_qrph_intent(payment_intent_id: str) -> dict[str, Any]:
 
     payment = state.get("payment") or {}
     payment_attributes = payment.get("attributes", {}) or {}
+    intent_attributes = intent.get("attributes", {}) or {}
     paid_amount = money(payment_attributes.get("amount", 0)) / Decimal("100")
     expected_amount = money(stored_intent.get("expected_amount"))
     if paid_amount and paid_amount != expected_amount:
@@ -4428,7 +4829,7 @@ def finalize_qrph_intent(payment_intent_id: str) -> dict[str, Any]:
     booking = fetch_booking(str(stored_intent["booking_id"]))
     cashier = fetch_staff(str(stored_intent["cashier_staff_id"]))
     stored_payment_timing, _ = decode_settlement_notes(stored_intent.get("notes"))
-    paymongo_metadata = (attributes.get("metadata") or {}) if isinstance(attributes, dict) else {}
+    paymongo_metadata = intent_attributes.get("metadata") or {}
     payment_timing = normalize_payment_timing(
         stored_payment_timing or paymongo_metadata.get("payment_timing") or "check_in"
     )
@@ -4456,19 +4857,22 @@ def finalize_qrph_intent(payment_intent_id: str) -> dict[str, Any]:
             "updated_at": now_iso(),
         }
     ).eq("payment_intent_id", payment_intent_id).execute()
+    if stored_intent.get("approval_request_id"):
+        complete_payment_approval_request(str(stored_intent["approval_request_id"]))
     return completed
 
 
 @front_desk_router.get("/payments/{payment_intent_id}/status")
+@admin_router.get("/front-desk/payments/{payment_intent_id}/status")
 def qrph_status(
     payment_intent_id: str,
-    context: dict[str, Any] = Depends(require_admin),
+    context: dict[str, Any] = Depends(require_front_desk_access),
 ):
     result = finalize_qrph_intent(payment_intent_id)
     return {"data": result}
 
 
-@front_desk_router.post("/paymongo/webhook")
+@router.post("/front-desk/paymongo/webhook", tags=["Front Desk Payments"])
 async def front_desk_paymongo_webhook(request: Request):
     raw_body = await request.body()
     signature = (
@@ -4528,6 +4932,72 @@ def manual_booking_availability(
     # Same source of truth and same overlap rules as public BookForm.
     from booking import public_booking_availability
     return public_booking_availability(check_in_date=check_in_date, guest_count=1)
+
+
+@admin_router.get("/front-desk/availability")
+@front_desk_router.get("/availability")
+def admin_front_desk_walk_in_availability(
+    check_in_date: date,
+    guest_count: int = Query(default=1, ge=1, le=32),
+    context: dict[str, Any] = Depends(require_front_desk_access),
+):
+    from booking import public_booking_availability
+
+    return public_booking_availability(
+        check_in_date=check_in_date,
+        guest_count=guest_count,
+    )
+
+
+@admin_router.get("/front-desk/bookings")
+def admin_front_desk_bookings(
+    context: dict[str, Any] = Depends(require_front_desk_access),
+):
+    client = service_client()
+    bookings = load_bookings_with_payments(client)
+    return {
+        "data": apply_payment_timing_preferences(
+            bookings,
+            load_payment_timing_events(client),
+        )
+    }
+
+
+@admin_router.post("/front-desk/walk-ins", status_code=status.HTTP_201_CREATED)
+@front_desk_router.post("/walk-ins", status_code=status.HTTP_201_CREATED)
+def admin_create_front_desk_walk_in(
+    data: dict[str, Any],
+    request: Request,
+    context: dict[str, Any] = Depends(require_front_desk_access),
+):
+    from staff import GuestServicesWalkInRequest, create_guest_services_walk_in
+
+    walk_in = GuestServicesWalkInRequest.model_validate(data)
+    return create_guest_services_walk_in(walk_in, request, context)
+
+
+@admin_router.post("/front-desk/walk-ins/{booking_id}/sync-payment")
+@front_desk_router.post("/walk-ins/{booking_id}/sync-payment")
+def admin_sync_front_desk_walk_in_payment(
+    booking_id: UUID,
+    context: dict[str, Any] = Depends(require_front_desk_access),
+):
+    from booking import sync_manual_checkout_payment
+
+    result = sync_manual_checkout_payment(str(booking_id))
+    booking = result["booking"]
+    return {
+        "state": result["state"],
+        "data": {
+            "id": booking["id"],
+            "booking_code": booking.get("booking_code"),
+            "booking_status": booking.get("booking_status"),
+            "payment_status": booking.get("payment_status"),
+            "amount_paid": booking.get("amount_paid"),
+            "balance_amount": booking.get("balance_amount"),
+            "hold_expires_at": booking.get("hold_expires_at"),
+        },
+    }
 
 
 @admin_router.get("/manual-bookings/airbnb-availability")
@@ -4617,7 +5087,7 @@ def list_manual_airbnb_stays(
         booking_ids = [str(stay["booking_id"]) for stay in booked_stays if stay.get("booking_id")]
         linked_bookings = rows(
             client.table("bookings")
-            .select("id,booking_code,customer_name")
+            .select("id,booking_code,customer_name,airbnb_payment_status,airbnb_payment_recorded_at")
             .in_("id", booking_ids)
             .execute()
         ) if booking_ids else []
@@ -4632,6 +5102,8 @@ def list_manual_airbnb_stays(
         **stay,
         "guest_name": booking_by_id.get(str(stay.get("booking_id")), {}).get("customer_name"),
         "booking_code": booking_by_id.get(str(stay.get("booking_id")), {}).get("booking_code"),
+        "airbnb_payment_status": booking_by_id.get(str(stay.get("booking_id")), {}).get("airbnb_payment_status"),
+        "airbnb_payment_recorded_at": booking_by_id.get(str(stay.get("booking_id")), {}).get("airbnb_payment_recorded_at"),
     } for stay in booked_stays)
     catalog_names = {
         str(villa["id"]): str(villa["title"])
@@ -4825,7 +5297,7 @@ def confirm_manual_airbnb_stay(
             "check_in_time": "3:00 PM",
             "guest_count": int(stay["guest_count"]),
             "nights": nights,
-            "notes": "Airbnb reservation. Payment is handled through Airbnb and is not recorded in The Villa.",
+            "notes": "Airbnb reservation. Payment is handled through Airbnb; The Villa records only the externally verified paid status, not the payment amount.",
             "total_amount": float(total_amount),
             "payment_choice": "full",
             "payment_method": "Airbnb",
@@ -4837,10 +5309,15 @@ def confirm_manual_airbnb_stay(
             "booking_status": "Confirmed",
             "stay_status": "Not Checked In",
             "payment_status": "External",
-            "payment_message": "Payment is handled through Airbnb and is not recorded in The Villa.",
+            "payment_message": "Payment is handled through Airbnb. The Villa does not record an amount or revenue for this external payment.",
             "payment_last_checked_at": None,
             "paymongo_status": "external",
             "booking_channel": "airbnb",
+            "airbnb_payment_status": "paid" if data.mark_paid_in_airbnb else "unconfirmed",
+            "airbnb_payment_recorded_at": now if data.mark_paid_in_airbnb else None,
+            "airbnb_payment_recorded_by_staff_id": (
+                str(context["account"]["id"]) if data.mark_paid_in_airbnb else None
+            ),
             "created_at": now,
             "updated_at": now,
         }
@@ -4884,6 +5361,67 @@ def confirm_manual_airbnb_stay(
     else:
         message = f"Airbnb booking {booking.get('booking_code')} was saved. Housekeeping assignment will be retried; please check the admin notifications."
     return {"message": message, "data": booking, "assignment": assignment}
+
+
+@admin_router.post("/manual-bookings/airbnb-stays/{stay_id}/payment-confirmed")
+def mark_manual_airbnb_payment_confirmed(
+    stay_id: UUID,
+    context: dict[str, Any] = Depends(require_admin),
+):
+    client = service_client()
+    stay_rows = rows(
+        client.table("airbnb_stays")
+        .select("id,status,booking_id")
+        .eq("id", str(stay_id))
+        .limit(1)
+        .execute()
+    )
+    if not stay_rows:
+        raise HTTPException(status_code=404, detail="The Airbnb booking was not found.")
+    stay = stay_rows[0]
+    if stay.get("status") != "booked" or not stay.get("booking_id"):
+        raise HTTPException(status_code=409, detail="Save the accepted Airbnb booking before recording its payment status.")
+
+    booking_id = str(stay["booking_id"])
+    booking_rows = rows(
+        client.table("bookings")
+        .select("id,booking_code,booking_channel,airbnb_payment_status,airbnb_payment_recorded_at")
+        .eq("id", booking_id)
+        .limit(1)
+        .execute()
+    )
+    if not booking_rows:
+        raise HTTPException(status_code=404, detail="The linked Airbnb booking could not be found.")
+    booking = booking_rows[0]
+    if str(booking.get("booking_channel") or "").lower() != "airbnb":
+        raise HTTPException(status_code=409, detail="Payment status can only be recorded for an Airbnb booking.")
+    if booking.get("airbnb_payment_status") == "paid":
+        return {"message": "Airbnb payment is already recorded as paid.", "data": booking}
+
+    now = datetime.now(timezone.utc).isoformat()
+    try:
+        updated = rows(
+            client.table("bookings")
+            .update({
+                "airbnb_payment_status": "paid",
+                "airbnb_payment_recorded_at": now,
+                "airbnb_payment_recorded_by_staff_id": str(context["account"]["id"]),
+                "updated_at": now,
+            })
+            .eq("id", booking_id)
+            .eq("booking_channel", "airbnb")
+            .select("id,booking_code,booking_channel,airbnb_payment_status,airbnb_payment_recorded_at")
+            .execute()
+        )
+    except Exception as error:
+        logger.exception("Could not save the Airbnb payment status.")
+        raise HTTPException(
+            status_code=503,
+            detail="Airbnb payment status could not be saved. Apply the Airbnb payment record migration and retry.",
+        ) from error
+    if not updated:
+        raise HTTPException(status_code=503, detail="Airbnb payment status was not saved. Refresh and retry.")
+    return {"message": "Airbnb payment status recorded. No payment amount was added to The Villa.", "data": updated[0]}
 
 
 @admin_router.post("/manual-bookings/airbnb-stays/{stay_id}/release")

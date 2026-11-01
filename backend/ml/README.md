@@ -15,6 +15,13 @@ and private-note exclusions remain enforced.
   annotations requiring independent human review. They are not new guest reviews.
 - B vocabulary: `categories.json` defines regex phrase matching. Naive Bayes only
   predicts sentiment; it is not claimed to recognize categories.
+- The archived expanded candidate `datasets/sentiment_phrases_candidate_20261028.csv`
+  has 233 rows across 67 review groups, all marked
+  `provisional_ai_requires_human_review`. Its 19 neutral labels are not
+  human-approved ground truth. It is not the final capstone dataset.
+- Final `data/THE_VILLA_HUMAN_APPROVED_MODEL_INPUT_232.csv` has 232
+  human-approved excerpts across 66 groups and is the source of the evaluation
+  below. It is excluded from version control.
 - C: `datasets/noisy_text_tests.csv`: ten documented synthetic smoke fixtures,
   held out from training. Not a substitute for independent Taglish/noisy reviews.
 - Original full-review CSV stays available for historical Supabase import. Its
@@ -38,18 +45,66 @@ labels are rejected, with no star fallback. Duplicate comments are deduplicated
 and conflicting labels rejected before splitting. Names/contact details are
 excluded from features.
 
-Word unigram/bigram TF-IDF + Multinomial Naive Bayes is preselected for deployment.
-Character 3–5-gram TF-IDF is compared on the same grouped folds in evaluation.json.
-Each fold fits its own vocabulary/IDF; phrases from one source review stay in one
-partition. No final model is evaluated against its own training predictions.
-Current primary 3-fold grouped CV: 54.8% accuracy, 0.372 macro F1; fold-wise
-majority baseline 35.6%. Per-class precision/recall/F1 and confusion matrices are
-saved. Only four factual-neutral phrases exist, so these results are unstable.
-Do not describe provisional annotations or development category scores as
-independent human validation. The model can misclassify Tagalog and unseen
-expressions (including friendly Tagalog phrases); the illustrative document's
-outputs are not guaranteed. Unknown feature text abstains. Posterior scores
+The deployment baseline remains word unigram/bigram TF-IDF + Multinomial Naive
+Bayes. `ml.train` now compares that fixed baseline with configurations selected
+inside grouped inner folds: word 1–1/1–2/1–3 grams and character 3–5/2–5 grams,
+alpha 0.25/1/2, neutral prior multipliers 1/1.5/2.5, and neutral training-only
+oversampling 1/2/3. Macro F1 selects configurations, with neutral recall and then
+accuracy as tie-breakers. The outer grouped folds estimate performance; outer
+test labels do not select parameters. Vocabulary and IDF are fit only on each
+training fold. Review groups and duplicate normalized text are kept together.
+
+The evaluation report includes accuracy, macro F1, per-class precision/recall/F1,
+and confusion matrices for both the fixed baseline and nested tuned system. The
+full-dataset inner-CV score is for final configuration selection only, not a
+performance estimate. The final human-approved data has been evaluated using
+nested grouped validation; there is no separate untouched test set. Report
+77.59% as a nested-CV estimate against these labels, not as production accuracy.
+Neutral examples that are mostly factual listings provide little sentiment
+vocabulary; the classifier may still misclassify them. Tagalog/Taglish errors and
+small-sample instability remain. Unknown feature text abstains. Posterior scores
 are not calibrated confidence.
+
+The supplied human-approved 232-excerpt CSV is evaluated locally at
+`data/THE_VILLA_HUMAN_APPROVED_MODEL_INPUT_232.csv`; the dataset is excluded from
+version control. Reproduce the candidate report without replacing the deployed
+artifact:
+
+```sh
+PYTHONPATH=backend python3 -m ml.train \
+  --data data/THE_VILLA_HUMAN_APPROVED_MODEL_INPUT_232.csv \
+  --output backend/ml/candidates/20261031_human_approved_232
+```
+
+For this file (SHA-256
+`fc77f3514af33846940d688b9f4cee44ca1208315d66ebd72e31e4c012d7bf89`), 3-fold
+nested grouped CV compared the fixed word TF-IDF baseline (accuracy 0.7198,
+macro F1 0.4993) with inner-fold-selected configurations (accuracy 0.7759,
+macro F1 0.7196). Tuned per-class F1 was 0.8053 negative, 0.5806 neutral, and
+0.7729 positive. Neutral recall improved from 0/19 to 9/19; the report includes
+all neutral out-of-fold predictions. The full-data inner-CV selection chose
+character 2–5 grams, alpha 0.25, neutral prior multiplier 1.0, and neutral
+training-fold oversampling 3. Outer-fold selections varied, so treat this as a
+candidate configuration, not a guaranteed fixed-model score. These results
+estimate performance against the human-approved labels on this small dataset;
+do not use the inner-CV selection score as an independent estimate.
+
+The full-data candidate is saved separately at
+`ml/candidates/20261031_human_approved_232/sentiment_model.json`, version
+`pilot-phrase-tfidf-nb-fc77f3514af3`; it is not the deployed model. To smoke-test
+the application inference path without changing deployment:
+
+```sh
+PYTHONPATH=backend backend/.venv/bin/python -m unittest backend.tests.test_sentiment_pilot
+```
+
+The integration smoke test includes authentic approved excerpts covering all
+three classes, mixed Tagalog/English, and ambiguous wording; these are not a
+separate accuracy evaluation. Empty or wholly out-of-vocabulary text has no
+predicted sentiment (abstention), rather than receiving the majority-prior label.
+See [`docs/CHAPTER_4_AI_EVALUATION.md`](../../docs/CHAPTER_4_AI_EVALUATION.md)
+for the formatted dataset, nested-CV, per-class, confusion-matrix, Neutral-class,
+integration-test, and limitation results for the thesis chapter.
 
 `pipeline_evaluation.json` separately checks normalization, vocabulary matching,
 and distinct-review category counts with reference sentiment. It is explicitly

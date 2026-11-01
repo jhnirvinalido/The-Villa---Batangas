@@ -657,7 +657,7 @@ function normalizeStaffAccount(
       staff?.accountRole ||
       staff?.account_role ||
       (
-        ["admin", "staff"].includes(
+        ["admin", "staff", "front_desk", "maintenance"].includes(
           cleanString(
             staff?.role
           ).toLowerCase()
@@ -674,7 +674,7 @@ function normalizeStaffAccount(
       staff?.displayRole ||
       staff?.display_role ||
       (
-        !["admin", "staff"].includes(
+        !["admin", "staff", "front_desk", "maintenance"].includes(
           cleanString(
             staff?.role
           ).toLowerCase()
@@ -1084,6 +1084,7 @@ export default function StaffDashboard() {
   const signingOutLock = React.useRef(false);
   const [taskSavingId, setTaskSavingId] = React.useState("");
   const taskUpdateLock = React.useRef(false);
+  const taskUpdatedAtRef = React.useRef(new Map());
   const [dataError, setDataError] = React.useState("");
 
   const [selectedTaskId, setSelectedTaskId] = React.useState("");
@@ -1098,7 +1099,7 @@ export default function StaffDashboard() {
       ),
     [allTasks]
   );
-  const isMaintenanceStaff = currentStaff.department?.toLowerCase() === "maintenance";
+  const isMaintenanceStaff = currentStaff.portalRole === "maintenance" || currentStaff.department?.toLowerCase() === "maintenance";
   const workspaceTasks = React.useMemo(
     () => isMaintenanceStaff
       ? tasks.filter(task => task.source === "manual-maintenance-request" && !needsAvailabilityResponse(task))
@@ -1155,7 +1156,7 @@ export default function StaffDashboard() {
       );
       if (!initialViewChosen.current) {
         initialViewChosen.current = true;
-        if (databaseProfile.department?.toLowerCase() === 'maintenance' && !new URLSearchParams(window.location.search).get('task')) setView('villas');
+        if ((databaseProfile.portalRole === 'maintenance' || databaseProfile.department?.toLowerCase() === 'maintenance') && !new URLSearchParams(window.location.search).get('task')) setView('villas');
       }
 
 
@@ -1180,7 +1181,9 @@ export default function StaffDashboard() {
             current.role,
         }));
       }
-      setAllTasks(current => snapshotRows(current, data.tasks));
+      const nextTasks = Array.isArray(data.tasks) ? data.tasks : [];
+      nextTasks.forEach(task => taskUpdatedAtRef.current.set(String(task.id), task.updatedAt || task.updated_at || null));
+      setAllTasks(current => snapshotRows(current, nextTasks));
       setStaffNotifications(current => snapshotRows(current, data.notifications));
       setNotificationPopupsEnabled(data.settings?.pushNotifications !== false);
       setDataError("");
@@ -1251,23 +1254,31 @@ async function commitTaskUpdate(
     taskId,
     patch,
     activityTitle,
-    activityMessage
+    activityMessage,
+    options = {}
   ) {
     if (taskUpdateLock.current) throw new Error("An update is already saving. Please wait.");
+    const checklistOnly = options.checklistOnly === true;
     taskUpdateLock.current = true;
-    setTaskSavingId(taskId);
+    if (!checklistOnly) setTaskSavingId(taskId);
     try {
+      const task = allTasks.find(item => item.id === taskId);
+      const expectedUpdatedAt = taskUpdatedAtRef.current.get(taskId) ?? task?.updatedAt ?? task?.updated_at ?? null;
       const payload = await staffApiRequest(
         `/staff/tasks/${encodeURIComponent(taskId)}`,
         {
           method: "PATCH",
-          body: JSON.stringify({ ...patch, expectedUpdatedAt: allTasks.find(task => task.id === taskId)?.updatedAt || allTasks.find(task => task.id === taskId)?.updated_at || null }),
+          body: JSON.stringify({ ...patch, expectedUpdatedAt }),
         }
       );
       const updatedTask = normalizeTask(payload?.data || {});
       if (!updatedTask.id) {
         throw new Error("The updated task was not returned.");
       }
+      taskUpdatedAtRef.current.set(
+        taskId,
+        payload?.data?.updatedAt || payload?.data?.updated_at || updatedTask.updatedAt || null
+      );
 
       setAllTasks((current) =>
         current.map((task) =>
@@ -1287,12 +1298,14 @@ async function commitTaskUpdate(
         error instanceof Error
           ? error.message
           : "The task could not be updated.";
-      showToast(message);
+      if (!checklistOnly) showToast(message);
       throw error;
     } finally {
       taskUpdateLock.current = false;
-      setTaskSavingId("");
-      loadStaffData({ silent: true });
+      if (!checklistOnly) {
+        setTaskSavingId("");
+        loadStaffData({ silent: true });
+      }
     }
   }
 
@@ -1312,6 +1325,7 @@ async function commitTaskUpdate(
     try {
       const payload = await staffApiRequest("/staff/tasks");
       const latest = Array.isArray(payload?.data) ? payload.data : [];
+      latest.forEach(task => taskUpdatedAtRef.current.set(String(task.id), task.updatedAt || task.updated_at || null));
       setAllTasks(latest);
       if (latest.some(task => task.id === taskId)) openTask(taskId, latest);
       else showToast("This assignment is no longer available in your account.");
@@ -1473,7 +1487,7 @@ async function signOut() {
       <main className="staff-access-lock">
         <section>
           <span><LockKeyhole size={34} /></span>
-          <small>The Villa Staff Account</small>
+          <small>The Villa {isMaintenanceStaff ? "Maintenance" : "Staff"} Account</small>
           <h1>Account access is disabled</h1>
           <p>
             This staff account was disabled from the Admin Dashboard. Contact the administrator before trying to access assignments or task updates.
@@ -1499,7 +1513,7 @@ async function signOut() {
         <div className="staff-sidebar-inner">
           <header className="staff-sidebar-brand">
             <span className="staff-brand-logo"><img src="/favicon.png" alt="The Villa logo" /></span>
-            <strong className="staff-brand-name">The Villa - Staff</strong>
+            <strong className="staff-brand-name">The Villa - {isMaintenanceStaff ? "Maintenance" : "Staff"}</strong>
           </header>
 
           <nav className="staff-sidebar-nav">

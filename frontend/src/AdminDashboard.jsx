@@ -6,6 +6,7 @@ import { singleFlightRefresh } from "./liveTransport.mjs";
 import useLiveUpdates from "./useLiveUpdates";
 import { snapshotRows } from "./dashboardSnapshot.mjs";
 import React from "react";
+import { filterBookingRecords } from "./bookingDesk.mjs";
 import VillaMaintenance from "./VillaMaintenance";
 import AdminGuestFeedback from "./AdminGuestFeedback";
 import { MAINTENANCE_SOURCE } from "./maintenanceModel.mjs";
@@ -172,6 +173,7 @@ function normalizeStaffAccount(staff, index = 0) {
     id: staff?.id || `ST-${String(index + 1).padStart(3, "0")}`,
     name: staff?.name || "Villa Staff",
     role: staff?.role || "Staff Member",
+    portalRole: staff?.portalRole || staff?.portal_role || "staff",
     department: staff?.department || "Administration",
     shift: staff?.shift || "8:00 AM – 5:00 PM",
     email: email || `staff${index + 1}@thevilla.ph`,
@@ -184,6 +186,14 @@ function normalizeStaffAccount(staff, index = 0) {
         : "Active",
     mustChangePassword:
       staff?.mustChangePassword ?? staff?.must_change_password ?? false,
+    walkInAccessRequested:
+      staff?.walkInAccessRequested ?? staff?.walk_in_access_requested ?? false,
+    canCreateWalkInBookings:
+      staff?.canCreateWalkInBookings ?? staff?.can_create_walk_in_bookings ?? false,
+    paymentAccessRequested:
+      staff?.paymentAccessRequested ?? staff?.payment_access_requested ?? false,
+    canProcessFrontDeskPayments:
+      staff?.canProcessFrontDeskPayments ?? staff?.can_process_front_desk_payments ?? false,
     lastLogin: staff?.lastLogin || staff?.last_login || "",
     createdAt: staff?.createdAt || staff?.created_at || new Date().toISOString(),
     updatedAt: staff?.updatedAt || staff?.updated_at || "",
@@ -205,10 +215,15 @@ function emptyStaffAccountForm() {
     email: "",
     username: "",
     role: "",
+    portalRole: "staff",
     department: "Housekeeping",
     shift: "8:00 AM – 5:00 PM",
     accountStatus: "Active",
     mustChangePassword: true,
+    walkInAccessRequested: false,
+    canCreateWalkInBookings: false,
+    paymentAccessRequested: false,
+    canProcessFrontDeskPayments: false,
   };
 }
 
@@ -393,9 +408,8 @@ const ASSIGNMENT_TEMPLATES = [
 const SIDEBAR_ITEMS = [
   { id: "dashboard", label: "Dashboard", icon: Home, section: "Overview" },
   { id: "bookings", label: "Bookings", icon: CalendarDays, section: "Overview" },
-  { id: "manualBooking", label: "Manual Booking", icon: UserPlus, section: "Overview" },
+  { id: "manualBooking", label: "External Bookings", icon: UserPlus, section: "Overview" },
   { id: "villas", label: "Villas & Pricing", icon: SlidersHorizontal, section: "Content" },
-  { id: "assignmentMonitor", label: "Assignment Monitor", icon: ClipboardList, section: "Operations" },
   { id: "history", label: "Booking History", icon: History, section: "Operations" },
   { id: "guestFeedback", label: "Guest Feedback", icon: MessageCircle, section: "Operations" },
   { id: "staff", label: "Staff Directory", icon: Users, section: "People" },
@@ -407,7 +421,11 @@ const VIEW_META = {
     title: "Admin Dashboard",
     description: "A clear overview of your reservations, property operations, and guest balances.",
   },
-  manualBooking: { title: "Manual Booking", description: "" },
+  frontDesk: {
+    title: "Front Desk / Operations",
+    description: "Handle guest arrivals, departures, payment settlement, walk-ins, and room readiness.",
+  },
+  manualBooking: { title: "Airbnb & Messenger Bookings", description: "Handled by the administrator" },
   bookings: {
     title: "Bookings",
     description: "",
@@ -2319,6 +2337,9 @@ export default function AdminDashboard() {
   const [staffAccountError, setStaffAccountError] = React.useState("");
 
   const [paymentTransactions, setPaymentTransactions] = React.useState([]);
+  const [paymentApprovalRequests, setPaymentApprovalRequests] = React.useState([]);
+  const [paymentApprovalError, setPaymentApprovalError] = React.useState("");
+  const [paymentApprovalAction, setPaymentApprovalAction] = React.useState("");
   const [assignments, setAssignments] = React.useState([]);
   const [notifications, setNotifications] = React.useState([]);
   const [dataLoading, setDataLoading] = React.useState(true);
@@ -2398,6 +2419,8 @@ export default function AdminDashboard() {
     React.useState(false);
 
   const [bookingFilter, setBookingFilter] = React.useState("All");
+  const [bookingArrivalDay, setBookingArrivalDay] = React.useState("");
+  const [bookingInHouseOnly, setBookingInHouseOnly] = React.useState(false);
   const [monitorStatus, setMonitorStatus] = React.useState("All");
   const [assignmentHistoryOpen, setAssignmentHistoryOpen] = React.useState(false);
   const [assignmentHistorySearch, setAssignmentHistorySearch] = React.useState("");
@@ -2485,7 +2508,13 @@ export default function AdminDashboard() {
 
     try {
       // Bootstrap includes the saved profile; avoid a duplicate profile/auth round trip.
-      const payload = await apiRequest("/admin/bootstrap");
+      const requests = [
+        apiRequest("/admin/bootstrap"),
+      ];
+      requests.push(apiRequest("/admin/front-desk/payment-approval-requests"));
+      const [bootstrapResult, approvalResult] = await Promise.allSettled(requests);
+      if (bootstrapResult.status === "rejected") throw bootstrapResult.reason;
+      const payload = bootstrapResult.value;
       const data = payload?.data || {};
 
       setBookingDataError(data.bookingError || "");
@@ -2513,8 +2542,22 @@ export default function AdminDashboard() {
           : null
       ));
       setPaymentTransactions(current => snapshotRows(current, data.paymentTransactions));
-      setDataError(data.snapshotErrors?.length
-        ? `Some updates could not be loaded (${data.snapshotErrors.join(", ")}). Showing the last available data.` : "");
+      if (approvalResult?.status === "fulfilled") {
+        setPaymentApprovalRequests(
+          Array.isArray(approvalResult.value?.data) ? approvalResult.value.data : []
+        );
+        setPaymentApprovalError("");
+      } else {
+        setPaymentApprovalRequests([]);
+        setPaymentApprovalError(getUserFacingError(
+          approvalResult.reason,
+          "Payment approval requests could not be loaded."
+        ));
+      }
+      const snapshotError = data.snapshotErrors?.length
+        ? `Some updates could not be loaded (${data.snapshotErrors.join(", ")}). Showing the last available data.`
+        : "";
+      setDataError(snapshotError);
     } catch (error) {
       const message =
         error instanceof Error
@@ -2527,6 +2570,38 @@ export default function AdminDashboard() {
     }
   }, []);
   const loadAdminData = React.useMemo(() => singleFlightRefresh(fetchAdminData), [fetchAdminData]);
+
+  React.useEffect(() => {
+    let active = true;
+    let requestInFlight = false;
+    const refreshPaymentApprovalRequests = async () => {
+      if (requestInFlight) return;
+      requestInFlight = true;
+      try {
+        const payload = await apiRequest("/admin/front-desk/payment-approval-requests");
+        if (!active) return;
+        setPaymentApprovalRequests(
+          Array.isArray(payload?.data) ? payload.data : []
+        );
+        setPaymentApprovalError("");
+      } catch (error) {
+        if (!active) return;
+        setPaymentApprovalError(getUserFacingError(
+          error,
+          "Payment approval requests could not be loaded."
+        ));
+      } finally {
+        requestInFlight = false;
+      }
+    };
+
+    refreshPaymentApprovalRequests();
+    const interval = window.setInterval(refreshPaymentApprovalRequests, 5000);
+    return () => {
+      active = false;
+      window.clearInterval(interval);
+    };
+  }, []);
 
   const liveStatus = useLiveUpdates({
     domains: ["accounts", "staff", "bookings", "payments", "tasks", "notifications", "messages"],
@@ -2546,7 +2621,9 @@ export default function AdminDashboard() {
   });
   useLiveUpdates({ domains: ["catalog"], onChange: () => loadVillaCatalog({ silent: true }) });
   React.useEffect(() => { loadAdminData(); }, [loadAdminData]);
-  React.useEffect(() => { loadVillaCatalog(); }, [loadVillaCatalog]);
+  React.useEffect(() => {
+    loadVillaCatalog();
+  }, [loadVillaCatalog]);
 
   React.useEffect(() => {
     const handleOutside = (event) => {
@@ -2729,14 +2806,14 @@ export default function AdminDashboard() {
             : booking.bookingStatus,
       };
     });
-  }, [normalizedBookings]);
+  }, [normalizedBookings, today]);
 
   const activeBookings = React.useMemo(
     () =>
       lifecycleBookings.filter(
         (booking) =>
           !["Completed", "Overdue", "Cancelled"].includes(booking.lifecycleStatus) &&
-          booking.withinBookingWindow
+          (booking.withinBookingWindow || hasAdminCheckedIn(booking))
       ),
     [lifecycleBookings]
   );
@@ -2923,7 +3000,7 @@ export default function AdminDashboard() {
     if (view !== "payments") return;
     let active = true;
 
-    apiRequest("/front-desk/payments")
+    apiRequest("/admin/front-desk/payments")
       .then((payload) => {
         if (!active || !Array.isArray(payload?.data)) return;
         const normalized = payload.data.map(normalizeApiTransaction);
@@ -3126,44 +3203,11 @@ export default function AdminDashboard() {
   }, [assignmentHistoryRecords, assignmentHistorySearch, assignmentHistoryStatus]);
 
   const filteredBookings = React.useMemo(() => {
-    const query = globalSearch.trim().toLowerCase();
-    return activeBookings.filter((booking) => {
-      const matchesQuery =
-        !query ||
-        [
-          booking.bookingCode,
-          booking.guestName,
-          booking.villaName,
-          booking.phone,
-          booking.paymentStatus,
-        ]
-          .join(" ")
-          .toLowerCase()
-          .includes(query);
-      const normalizedBookingStatus = String(
-        booking.bookingStatus || booking.status || ""
-      ).toLowerCase();
-
-      const normalizedPaymentStatus = String(
-        booking.paymentStatus || ""
-      ).toLowerCase();
-
-      const matchesStatus =
-        bookingFilter === "All" ||
-        (bookingFilter === "Paid" &&
-          normalizedPaymentStatus === "paid") ||
-        (bookingFilter === "Unpaid" &&
-          (normalizedPaymentStatus.includes("unpaid") ||
-            normalizedPaymentStatus.includes("partial"))) ||
-        (bookingFilter === "Completed" &&
-          normalizedBookingStatus.includes("completed")) ||
-        (bookingFilter === "Overdue/Cancelled" &&
-          (normalizedBookingStatus.includes("overdue") ||
-            normalizedBookingStatus.includes("cancelled") ||
-            normalizedBookingStatus.includes("canceled")));
-      return matchesQuery && matchesStatus;
-    });
-  }, [activeBookings, globalSearch, bookingFilter]);
+    return filterBookingRecords(
+      bookingInHouseOnly ? lifecycleBookings.filter(hasAdminCheckedIn) : lifecycleBookings,
+      { search: globalSearch, status: bookingFilter, arrivalDate: bookingArrivalDay }
+    );
+  }, [lifecycleBookings, globalSearch, bookingFilter, bookingArrivalDay, bookingInHouseOnly]);
 
   const monitoredAssignments = React.useMemo(() => {
     const query = globalSearch.trim().toLowerCase();
@@ -3984,7 +4028,7 @@ async function handleNotificationClick(notification) {
 
     try {
       const payload = await apiRequest(
-        `/front-desk/bookings/${encodeURIComponent(booking.id)}/cash-settlement`,
+        `/admin/front-desk/bookings/${encodeURIComponent(booking.id)}/cash-settlement`,
         {
           method: "POST",
           body: JSON.stringify({
@@ -4038,7 +4082,7 @@ async function handleNotificationClick(notification) {
 
     try {
       const intentPayload = await apiRequest(
-        `/front-desk/bookings/${encodeURIComponent(booking.id)}/qrph-intent`,
+        `/admin/front-desk/bookings/${encodeURIComponent(booking.id)}/qrph-intent`,
         {
           method: "POST",
           body: JSON.stringify({
@@ -4161,7 +4205,7 @@ async function handleNotificationClick(notification) {
 
     try {
       const payload = await apiRequest(
-        `/front-desk/payments/${encodeURIComponent(paymentIntentId)}/status`
+        `/admin/front-desk/payments/${encodeURIComponent(paymentIntentId)}/status`
       );
       const result = payload.data;
       const status = String(result?.payment?.status || "awaiting_payment").toLowerCase();
@@ -4220,9 +4264,13 @@ async function handleNotificationClick(notification) {
   function printReceipt() {
     window.print();
   }
-  function openNewStaffAccount() {
+  function openNewStaffAccount(portalRole = "staff") {
     setStaffAccountMode("create");
-    setStaffAccountForm(emptyStaffAccountForm());
+    setStaffAccountForm({
+      ...emptyStaffAccountForm(),
+      portalRole,
+      ...(portalRole === "front_desk" ? { department: "Guest Services", role: "Front Desk / Operations" } : {}),
+    });
     setStaffAccountError("");
     setStaffAccountModalOpen(true);
   }
@@ -4235,13 +4283,43 @@ async function handleNotificationClick(notification) {
       email: staff.email,
       username: staff.username,
       role: staff.role,
+      portalRole: staff.portalRole || "staff",
       department: staff.department,
       shift: staff.shift,
       accountStatus: staff.accountStatus || "Active",
       mustChangePassword: !!staff.mustChangePassword,
+      walkInAccessRequested: !!staff.walkInAccessRequested,
+      canCreateWalkInBookings: !!staff.canCreateWalkInBookings,
+      paymentAccessRequested: !!staff.paymentAccessRequested,
+      canProcessFrontDeskPayments: !!staff.canProcessFrontDeskPayments,
     });
     setStaffAccountError("");
     setStaffAccountModalOpen(true);
+  }
+
+  async function reviewPaymentApproval(request, action) {
+    setPaymentApprovalAction(request.id);
+    try {
+      const result = await apiRequest(
+        `/admin/front-desk/payment-approval-requests/${encodeURIComponent(request.id)}/review`,
+        {
+          method: "POST",
+          body: JSON.stringify({ action }),
+        }
+      );
+      setPaymentApprovalRequests((current) =>
+        current.filter((item) => item.id !== request.id)
+      );
+      showToast(result.message || `Payment request ${action === "approve" ? "approved" : "denied"}.`);
+    } catch (requestError) {
+      showToast(
+        getUserFacingError(requestError, "The payment request could not be reviewed."),
+        "error"
+      );
+      loadAdminData({ silent: true });
+    } finally {
+      setPaymentApprovalAction("");
+    }
   }
 
 async function saveStaffAccount(event) {
@@ -4270,7 +4348,7 @@ async function saveStaffAccount(event) {
       return;
     }
     if (!staffAccountForm.role.trim()) {
-      setStaffAccountError("Enter the staff role.");
+      setStaffAccountError("Enter the staff member's position or job title.");
       return;
     }
 
@@ -4278,8 +4356,8 @@ async function saveStaffAccount(event) {
       fullName: name,
       email,
       username,
-      role: "staff",
-      department: staffAccountForm.department,
+      role: staffAccountForm.portalRole || "staff",
+      department: staffAccountForm.portalRole === "maintenance" ? "Maintenance" : staffAccountForm.department,
       position: staffAccountForm.role.trim(),
       shift: staffAccountForm.shift,
       mustChangePassword: !!staffAccountForm.mustChangePassword,
@@ -4891,8 +4969,6 @@ Villas Under Maintenance
     onOpenReviews={() => navigate("guestFeedback")}
   />
 </section>
-   
-    
     </div>
     
     );
@@ -4945,7 +5021,7 @@ Villas Under Maintenance
     setSettlementError("");
     try {
       const payload = await apiRequest(
-        `/front-desk/bookings/${encodeURIComponent(selected.id)}/payment-timing`,
+        `/admin/front-desk/bookings/${encodeURIComponent(selected.id)}/payment-timing`,
         { method: "PUT", body: JSON.stringify({ payment_timing: timing }) }
       );
       if (payload?.data?.booking) {
@@ -5116,12 +5192,40 @@ Villas Under Maintenance
   }
 
   function renderBookings() {
+    const arrivals = activeBookings.filter(booking => booking.checkIn === today && !hasAdminCheckedIn(booking));
+    const inHouse = normalizedBookings.filter(hasAdminCheckedIn);
+    const departures = inHouse.filter(booking => booking.checkOut <= today);
+    const showBookings = ({ arrival = '', inHouseOnly = false } = {}) => {
+      setBookingArrivalDay(arrival);
+      setBookingInHouseOnly(inHouseOnly);
+      setBookingFilter("All");
+      setGlobalSearch("");
+    };
     return (
       <div className="admin-page admin-bookings-page">
+        <section className="admin-stay-summary" aria-label="Today's guest operations">
+          <button type="button" onClick={() => showBookings({ arrival: today })}>
+            <span><CalendarDays size={18} /> Arrivals today</span><strong>{arrivals.length}</strong><small>{formatDate(today)} · Philippine time</small>
+          </button>
+          <button type="button" onClick={() => showBookings({ inHouseOnly: true })}>
+            <span><Users size={18} /> In-house guests</span><strong>{inHouse.length}</strong><small>Currently checked in</small>
+          </button>
+          <button type="button" onClick={() => { setOperationsMode("queue"); setOperationsQuery(""); setOperationsFilter("All"); setOperationsModalOpen(true); }}>
+            <span><ClipboardCheck size={18} /> Departures due</span><strong>{departures.length}</strong><small>Check-out today or earlier</small>
+          </button>
+        </section>
         {bookingDataError && <div className="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-900" role="alert">
           <span>{formatUserFacingMessage(bookingDataError)}</span>
           <button type="button" className="admin-btn-secondary" onClick={() => loadAdminData()}>Retry bookings</button>
         </div>}
+        <div className="admin-bookings-controls">
+            <div className="admin-booking-scopes" role="group" aria-label="Booking view">
+              <button type="button" aria-pressed={!bookingInHouseOnly && bookingArrivalDay === today} onClick={() => showBookings({ arrival: today })}>Today's arrivals</button>
+              <button type="button" aria-pressed={bookingInHouseOnly} onClick={() => showBookings({ inHouseOnly: true })}>In house</button>
+              <button type="button" aria-pressed={!bookingInHouseOnly && !bookingArrivalDay} onClick={() => showBookings()}>All bookings</button>
+            </div>
+            <button type="button" className="admin-btn-secondary" onClick={() => loadAdminData({ silent: true })}><RefreshCw size={15} /> Refresh</button>
+        </div>
         <div className="admin-bookings-controls">
             <div className="admin-bookings-toolbar">
               <label className="admin-bookings-search">
@@ -5134,6 +5238,7 @@ Villas Under Maintenance
                   aria-label="Search bookings"
                 />
               </label>
+              <label className="admin-booking-date"><CalendarDays size={16} /><span>Arrival</span><input type="date" aria-label="Filter bookings by arrival date" value={bookingArrivalDay} onChange={event => { setBookingArrivalDay(event.target.value); setBookingInHouseOnly(false); }} /></label>
               <select
                 value={bookingFilter}
                 onChange={(event) => setBookingFilter(event.target.value)}
@@ -5151,6 +5256,9 @@ Villas Under Maintenance
           }}><ClipboardCheck size={16} /> Check In / Check Out</button>
         </div>
         <section className="admin-panel">
+          <header className="admin-panel-header">
+            <div><h3>{bookingInHouseOnly ? "In-house bookings" : bookingArrivalDay ? `Arrivals · ${formatDate(bookingArrivalDay)}` : "All booking records"}</h3><p>{filteredBookings.length} reservation{filteredBookings.length === 1 ? '' : 's'} · Online, external and walk-in bookings</p></div>
+          </header>
           <div className="admin-table-wrap">
             <table className="admin-data-table">
               <thead>
@@ -5158,6 +5266,7 @@ Villas Under Maintenance
                   <th>Guest</th>
                   <th>Booking</th>
                   <th>Stay</th>
+                  <th>Status</th>
                   <th>Payment</th>
                   <th>Balance</th>
                   <th>Assignments</th>
@@ -5197,6 +5306,7 @@ Villas Under Maintenance
                         <strong>{formatDate(booking.checkIn)}</strong>
                         <small>to {formatDate(booking.checkOut)}</small>
                       </td>
+                      <td><StatusPill status={booking.bookingStatus} /><small>{booking.stayStatus}</small></td>
                       <td>
                         <StatusPill status={booking.paymentStatus} />
                       </td>
@@ -5219,7 +5329,7 @@ Villas Under Maintenance
   onClick={() => openBookingDetails(booking)}
 >
   <Eye size={14}/> Details
-</button>
+ </button>
 {getBookingOperation(booking) && (
   <button
     type="button"
@@ -5238,7 +5348,7 @@ Villas Under Maintenance
                 })}
                 {!filteredBookings.length && (
                   <tr>
-                    <td colSpan={7}>
+                    <td colSpan={8}>
                       <EmptyState
                         icon={CalendarDays}
                         title="No bookings found"
@@ -5391,9 +5501,12 @@ Villas Under Maintenance
           <button
             type="button"
             className="admin-btn-primary"
-            onClick={openNewStaffAccount}
+            onClick={() => openNewStaffAccount()}
           >
             <UserPlus size={16} /> Add Staff Account
+          </button>
+          <button type="button" className="admin-btn-secondary" onClick={() => openNewStaffAccount("front_desk")}>
+            <UserPlus size={16} /> Add Front Desk Account
           </button>
         </section>
 
@@ -5454,6 +5567,7 @@ Villas Under Maintenance
                     <td>
                       <strong>{staff.username}</strong>
                       <small>{staff.email}</small>
+                      <small>{staff.portalRole === "front_desk" ? "Front Desk / Operations account" : staff.portalRole === "admin" ? "Admin account" : staff.portalRole === "maintenance" ? "Maintenance account" : "Staff account"}</small>
                       {staff.mustChangePassword && (
                         <span className="admin-password-reset-label">
                           Password change required
@@ -5659,7 +5773,7 @@ Villas Under Maintenance
       }
 
       const payload = await apiRequest(
-        `/front-desk/bookings/${encodeURIComponent(
+        `/admin/front-desk/bookings/${encodeURIComponent(
           selected.id
         )}/payment-timing`,
         {
@@ -7843,7 +7957,7 @@ Villas Under Maintenance
       case "bookings":
         return renderBookings();
       case "manualBooking":
-        return <ManualBooking apiRequest={apiRequest} onViewBookings={() => { navigate("bookings"); window.location.reload(); }} />;
+        return <ManualBooking apiRequest={apiRequest} onViewBookings={() => navigate("bookings")} />;
       case "history":
         return renderHistory();
       case "villas":
@@ -7864,7 +7978,12 @@ Villas Under Maintenance
   }
 
   const meta = VIEW_META[view] || VIEW_META.dashboard;
-  const profileRole = profile.portalRole === "admin" ? "Admin" : profile.role || "Administrator";
+  const profileRole = profile.portalRole === "admin"
+    ? "Admin"
+    : profile.portalRole === "front_desk"
+      ? "Front Desk / Operations"
+      : profile.role || "Staff";
+  const sidebarItems = SIDEBAR_ITEMS;
 
   return (
     <div className="admin-dashboard-shell" data-live-status={liveStatus}>
@@ -7890,7 +8009,7 @@ Villas Under Maintenance
                 <small className="admin-profile-role-label">{profileRole}</small>
               </span>
             </button>
-            {SIDEBAR_ITEMS.map((item) => {
+            {sidebarItems.map((item) => {
               const Icon = item.icon;
               let badge = null;
               if (item.id === "assignmentMonitor" && assignmentStats.total)
@@ -7906,6 +8025,7 @@ Villas Under Maintenance
                     className={`admin-sidebar-nav-btn${
                       (item.id === "checkInOut" ? operationsModalOpen : view === item.id) ? " active" : ""
                     }`}
+                    aria-current={(view === item.id) ? "page" : undefined}
                     onClick={() => {
                       if (item.id === "checkInOut") {
                         setOperationsMode("queue");
@@ -7943,7 +8063,8 @@ Villas Under Maintenance
 
       <div className="admin-main-area">
         <main className="admin-page-content" aria-label={meta.title}>
-          <div className="dashboard-page-heading"><span>Workspace</span><h1>{view === "bookings" ? "Booking Records" : meta.title}</h1></div>
+          <div className="dashboard-page-heading"><span>Admin workspace</span><h1>{meta.title}</h1></div>
+          {dataError && <div className="admin-data-notice" role="alert"><span>{formatUserFacingMessage(dataError)}</span><button type="button" className="admin-btn-secondary" onClick={() => loadAdminData()}>Retry</button></div>}
           {renderContent()}
         </main>
       </div>
@@ -8944,12 +9065,13 @@ Villas Under Maintenance
                 <span>Department *</span>
                 <select
                   value={staffAccountForm.department}
-                  onChange={(event) =>
+                  onChange={(event) => {
+                    const department = event.target.value;
                     setStaffAccountForm((current) => ({
                       ...current,
-                      department: event.target.value,
-                    }))
-                  }
+                      department,
+                    }));
+                  }}
                 >
                   {DEPARTMENTS.map((department) => (
                     <option key={department}>{department}</option>
@@ -8957,7 +9079,27 @@ Villas Under Maintenance
                 </select>
               </label>
               <label>
-                <span>Role *</span>
+                <span>Portal role *</span>
+                <select
+                  value={staffAccountForm.portalRole || "staff"}
+                  onChange={(event) =>
+                    setStaffAccountForm((current) => ({
+                      ...current,
+                      portalRole: event.target.value,
+                    }))
+                  }
+                >
+                  <option value="staff">Staff</option>
+                  <option value="front_desk">Front Desk / Operations</option>
+                  <option value="maintenance">Maintenance</option>
+                  {staffAccountMode === "edit" && staffAccountForm.portalRole === "admin" && (
+                    <option value="admin">Administrator</option>
+                  )}
+                </select>
+                <small>All accounts sign in at /login. The assigned role opens the correct workspace.</small>
+              </label>
+              <label>
+                <span>Position / job title *</span>
                 <input
                   value={staffAccountForm.role}
                   onChange={(event) =>
@@ -9233,9 +9375,65 @@ Villas Under Maintenance
         </div>
       )}
 
+      {paymentApprovalRequests.length > 0 && (
+        <div className="admin-modal-backdrop admin-payment-approval-backdrop">
+          <section
+            className="admin-payment-approval-modal"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="admin-payment-approval-title"
+          >
+            <header>
+              <span><ShieldCheck size={19} /></span>
+              <div>
+                <small>ON-SITE PAYMENT REQUEST</small>
+                <h2 id="admin-payment-approval-title">Approval required</h2>
+              </div>
+            </header>
+            <p className="admin-payment-approval-intro">
+              A staff member is waiting for approval before collecting payment.
+            </p>
+            {(() => {
+              const request = paymentApprovalRequests[0];
+              const booking = request.booking || {};
+              return (
+                <dl className="admin-payment-approval-details">
+                  <div><dt>Guest</dt><dd>{booking.customer_name || "Guest"}</dd></div>
+                  <div><dt>Booking</dt><dd>{booking.booking_code || "Booking"} · {booking.villa_name || "Villa"}</dd></div>
+                  <div><dt>Requested by</dt><dd>{request.requester?.full_name || "On-site staff"}</dd></div>
+                  <div><dt>Payment</dt><dd>{String(request.payment_method || "").toUpperCase()} · {request.payment_timing === "check_out" ? "Pay at check-out" : "Pay at check-in"}</dd></div>
+                  <div><dt>Amount due</dt><dd>{formatPeso(request.amount)}</dd></div>
+                </dl>
+              );
+            })()}
+            <footer>
+              <button
+                type="button"
+                className="admin-btn-secondary"
+                disabled={paymentApprovalAction === paymentApprovalRequests[0].id}
+                onClick={() => reviewPaymentApproval(paymentApprovalRequests[0], "deny")}
+              >
+                Deny
+              </button>
+              <button
+                type="button"
+                className="admin-btn-primary"
+                disabled={paymentApprovalAction === paymentApprovalRequests[0].id}
+                onClick={() => reviewPaymentApproval(paymentApprovalRequests[0], "approve")}
+              >
+                {paymentApprovalAction === paymentApprovalRequests[0].id
+                  ? <LoaderCircle size={16} className="admin-spin" />
+                  : <Check size={16} />}
+                Approve payment
+              </button>
+            </footer>
+          </section>
+        </div>
+      )}
+
       <ConfirmSignOut open={signOutConfirmOpen} busy={signingOut} cancel={()=>setSignOutConfirmOpen(false)} confirm={signOut}/>
-      {dataLoading && <LoadingScreen message="Loading your admin workspace…"/>}
-      {dataError && <div className="fixed bottom-4 left-4 right-4 z-[20000] mx-auto max-w-lg"><AlertMessage message={dataError}/></div>}
+      {dataLoading && <LoadingScreen message="Loading your admin workspace…" />}
+      {paymentApprovalError && <div className="fixed bottom-4 left-4 right-4 z-[21000] mx-auto max-w-lg"><AlertMessage message={paymentApprovalError} type="error"/></div>}
       {systemAlert.open && (systemAlert.type === "loading"
         ? <LoadingScreen message={systemAlert.message}/>
         : <div className="fixed bottom-4 left-4 right-4 z-[25000] mx-auto max-w-lg"><AlertMessage message={systemAlert.message} type={systemAlert.type} dismiss={closeSystemAlert}/></div>)}

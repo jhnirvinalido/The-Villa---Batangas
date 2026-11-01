@@ -21,6 +21,7 @@ import {
   FaMoneyBillWave,
   FaPhoneAlt,
   FaShieldAlt,
+  FaTimes,
   FaUser,
   FaUsers,
   FaWallet,
@@ -93,6 +94,10 @@ const DEFAULT_VILLAS = [
     capacity: 8,
     price: 4500,
     image: "/family.jpg",
+    images: ["/family.jpg"],
+    beds: "Details available on request",
+    bathrooms: "Details available on request",
+    stayHours: "Details available on request",
     description:
       "A spacious private villa for family gatherings, celebrations, and relaxing weekend stays.",
     amenities: [
@@ -108,6 +113,10 @@ const DEFAULT_VILLAS = [
     capacity: 8,
     price: 5500,
     image: "/couple.jpg",
+    images: ["/couple.jpg"],
+    beds: "Details available on request",
+    bathrooms: "Details available on request",
+    stayHours: "Details available on request",
     description:
       "A comfortable private villa for couples, families, and small groups who value privacy and convenience.",
     amenities: [
@@ -123,6 +132,10 @@ const DEFAULT_VILLAS = [
     capacity: 8,
     price: 6500,
     image: "/barkada.jpg",
+    images: ["/barkada.jpg"],
+    beds: "Details available on request",
+    bathrooms: "Details available on request",
+    stayHours: "Details available on request",
     description:
       "A roomy villa with shared spaces for barkada bonding, birthdays, and overnight celebrations.",
     amenities: [
@@ -138,6 +151,10 @@ const DEFAULT_VILLAS = [
     capacity: 4,
     price: 7500,
     image: "/image4.jpg",
+    images: ["/image4.jpg"],
+    beds: "Details available on request",
+    bathrooms: "Details available on request",
+    stayHours: "Details available on request",
     description:
       "A quieter private villa for couples, small families, and guests looking for a relaxed stay.",
     amenities: [
@@ -271,8 +288,7 @@ function flattenAmenities(value) {
       return Array.isArray(group?.items) ? group.items : [];
     })
     .map((item) => String(item || "").trim())
-    .filter(Boolean)
-    .slice(0, 5);
+    .filter(Boolean);
 }
 
 function normalizeCatalog(rows) {
@@ -289,6 +305,10 @@ function normalizeCatalog(rows) {
       const id = String(row?.id || "").trim();
       const fallback = fallbackById.get(id) || DEFAULT_VILLAS[0];
       const amenities = flattenAmenities(row?.amenities);
+      const gallery = row?.image_urls ?? row?.imageUrls;
+      const images = Array.isArray(gallery)
+        ? gallery.map((url) => String(url || "").trim()).filter(Boolean)
+        : [row?.image_url || row?.imageUrl || row?.image || fallback.image].filter(Boolean);
 
       return {
         ...fallback,
@@ -300,12 +320,20 @@ function normalizeCatalog(rows) {
           fallback.title,
         capacity: Number(row?.capacity || fallback.capacity),
         price: Number(row?.price ?? fallback.price),
-        image: row?.image_url || row?.image || fallback.image,
+        images,
+        image: images[0] || "",
         description:
           row?.short_description ||
           row?.description ||
           row?.details ||
           fallback.description,
+        beds: row?.beds || fallback.beds || "Details available on request",
+        bathrooms: row?.bathrooms || fallback.bathrooms || "Details available on request",
+        stayHours:
+          row?.stay_hours ||
+          row?.stayHours ||
+          fallback.stayHours ||
+          CHECK_IN_TIME,
         amenities: amenities.length ? amenities : fallback.amenities,
       };
     })
@@ -534,10 +562,25 @@ function AvailabilityCalendar({
     };
   }, [activeMonth, guestCount, calendarRevision]);
 
-  const today = new Date();
+  const manilaDateParts = new Intl.DateTimeFormat("en-CA", {
+    timeZone: "Asia/Manila",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).formatToParts(new Date());
+  const manilaDate = Object.fromEntries(
+    manilaDateParts
+      .filter((part) => part.type !== "literal")
+      .map((part) => [part.type, Number(part.value)])
+  );
+  const today = new Date(
+    manilaDate.year,
+    manilaDate.month - 1,
+    manilaDate.day
+  );
   today.setHours(0, 0, 0, 0);
 
-  const currentMonth = startOfMonth(new Date());
+  const currentMonth = startOfMonth(today);
   const previousDisabled = activeMonth <= currentMonth;
 
   return (
@@ -662,7 +705,7 @@ function AvailabilityCalendar({
               onClick={() => onSelectDate(key)}
               title={
                 unavailable
-                  ? "Fully booked / unavailable"
+                  ? "Fully booked"
                   : available
                     ? "Available date"
                     : ""
@@ -672,7 +715,7 @@ function AvailabilityCalendar({
                   ? `${formatDate(key)}, ${
                       dayState?.available_count || 0
                     } villa options available`
-                  : `${formatDate(key)}, fully booked or unavailable`
+                  : `${formatDate(key)}, fully booked`
               }
             >
               <span>{cellDate.getDate()}</span>
@@ -684,7 +727,7 @@ function AvailabilityCalendar({
                       ? preferredVillaId
                         ? "Villa available"
                         : `${dayState?.available_count || 0} open`
-                      : "Unavailable"}
+                      : "Fully booked"}
                   </small>
                   <small
                     className="booking-calendar-status-compact"
@@ -707,7 +750,7 @@ function AvailabilityCalendar({
 
         <span>
           <i className="full" />
-          Unavailable
+          Fully booked
         </span>
 
         <span>
@@ -731,6 +774,191 @@ function MessageModal({ message, onClose }) {
   }, [open]);
   if (!open) return null;
   return <dialog ref={dialog} role="alertdialog" aria-label="We couldn't complete this step" onCancel={event=>{event.preventDefault();onClose();}} className="m-auto w-[calc(100%-2rem)] max-w-md rounded-2xl border border-stone-200 bg-white p-6 shadow-2xl backdrop:bg-stone-950/40 backdrop:backdrop-blur-sm"><h2 className="mb-4 text-lg font-bold text-stone-900">We couldn't complete this step</h2><AlertMessage message={message}/><button type="button" autoFocus onClick={onClose} className="mx-auto mt-5 block rounded-xl border border-amber-900 bg-amber-900 px-5 py-3 text-sm font-semibold text-white">OK</button></dialog>;
+}
+
+function VillaDetailsModal({
+  villa,
+  selected,
+  canSelect,
+  activeImageIndex,
+  onImageChange,
+  onClose,
+  onToggleSelection,
+}) {
+  const dialogRef = useRef(null);
+  const closeRef = useRef(onClose);
+  const villaId = villa?.id;
+
+  useEffect(() => {
+    closeRef.current = onClose;
+  }, [onClose]);
+
+  useEffect(() => {
+    if (!villaId || !dialogRef.current) return undefined;
+    const dialog = dialogRef.current;
+    const previousFocus = document.activeElement;
+    dialog.showModal();
+    return () => {
+      if (dialog.open) dialog.close();
+      previousFocus?.focus?.();
+    };
+  }, [villaId]);
+
+  if (!villa) return null;
+
+  const images = villa.images || [];
+  const moveImage = (amount) => {
+    if (images.length < 2) return;
+    onImageChange((activeImageIndex + amount + images.length) % images.length);
+  };
+
+  return (
+    <dialog
+      ref={dialogRef}
+      className="booking-villa-details-dialog"
+      aria-labelledby="booking-villa-details-title"
+      onCancel={(event) => {
+        event.preventDefault();
+        closeRef.current();
+      }}
+      onClick={(event) => {
+        if (event.target === event.currentTarget) closeRef.current();
+      }}
+    >
+      <button
+        type="button"
+        className="booking-villa-details-close"
+        aria-label="Close villa details"
+        onClick={onClose}
+      >
+        <FaTimes />
+      </button>
+
+      <div className="booking-villa-details-gallery">
+        {images[activeImageIndex] ? (
+          <img
+            key={images[activeImageIndex]}
+            src={images[activeImageIndex]}
+            alt={`${villa.title}, photo ${activeImageIndex + 1}`}
+          />
+        ) : (
+          <span className="booking-villa-details-empty">Villa photos coming soon</span>
+        )}
+        {images.length > 1 && (
+          <>
+            <button type="button" className="booking-villa-gallery-arrow previous"
+              onClick={() => moveImage(-1)} aria-label="Previous villa photo">
+              <FaChevronLeft />
+            </button>
+            <button type="button" className="booking-villa-gallery-arrow next"
+              onClick={() => moveImage(1)} aria-label="Next villa photo">
+              <FaChevronRight />
+            </button>
+            <span className="booking-villa-gallery-count">
+              {activeImageIndex + 1} / {images.length}
+            </span>
+          </>
+        )}
+      </div>
+
+      <div className="booking-villa-details-content">
+        <span className="booking-villa-details-eyebrow">Villa details</span>
+        <div className="booking-villa-details-heading">
+          <div>
+            <h2 id="booking-villa-details-title">{villa.title}</h2>
+            <p>{villa.description}</p>
+          </div>
+          <strong>{money(villa.price)} <small>per night</small></strong>
+        </div>
+
+        <div className="booking-villa-details-specs">
+          <span><FaUsers /> Up to {villa.capacity} guests</span>
+          <span><FaHome /> {villa.beds}</span>
+          <span><FaCheckCircle /> {villa.bathrooms}</span>
+          <span><FaClock /> {villa.stayHours}</span>
+        </div>
+
+        <h3>Amenities and facilities</h3>
+        {villa.amenities.length ? (
+          <ul className="booking-villa-details-amenities">
+            {villa.amenities.map((amenity) => (
+              <li key={amenity}><FaCheck />{amenity}</li>
+            ))}
+          </ul>
+        ) : (
+          <p className="booking-villa-details-empty-copy">
+            Amenities have not been listed for this villa yet.
+          </p>
+        )}
+
+        <div className="booking-villa-details-actions">
+          <button type="button" className="booking-villa-details-secondary" onClick={onClose}>
+            Close
+          </button>
+          <button
+            type="button"
+            className="booking-villa-details-select"
+            disabled={!selected && !canSelect}
+            onClick={onToggleSelection}
+          >
+            {selected ? "Remove from stay" : "Select this villa"}
+          </button>
+        </div>
+      </div>
+    </dialog>
+  );
+}
+
+function PaymentSuccessModal({ bookingCode }) {
+  const dialogRef = useRef(null);
+  const [open, setOpen] = useState(true);
+
+  useEffect(() => {
+    const dialog = dialogRef.current;
+    if (!dialog) return undefined;
+
+    if (open && !dialog.open) {
+      dialog.showModal();
+    } else if (!open && dialog.open) {
+      dialog.close();
+    }
+
+    return () => {
+      if (dialog.open) dialog.close();
+    };
+  }, [open]);
+
+  return (
+    <dialog
+      ref={dialogRef}
+      className="booking-payment-success-dialog"
+      aria-labelledby="booking-payment-success-title"
+      onCancel={(event) => {
+        event.preventDefault();
+        setOpen(false);
+      }}
+    >
+      <span className="booking-payment-success-icon" aria-hidden="true">
+        <FaCheck />
+      </span>
+      <span className="booking-result-kicker">Payment confirmed</span>
+      <h2 id="booking-payment-success-title">Payment successful!</h2>
+      <p>Your reservation at The Villa is confirmed.</p>
+      {bookingCode ? (
+        <div className="booking-payment-success-code">
+          <span>TV booking code</span>
+          <strong>{bookingCode}</strong>
+        </div>
+      ) : (
+        <p className="booking-payment-success-pending">
+          Your TV booking code will appear in the confirmation details shortly.
+        </p>
+      )}
+      <button type="button" onClick={() => setOpen(false)}>
+        View booking details
+      </button>
+    </dialog>
+  );
 }
 
 /** A bare spinner in the Villa's bronze palette. */
@@ -778,6 +1006,8 @@ export default function BookForm() {
   const [selectedVillaIds, setSelectedVillaIds] = useState(
     initialSelection.villaId ? [initialSelection.villaId] : []
   );
+  const [villaDetailsId, setVillaDetailsId] = useState("");
+  const [villaImageIndexes, setVillaImageIndexes] = useState({});
 
   const [
     recentlyViewedVillaId,
@@ -935,6 +1165,26 @@ export default function BookForm() {
     selectedVillaIds.every((id) => selectableVillas.some((villa) => villa.id === id && villa.available)) &&
     combinedCapacity >= guestNumber;
   const totalAmount = selectedVillas.reduce((sum, villa) => sum + Number(villa.price || 0), 0);
+  const villaDetails = visibleVillas.find((villa) => villa.id === villaDetailsId) || null;
+
+  function openVillaDetails(villa) {
+    setVillaDetailsId(villa.id);
+    setVillaImageIndexes((current) => ({ ...current, [villa.id]: 0 }));
+  }
+
+  function closeVillaDetails() {
+    setVillaDetailsId("");
+  }
+
+  function changeVillaImage(villa, nextIndex) {
+    const imageCount = villa.images.length;
+    if (!imageCount) return;
+    setVillaImageIndexes((current) => ({
+      ...current,
+      [villa.id]: ((nextIndex % imageCount) + imageCount) % imageCount,
+    }));
+  }
+
   function toggleVilla(id) {
     const villa = selectableVillas.find((item) => item.id === id);
     setSelectedVillaIds((current) => {
@@ -1166,14 +1416,14 @@ export default function BookForm() {
     }
 
     setLiveBooking({ bookingId, token });
-    setLoading(true);
-    setLoadingMessage(
-      "Checking your PayMongo payment status…"
-    );
+  }, []);
+
+  useEffect(() => {
+    if (!liveBooking) return undefined;
 
     let active = true;
     let checking = false;
-    let fallbackTimer;
+    const { bookingId, token } = liveBooking;
 
     async function verifyPayment(attempts = 6) {
       if (!active || checking) return;
@@ -1191,28 +1441,30 @@ export default function BookForm() {
           );
 
           if (!active) return;
-          if (["paid", "failed", "expired"].includes(latest?.state)) break;
+          if (["paid", "failed", "expired", "cancelled"].includes(latest?.state)) break;
           if (attempt < attempts) {
             await new Promise((resolve) => window.setTimeout(resolve, 1400));
           }
         }
 
+        if (!active) return;
         setCreatedBooking(latest?.booking || null);
-        setPaymentResult({
+        setPaymentResult((current) => ({
+          ...current,
           state: latest?.state || "pending",
           message: latest?.message || "Your payment status is still being confirmed.",
-        });
-        if (["paid", "failed", "expired"].includes(latest?.state)) {
-          window.clearInterval(fallbackTimer);
+        }));
+        if (["paid", "failed", "expired", "cancelled"].includes(latest?.state)) {
           liveBookingRefresh.current = null;
           setLiveBooking(null);
         }
       } catch (error) {
         if (active) {
-          setPaymentResult({
+          setPaymentResult((current) => ({
+            ...current,
             state: "pending",
             message: getUserFacingError(error, "We could not verify the payment yet."),
-          });
+          }));
         }
       } finally {
         checking = false;
@@ -1224,14 +1476,17 @@ export default function BookForm() {
     }
 
     liveBookingRefresh.current = () => verifyPayment(1);
-    fallbackTimer = window.setInterval(() => verifyPayment(1), 30000);
+    const fallbackTimer = window.setInterval(() => verifyPayment(1), 30000);
+    setLoading(true);
+    setLoadingMessage("Checking your PayMongo payment status…");
     verifyPayment();
+
     return () => {
       active = false;
       window.clearInterval(fallbackTimer);
       liveBookingRefresh.current = null;
     };
-  }, []);
+  }, [liveBooking]);
 
   function updateForm(field, value) {
     if (field === "guestCount") {
@@ -1875,14 +2130,17 @@ export default function BookForm() {
                       villa.id ===
                       preferredVillaId;
 
+                    const activeImageIndex =
+                      villaImageIndexes[villa.id] || 0;
+                    const imageCount = villa.images.length;
+
                     const recentlyViewed =
                       !preferred &&
                       villa.id ===
                         recentlyViewedVillaId;
 
                     return (
-                      <button
-                        type="button"
+                      <article
                         key={villa.id}
                         className={`booking-villa-card ${
                           selected
@@ -1899,14 +2157,65 @@ export default function BookForm() {
                         } ${
                           locked ? "unavailable" : ""
                         }`}
-                        disabled={locked || catalogLoading}
-                        onClick={() => toggleVilla(villa.id)}
+                        aria-label={`Open ${villa.title} details`}
+                        aria-haspopup="dialog"
+                        aria-expanded={villaDetailsId === villa.id}
+                        onClick={(event) => {
+                          if (event.target.closest("button")) return;
+                          openVillaDetails(villa);
+                        }}
+                        tabIndex={0}
+                        onKeyDown={(event) => {
+                          if (event.target !== event.currentTarget) return;
+                          if (event.key === "Enter" || event.key === " ") {
+                            event.preventDefault();
+                            openVillaDetails(villa);
+                          }
+                        }}
                       >
                         <div className="booking-villa-photo">
-                          <img
-                            src={villa.image}
-                            alt={villa.title}
-                          />
+                          <button
+                            type="button"
+                            className="booking-villa-photo-open"
+                            onClick={() => openVillaDetails(villa)}
+                            aria-label={`View ${villa.title} details and photos`}
+                          >
+                            {villa.images[activeImageIndex] ? (
+                              <img
+                                key={villa.images[activeImageIndex]}
+                                src={villa.images[activeImageIndex]}
+                                alt={`${villa.title}, photo ${activeImageIndex + 1}`}
+                              />
+                            ) : (
+                              <span className="booking-villa-details-empty">
+                                Villa photos coming soon
+                              </span>
+                            )}
+                          </button>
+
+                          {imageCount > 1 && (
+                            <>
+                              <button
+                                type="button"
+                                className="booking-villa-photo-arrow previous"
+                                aria-label={`Previous ${villa.title} photo`}
+                                onClick={() => changeVillaImage(villa, activeImageIndex - 1)}
+                              >
+                                <FaChevronLeft />
+                              </button>
+                              <button
+                                type="button"
+                                className="booking-villa-photo-arrow next"
+                                aria-label={`Next ${villa.title} photo`}
+                                onClick={() => changeVillaImage(villa, activeImageIndex + 1)}
+                              >
+                                <FaChevronRight />
+                              </button>
+                              <span className="booking-villa-photo-count">
+                                {activeImageIndex + 1} / {imageCount}
+                              </span>
+                            </>
+                          )}
 
                           {preferred ? (
                             <span className="booking-preferred-badge">
@@ -1929,9 +2238,13 @@ export default function BookForm() {
                         <div className="booking-villa-copy">
                           <div className="booking-villa-title-row">
                             <div>
-                              <h3>
+                              <button
+                                type="button"
+                                className="booking-villa-title-button"
+                                onClick={() => openVillaDetails(villa)}
+                              >
                                 {villa.title}
-                              </h3>
+                              </button>
                               <small>
                                 Up to{" "}
                                 {
@@ -1947,8 +2260,6 @@ export default function BookForm() {
                               )}
                             </strong>
                           </div>
-
-                          {/* Villa details are available on the Villas page. */}
 
                           <div className="booking-villa-amenities">
                             {villa.amenities
@@ -1976,8 +2287,9 @@ export default function BookForm() {
                               <><FaExclamationTriangle /> {available ? combinedCapacity >= guestNumber ? "Capacity reached" : Number(villa.capacity) < guestNumber && minimumVillaCount === 1 ? "Too small" : "Not needed" : villa.unavailableReason}</> :
                               <><FaCheckCircle /> Available</>}
                           </div>
+
                         </div>
-                      </button>
+                      </article>
                     );
                   }
                 )}
@@ -2476,15 +2788,15 @@ export default function BookForm() {
 
               <div className="booking-confirmation-message">
                 {paymentResult?.state === "paid"
-                  ? "Your stay is confirmed. We look forward to welcoming you for a relaxing escape and wonderful memories."
+                  ? createdBooking?.booking_code
+                    ? `Payment successful! Your stay is confirmed. Your TV booking code is ${createdBooking.booking_code}. Keep it for reference.`
+                    : "Payment successful! Your stay is confirmed. Your TV booking code will appear in the confirmation details shortly."
                   : paymentResult?.message || "Your reservation details will appear here after payment processing."}
               </div>
 
               {createdBooking?.booking_code ? (
                 <div className="booking-reference">
-                  <span>
-                    Booking reference
-                  </span>
+                  <span>TV booking code</span>
                   <strong>
                     {
                       createdBooking.booking_code
@@ -2523,6 +2835,10 @@ export default function BookForm() {
             </section>
           )}
         </div>
+
+        {step === 5 && paymentResult?.state === "paid" && (
+          <PaymentSuccessModal bookingCode={createdBooking?.booking_code} />
+        )}
 
         {step < 5 && (
           <footer className="booking-card-footer">
@@ -2575,7 +2891,7 @@ export default function BookForm() {
                   stepTransition.active || loading
                 }
               >
-                Choose villa
+                Continue
                 <FaArrowRight />
               </button>
             )}
@@ -2622,6 +2938,23 @@ export default function BookForm() {
         onClose={() =>
           setMessage("")
         }
+      />
+
+      <VillaDetailsModal
+        villa={villaDetails}
+        selected={Boolean(villaDetails && selectedVillaIds.includes(villaDetails.id))}
+        canSelect={Boolean(
+          villaDetails &&
+          canAddVilla(villaDetails, selectableVillas, selectedVillaIds, guestNumber, minimumVillaCount)
+        )}
+        activeImageIndex={villaDetails ? villaImageIndexes[villaDetails.id] || 0 : 0}
+        onImageChange={(index) => villaDetails && changeVillaImage(villaDetails, index)}
+        onClose={closeVillaDetails}
+        onToggleSelection={() => {
+          if (!villaDetails) return;
+          toggleVilla(villaDetails.id);
+          closeVillaDetails();
+        }}
       />
 
       {(loading || stepTransition.active) && (

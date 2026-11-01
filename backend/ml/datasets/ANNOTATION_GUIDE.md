@@ -18,6 +18,32 @@ provenance outside public dashboard exports. Keep all reviews by the same guest
 under one Guest Group; keep Review ID for traceability. Never create fictitious
 booking records or pad the neutral class.
 
+## Human annotation round 1
+
+The blinded templates are `sentiment_annotation_annotator_a_20261030.csv` and
+`sentiment_annotation_annotator_b_20261030.csv`. Give one template to each
+annotator; do not share the adjudication key before both have submitted their
+independent decisions. The sheets use stable excerpt IDs and opaque review-group
+IDs so annotators can see related excerpts without seeing source-platform names,
+provisional sentiment labels, or suggested categories.
+
+`Review Context` is supplied for document-derived groups where the full source
+review is available, with star-rating symbols removed. For Airbnb groups only
+excerpt text is available in this workspace; `Context Status` marks this gap.
+Annotators should mark `Uncertain` and explain when missing context affects a
+decision. Sentiment choices are `positive`, `neutral`, or `negative`. Put
+semicolon-separated supported service categories in `Category Decisions`, use
+`NONE` when no listed category applies, and `OTHER: description` for a category
+not in the current provisional vocabulary. If an excerpt mixes sentiment,
+mark `Split Needed` and describe the clauses in the notes for adjudication.
+
+`sentiment_annotation_adjudication_key_20261030.csv` retains the source IDs and
+provisional labels/categories, and has blank fields for both annotators and the
+adjudicator. Keep it restricted to the coordinator. Do not treat blank fields as
+human-verified labels; only mark a final decision after agreement or documented
+adjudication. The CSV templates do not record annotator names; enter consistent
+reviewer IDs in each row before annotation begins.
+
 C (`noisy_text_tests.csv`) contains ten documented synthetic implementation
 fixtures from the requested examples. It is never loaded by training. Its
 normalization/category checks are smoke tests, not independent research results.

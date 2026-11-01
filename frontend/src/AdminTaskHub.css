@@ -3,7 +3,8 @@
 .assignment-monitor-title {margin:0;color:var(--villa-text);font-size:17px;font-weight:750;letter-spacing:-.02em;}
 .team-work-filters {display:flex;gap:10px;align-items:center;flex-wrap:wrap;}
 .team-work-filters .work-search {margin-left:0;}
-.team-work-filters select {padding:11px;border:1px solid var(--villa-border);border-radius:10px;background:var(--villa-white);font-size:12px;max-width:100%;}
+.team-work-filters select, .team-work-filters input[type="date"] {padding:11px;border:1px solid var(--villa-border);border-radius:10px;background:var(--villa-white);font-size:12px;max-width:100%;}
+.team-work-filters > label:not(.work-search) {display:flex;align-items:center;gap:8px;font-size:12px;flex-wrap:wrap;}
 .team-activity-button {margin-left:auto;}
 .assignment-status-tabs {display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;padding:5px;border:1px solid var(--villa-border);border-radius:14px;background:#f2efeb;}
 .assignment-status-tab {display:flex;align-items:center;justify-content:center;gap:10px;min-width:0;padding:13px 16px;border:1px solid transparent;border-radius:10px;background:transparent;color:var(--villa-text-muted);font-size:12px;font-weight:700;cursor:pointer;transition:background .15s,border-color .15s,color .15s,box-shadow .15s;}

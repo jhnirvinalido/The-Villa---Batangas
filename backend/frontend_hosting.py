@@ -15,9 +15,12 @@ class FrontendFiles(StaticFiles):
             # and assets retain their 404 instead of returning HTML.
             browser_routes = {
                 "feedback", "maintenance-response", "book", "register",
-                "dashboard", "admin-login", "admin-dashboard", "admin", "staff",
+                "dashboard", "login", "admin-login", "admin-dashboard", "admin", "staff", "maintenance", "front-desk", "front-desk-login",
+                "front-desk/bookings", "front-desk/walkIns", "front-desk/newWalkIn",
+                "front-desk/lifecycle", "front-desk/payments", "front-desk/staff",
             }
-            if error.status_code != 404 or path.strip("/") not in browser_routes:
+            route = path.strip("/")
+            if error.status_code != 404 or route not in browser_routes:
                 raise
             return await super().get_response("index.html", scope)
 
