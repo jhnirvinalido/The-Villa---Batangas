@@ -16,6 +16,7 @@ import {
 import "leaflet/dist/leaflet.css";
 import "./App.css";
 import VillaVideoPreview from "./VillaVideoPreview";
+import VillaEntrance from "./VillaEntrance";
 import LandingLoader, { LoadingImage, LoadingVideo } from "./LandingLoader";
 import LandingReviews, {ReviewTicker, ReviewStars} from "./LandingReviews";
 
@@ -1171,6 +1172,7 @@ function App() {
           </div>
 
           <div className="hero-overlay" />
+          <VillaEntrance photoSrc={HERO_SLIDES[0].image} />
 
           <div className="container hero-inner">
             <div className="hero-content">
