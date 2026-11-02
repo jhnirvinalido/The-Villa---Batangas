@@ -1,7 +1,7 @@
 import { dateKey } from './taskFlow.mjs';
 
 const label = value => String(value || '').trim().toLowerCase().replace(/[_-]+/g, ' ');
-export const VILLA_FILTER_OPTIONS = Object.freeze(['Villa 1', 'Villa 2', 'Villa 3']);
+export const VILLA_FILTER_OPTIONS = Object.freeze(['Villa 1', 'Villa 2', 'Villa 3', 'Villa 4']);
 export const matchesVillaFilter = (villaName, filter) => !filter || String(villaName || '').split(',').some(name => name.trim() === filter);
 export const peso = value => new Intl.NumberFormat('en-PH', { style: 'currency', currency: 'PHP' }).format(Number(value || 0));
 export const deskDate = value => value ? new Date(`${String(value).slice(0, 10)}T00:00:00+08:00`).toLocaleDateString('en-PH', { timeZone: 'Asia/Manila', month: 'short', day: 'numeric', year: 'numeric' }) : 'Not scheduled';

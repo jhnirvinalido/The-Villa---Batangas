@@ -17432,6 +17432,7 @@
 .admin-notification-dropdown>div>button {cursor:pointer;}
 .admin-notification-dropdown>footer button {cursor:pointer;}
 .admin-notification-empty {padding:16px;color:var(--villa-text-muted);font-size:12px;text-align:center;}
+.admin-notification-dropdown { position:fixed; z-index:3000; }
 .booking-history-panel {overflow:hidden;}
 .admin-booking-history-page .booking-history-panel,
 .admin-bookings-page > .admin-bookings-list {

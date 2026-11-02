@@ -44,10 +44,11 @@ test('villa selection uses available capacity and rejects groups without enough 
   assert.equal(minimumVillaCount(8, villas), Infinity);
 });
 
-test('villa filters stay limited to Villas 1-3 and match combined villa names exactly', () => {
-  assert.deepEqual(VILLA_FILTER_OPTIONS, ['Villa 1', 'Villa 2', 'Villa 3']);
+test('villa filters stay limited to Villas 1-4 and match combined villa names exactly', () => {
+  assert.deepEqual(VILLA_FILTER_OPTIONS, ['Villa 1', 'Villa 2', 'Villa 3', 'Villa 4']);
   assert.equal(matchesVillaFilter('Villa 2, Villa 1, Villa 3, Villa 4', 'Villa 1'), true);
   assert.equal(matchesVillaFilter('Villa 10, Villa 2', 'Villa 1'), false);
   assert.equal(matchesVillaFilter('Villa 4', 'Villa 3'), false);
+  assert.equal(matchesVillaFilter('Villa 4', 'Villa 4'), true);
   assert.equal(matchesVillaFilter('Villa 4', ''), true);
 });

@@ -17,6 +17,7 @@ import VillaMaintenance from "./VillaMaintenance";
 import AdminGuestFeedback from "./AdminGuestFeedback";
 import { MAINTENANCE_SOURCE } from "./maintenanceModel.mjs";
 import { normalizeVillaCatalogRow } from "./villaCatalogModel.mjs";
+import { createPortal } from "react-dom";
 import {
   AlertCircle,
   Banknote,
@@ -2234,6 +2235,7 @@ export default function AdminDashboard() {
   const [view, setView] = React.useState("dashboard");
   const [sidebarCollapsed, setSidebarCollapsed] = usePortalSidebar();
   const [notificationOpen, setNotificationOpen] = React.useState(false);
+  const [notificationPosition, setNotificationPosition] = React.useState(null);
   const [globalSearch, setGlobalSearch] = React.useState("");
   const [systemAlert, setSystemAlert] = React.useState({
     open: false,
@@ -2407,6 +2409,8 @@ export default function AdminDashboard() {
   });
 
   const notificationRef = React.useRef(null);
+  const notificationBellRef = React.useRef(null);
+  const notificationPanelRef = React.useRef(null);
 
   const loadVillaCatalog =
     React.useCallback(
@@ -2592,10 +2596,35 @@ export default function AdminDashboard() {
   }, [loadVillaCatalog]);
 
   React.useEffect(() => {
+    if (!notificationOpen) return undefined;
+    const positionPanel = () => {
+      const bounds = notificationBellRef.current?.getBoundingClientRect();
+      if (!bounds) return;
+      const width = Math.min(390, window.innerWidth - 24);
+      const height = Math.min(notificationPanelRef.current?.scrollHeight || 620, window.innerHeight - 24);
+      setNotificationPosition({
+        position: "fixed",
+        top: Math.max(12, Math.min(bounds.bottom + 8, window.innerHeight - height - 12)),
+        left: Math.max(12, Math.min(bounds.right - width, window.innerWidth - width - 12)),
+        right: "auto",
+        width,
+      });
+    };
+    positionPanel();
+    window.addEventListener("resize", positionPanel);
+    document.addEventListener("scroll", positionPanel, true);
+    return () => {
+      window.removeEventListener("resize", positionPanel);
+      document.removeEventListener("scroll", positionPanel, true);
+    };
+  }, [notificationOpen]);
+
+  React.useEffect(() => {
     const handleOutside = (event) => {
       if (
-        notificationRef.current &&
-        !notificationRef.current.contains(event.target)
+        notificationOpen &&
+        !notificationRef.current?.contains(event.target) &&
+        !notificationPanelRef.current?.contains(event.target)
       ) {
         setNotificationOpen(false);
       }
@@ -2625,7 +2654,7 @@ export default function AdminDashboard() {
       document.removeEventListener("mousedown", handleOutside);
       document.removeEventListener("keydown", handleEscape);
     };
-  }, []);
+  }, [notificationOpen]);
 
   const showToast = React.useCallback((message, explicitType = "") => {
     const cleanMessage = String(message || "").trim();
@@ -4607,6 +4636,7 @@ async function resetStaffPassword(staffId) {
           const status = displayAssignmentStatus(assignment);
           return (
             <button
+              ref={notificationBellRef}
               type="button"
               key={assignment.id}
               className="admin-assignment-row"
@@ -8059,25 +8089,29 @@ Villas Under Maintenance
         <main className="admin-page-content" aria-label={meta.title}>
           <div className="dashboard-page-heading admin-sticky-page-bar">
             <div className="admin-sticky-page-title"><h1>{meta.title}</h1></div>
-            <div className="admin-notification-wrap">
+            <div className="admin-notification-wrap" ref={notificationRef}>
               <button
+                ref={notificationBellRef}
                 type="button"
                 className={`admin-topbar-icon-btn${notificationOpen ? " active" : ""}`}
                 aria-label={`Notifications${unreadNotificationCount ? `, ${unreadNotificationCount} unread` : ""}`}
                 aria-expanded={notificationOpen}
                 aria-controls="admin-notification-menu"
-                onClick={() => setNotificationOpen(open => !open)}
+                onClick={() => {
+                  setNotificationPosition(null);
+                  setNotificationOpen(open => !open);
+                }}
               >
                 <Bell size={19}/>
                 {unreadNotificationCount > 0 && <span className="admin-notification-badge">{unreadNotificationCount > 99 ? "99+" : unreadNotificationCount}</span>}
               </button>
-              {notificationOpen && <section id="admin-notification-menu" className="admin-notification-dropdown" aria-label="Recent notifications">
+              {notificationOpen && createPortal(<section ref={notificationPanelRef} id="admin-notification-menu" className="admin-notification-dropdown" style={{ ...notificationPosition, visibility: notificationPosition ? "visible" : "hidden" }} aria-label="Recent notifications">
                 <header><div><h2>Notifications</h2><p>{unreadNotificationCount ? `${unreadNotificationCount} unread` : "You’re all caught up"}</p></div>{unreadNotificationCount > 0 && <button type="button" onClick={markAllNotificationsRead}>Mark all read</button>}</header>
                 <div>{notifications.slice(0, 5).map(notification => <button type="button" key={notification.id} className={notification.unread ? "unread" : ""} onClick={() => handleNotificationClick(notification)}>
                   <span><Bell size={17}/></span><span><strong>{notification.title || "Villa update"}</strong><p>{notification.message}</p><time>{formatRelative(notification.timestamp)}</time></span>{notification.unread && <i aria-label="Unread"/>}
                 </button>)}{!notifications.length && <p className="admin-notification-empty">No notifications yet.</p>}</div>
                 <footer><button type="button" onClick={() => { setNotificationOpen(false); navigate("notifications"); }}>View all notifications</button></footer>
-              </section>}
+              </section>, document.body)}
             </div>
           </div>
           {dataError && <div className="admin-data-notice" role="alert"><span>{formatUserFacingMessage(dataError)}</span><button type="button" className="admin-btn-secondary" onClick={() => loadAdminData()}>Retry</button></div>}
