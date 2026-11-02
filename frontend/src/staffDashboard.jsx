@@ -1,4 +1,3 @@
-import StaffWorkHours from "./StaffWorkHours";
 import { deskTableRows } from "./frontDeskTableModel.mjs";
 import SidebarBrand from "./SidebarBrand";
 import usePortalSidebar from "./usePortalSidebar";
@@ -11,7 +10,6 @@ import { snapshotRows } from "./dashboardSnapshot.mjs";
 import React from "react";
 import {
   CalendarDays,
-  Clock3,
   RefreshCw,
   ClipboardCheck,
   ClipboardList,
@@ -53,7 +51,6 @@ const SIDEBAR_ITEMS = [
   { id: "inProgress", label: "In progress", icon: Timer, preset: { tab: "My work", focus: "In progress" }, count: "inProgress" },
   { id: "review", label: "Awaiting approval", icon: ClipboardCheck, preset: { tab: "In review", focus: "All work" }, count: "review" },
   { id: "history", label: "History", icon: History },
-  { id: "workHours", label: "Work hours", icon: Clock3 },
 ];
 
 const API_BASE_URL = (
@@ -1088,7 +1085,6 @@ function StaffHistoryList({ history, isMaintenanceStaff, openTask }) {
 export default function StaffDashboard() {
   const [view, setView] = React.useState("overview");
   const [sidebarCollapsed, setSidebarCollapsed] = usePortalSidebar();
-  const [workHoursDay, setWorkHoursDay] = React.useState('');
   const [villaFocus, setVillaFocus] = React.useState('');
   const initialViewChosen = React.useRef(false);
   const [taskBoardPreset,setTaskBoardPreset] = React.useState({tab:"My work",focus:"All work"});
@@ -1153,7 +1149,6 @@ export default function StaffDashboard() {
       { id: "calendar", label: "My schedule", icon: CalendarDays },
       { id: "todo", label: "My tasks", icon: ClipboardList, preset: { tab: "My work", focus: "All work" } },
       { id: "history", label: "History", icon: History },
-      { id: "workHours", label: "Work hours", icon: Clock3 },
     ]
     : SIDEBAR_ITEMS;
 
@@ -1287,7 +1282,6 @@ export default function StaffDashboard() {
   }, [dataLoading, currentStaff.id, tasks, showToast]);
 
   function navigate(nextView, preset = {tab:"My work",focus:"All work"}) {
-    if (nextView === 'workHours') setWorkHoursDay(preset.dueDate || '');
     if (nextView === 'villas') setVillaFocus('');
     if (["todo","inProgress","review"].includes(nextView)) setTaskBoardPreset(preset);
     setView(nextView);
@@ -1480,8 +1474,7 @@ async function signOut() {
       case "inProgress":
       case "review": return renderTasks();
       case "history": return renderHistory();
-      case "workHours": return <StaffWorkHours key={workHoursDay} apiRequest={staffApiRequest} initialDate={workHoursDay}/>;
-      case "calendar": return <StaffSchedule onViewWorkHours={dueDate => navigate("workHours", {dueDate})} tasks={workspaceTasks} shift={currentStaff.shift} openTask={openTask} onViewTodos={(dueDate)=>navigate("todo",{tab:"Schedule",focus:"All work",dueDate})} />;
+      case "calendar": return <StaffSchedule tasks={workspaceTasks} shift={currentStaff.shift} openTask={openTask} onViewTodos={(dueDate)=>navigate("todo",{tab:"Schedule",focus:"All work",dueDate})} />;
       case "profile": return renderProfile();
       default: return renderTasks();
     }

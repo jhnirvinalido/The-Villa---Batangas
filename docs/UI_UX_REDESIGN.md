@@ -7,7 +7,11 @@ The supplied screenshots were treated as usability feedback. Existing booking, p
 | Feedback | Implemented behavior |
 | --- | --- |
 | Completed assignments are hard to find | My assignments includes active, review, and completed work. Status filters narrow the list; History remains an archive with explicit details actions. The navigation count reflects the whole assignment list. |
-| Working hours need a place in the workflow | Staff and Maintenance have Work hours navigation with clock-in/out, dated records, review status, and administrator notes. The calendar links to recorded hours for the selected day. Admin has Work hours review. Planned assignments and recorded hours are labeled separately. |
+| Remove work-hours interfaces | Staff and Admin work-hours pages, navigation entries, and the calendar link are removed. Historical time records and their backend APIs are preserved. |
+| Notifications are clipped on small screens | The notification panel renders outside clipping ancestors and stays within the viewport, with a scrollable feed on short or narrow screens. |
+| Villa filters show invalid/combined values | Booking, staff-monitoring, and history filters offer only Villa 1, Villa 2, and Villa 3. Combined villa names match each selected villa individually. |
+| Extra charges need a clear reason | Additional charges require a short title/reason and positive amount; descriptions continue through settlement and appear on payment details/receipts. |
+| Portals need to work across screen sizes | Dashboard content, controls, tables, headers, and settlement layouts shrink or scroll within their viewport instead of forcing page-wide overflow. |
 | Bulk completion looks like another assigned step | Mark all complete sits in the checklist header. Its indeterminate state reflects partial completion. Assigned steps remain in their own list. |
 | Starting work should be intentional | Checklist inputs stay disabled until the staff member selects Start task. Existing scheduling and review restrictions still apply. |
 | Too much unused header space and a disappearing notification button | A compact sticky page header holds the title, notifications where supported, and refresh controls. |
@@ -21,14 +25,14 @@ The supplied screenshots were treated as usability feedback. Existing booking, p
 
 The login uses an existing property photograph beside a restrained, unboxed form. Public pages keep their multipage navigation, photo carousel, and warm neutral backgrounds. The portals share brown navigation, quiet paper surfaces, readable table density, consistent action buttons, visible focus states, and a compact header. Decorative statistic-card blobs and the glass login treatment were removed.
 
-## Deployment dependency
+## Preserved time-record data
 
-Work-hours screens use the existing authenticated time-record APIs. The database must include `backend/migrations/20261102_staff_time_records.sql`. UI validation uses an isolated browser with mocked records and mutations; it does not apply a database migration or alter real staff, guest, booking, or payment data.
+The time-record tables, migration, and authenticated APIs remain available for historical data and future use, but the staff/admin interfaces are no longer exposed. Removing the screens does not delete existing records.
 
 ## Verification
 
 - Frontend production build passes. Vite retains its existing large-chunk advisory.
-- All 88 frontend unit tests pass, including completed assignment visibility, checklist start requirements, payment filtering, sorting, and pagination.
+- All 98 frontend unit tests pass, including the new exact-match behavior for combined villa names.
 - Nine time-record route tests cover staff ownership, server timestamps, duplicate clock-in, clock-out, approval, correction notes, and stale reviews.
-- Focused lint passes for the shared components and updated login, task, list, work-hours, calendar, and front-desk components. The large Admin and Staff dashboard modules retain pre-existing lint findings outside this change.
-- All 27 browser workflow assertions pass with no JavaScript runtime exceptions. All 27 responsive layout and toggle checks pass at 1,440, 390, and 320 px across login and all four portals, with no horizontal page overflow. Checks use isolated sample records. They cover navigation, task lists, card/table switching, checklist start and bulk state, calendar-to-hours navigation, clock-in/out, booking amounts, pagination, mobile filters, and sticky headers.
+- Focused lint passes for the front-desk villa filter model, dashboard, and tests. Broader linting of legacy dashboard modules still reports existing issues.
+- The notification, villa-filter, charge-description, work-hours removal, and responsive-layout changes were production-build validated; no browser visual test was run for this update.

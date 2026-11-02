@@ -1,4 +1,3 @@
-import AdminWorkHours from "./AdminWorkHours";
 import SidebarBrand from "./SidebarBrand";
 import usePortalSidebar from "./usePortalSidebar";
 import { bookingAnalytics } from "./bookingAnalytics.mjs";
@@ -13,6 +12,7 @@ import { paginateRecords } from "./recordListModel.mjs";
 import { deskTableRows } from "./frontDeskTableModel.mjs";
 import React from "react";
 import { filterBookingRecords } from "./bookingDesk.mjs";
+import { matchesVillaFilter, VILLA_FILTER_OPTIONS } from "./frontDeskModel.mjs";
 import VillaMaintenance from "./VillaMaintenance";
 import AdminGuestFeedback from "./AdminGuestFeedback";
 import { MAINTENANCE_SOURCE } from "./maintenanceModel.mjs";
@@ -418,11 +418,9 @@ const SIDEBAR_ITEMS = [
   { id: "guestFeedback", label: "Guest reviews", icon: MessageCircle, section: "Operations" },
   { id: "assignmentMonitor", label: "Assignments", icon: ClipboardList, section: "Operations" },
   { id: "staff", label: "Staff directory", icon: Users, section: "People" },
-  { id: "workHours", label: "Work hours", icon: Clock3, section: "People" },
 ];
 
 const VIEW_META = {
-  workHours: { title: "Work hours", description: "Staff time records and approvals." },
   guestFeedback: { title: "Guest Feedback", description: "Verified post-stay guest reviews." },
   dashboard: {
     title: "Admin Dashboard",
@@ -5350,16 +5348,7 @@ Villas Under Maintenance
   }
 
   function renderHistory() {
-    const villas = [
-      "All",
-      ...Array.from(
-        new Set(
-          bookingHistory
-            .map((item) => item.villaName)
-            .filter(Boolean)
-        )
-      ),
-    ];
+    const villas = ["All", ...VILLA_FILTER_OPTIONS];
 
     const filteredHistory = bookingHistory.filter((item) => {
       const keyword = historySearch.trim().toLowerCase();
@@ -5376,7 +5365,7 @@ Villas Under Maintenance
 
       const matchesVilla =
         historyVillaFilter === "All" ||
-        item.villaName === historyVillaFilter;
+        matchesVillaFilter(item.villaName, historyVillaFilter);
 
       return matchesSearch && matchesStatus && matchesVilla;
     });
@@ -6549,7 +6538,7 @@ Villas Under Maintenance
                       <div>
                         <strong>Other Charges</strong>
                         <small>
-                          Add confirmed additional charges to this payment.
+                          Add a required reason so each charge appears clearly on the receipt.
                         </small>
                       </div>
                     </header>
@@ -6557,7 +6546,11 @@ Villas Under Maintenance
                     <div className="admin-fdx-charge-entry">
                       <input
                         type="text"
-                        placeholder="Charge description"
+                        aria-label="Charge reason or title (required)"
+                        placeholder="Charge reason or title (required)"
+                        minLength={2}
+                        maxLength={160}
+                        required
                         value={chargeDraft.description}
                         disabled={settlementChargesLocked}
                         onChange={(event) =>
@@ -6572,10 +6565,12 @@ Villas Under Maintenance
                         <span>₱</span>
                         <input
                           type="number"
-                          min="0"
+                          aria-label="Charge amount"
+                          min="0.01"
                           step="0.01"
                           inputMode="decimal"
                           placeholder="0.00"
+                          required
                           value={chargeDraft.amount}
                           disabled={settlementChargesLocked}
                           onChange={(event) =>
@@ -6590,7 +6585,7 @@ Villas Under Maintenance
                       <button
                         type="button"
                         onClick={addSettlementCharge}
-                        disabled={settlementChargesLocked}
+                        disabled={settlementChargesLocked || chargeDraft.description.trim().length < 2 || parseAmount(chargeDraft.amount) <= 0}
                       >
                         <Plus size={15} />
                         Add Charge
@@ -7949,7 +7944,6 @@ Villas Under Maintenance
   function renderContent() {
     switch (view) {
       case "maintenance": return renderVillas();
-      case "workHours": return <AdminWorkHours apiRequest={apiRequest} staff={staffDirectory}/>;
       case "guestFeedback": return <AdminGuestFeedback apiRequest={apiRequest} />;
       case "dashboard":
         return renderDashboard();

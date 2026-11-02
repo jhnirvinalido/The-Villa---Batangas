@@ -7,7 +7,7 @@
   max-width: 100%;
 }
 
-.admin-dashboard-shell :is(.admin-table-wrap, .booking-history-table-wrap, .staff-history-table-wrap, .work-task-table-wrap, .fd-table-wrap, .assignment-table-wrap, .admin-work-hours-table-wrap, .staff-hours-table-wrap) {
+.admin-dashboard-shell :is(.admin-table-wrap, .booking-history-table-wrap, .staff-history-table-wrap, .work-task-table-wrap, .fd-table-wrap, .assignment-table-wrap) {
   width: 100%;
   min-width: 0;
   max-width: 100%;
@@ -17,11 +17,6 @@
   touch-action: pan-x pan-y;
   scrollbar-width: auto;
   scrollbar-color: #9d7a5e #eee8e0;
-}
-
-.admin-dashboard-shell :is(.admin-work-hours-table, .staff-hours-table) {
-  width: 100%;
-  min-width: 760px;
 }
 
 .admin-dashboard-shell .admin-staff-account-table {
@@ -140,15 +135,15 @@
 .admin-dashboard-shell[class] :is(.admin-btn-primary, .admin-btn-secondary, .staff-btn-primary, .staff-btn-ghost, .fd-button) { min-height: 38px; border-radius: 6px; font-size: 12px; box-shadow: none; }
 
 /* Tables share readable density and explicit, keyboard-accessible actions. */
-.admin-dashboard-shell[class] :is(.admin-data-table, .booking-history-table, .staff-history-table, .work-task-table, .assignment-table, .admin-work-hours-table, .staff-hours-table, .fd-table-wrap table) { width: 100%; border-collapse: collapse; background: #fff; color: var(--villa-text); font-size: 13px; line-height: 1.5; }
-.admin-dashboard-shell[class] :is(.admin-data-table, .booking-history-table, .staff-history-table, .work-task-table, .assignment-table, .admin-work-hours-table, .staff-hours-table, .fd-table-wrap table) th { padding: 13px 16px; background: #f3f0eb; color: #75695d; font-size: 10px; font-weight: 650; letter-spacing: .045em; text-transform: uppercase; white-space: nowrap; }
-.admin-dashboard-shell[class] :is(.admin-data-table, .booking-history-table, .staff-history-table, .work-task-table, .assignment-table, .admin-work-hours-table, .staff-hours-table, .fd-table-wrap table) td { padding: 15px 16px; border-bottom: 1px solid #eeeae4; vertical-align: middle; }
-.admin-dashboard-shell[class] :is(.admin-data-table, .booking-history-table, .staff-history-table, .work-task-table, .assignment-table, .admin-work-hours-table, .staff-hours-table) td small { display: block; margin-top: 4px; color: var(--villa-text-muted); font-size: 11px; line-height: 1.5; }
-.admin-dashboard-shell[class] :is(.admin-data-table, .booking-history-table, .staff-history-table, .work-task-table, .assignment-table, .admin-work-hours-table, .staff-hours-table) tbody tr { cursor: default; }
-.admin-dashboard-shell[class] :is(.admin-data-table, .booking-history-table, .staff-history-table, .work-task-table, .assignment-table, .admin-work-hours-table, .staff-hours-table) tbody tr:hover { background: #fcfaf6; }
-.admin-dashboard-shell[class] :is(.fd-table-wrap, .admin-table-wrap, .booking-history-table-wrap, .staff-history-table-wrap, .work-task-table-wrap, .assignment-table-wrap, .admin-work-hours-table-wrap, .staff-hours-table-wrap):focus-visible { outline: 2px solid #9d7959; outline-offset: 3px; }
-.admin-dashboard-shell[class] :is(.fd-table-wrap, .admin-table-wrap, .booking-history-table-wrap, .staff-history-table-wrap, .work-task-table-wrap, .assignment-table-wrap, .admin-work-hours-table-wrap, .staff-hours-table-wrap)::-webkit-scrollbar { height: 10px; }
-.admin-dashboard-shell[class] :is(.fd-table-wrap, .admin-table-wrap, .booking-history-table-wrap, .staff-history-table-wrap, .work-task-table-wrap, .assignment-table-wrap, .admin-work-hours-table-wrap, .staff-hours-table-wrap)::-webkit-scrollbar-thumb { border: 2px solid #f1ebe4; border-radius: 8px; background: #b09a83; }
+.admin-dashboard-shell[class] :is(.admin-data-table, .booking-history-table, .staff-history-table, .work-task-table, .assignment-table, .fd-table-wrap table) { width: 100%; border-collapse: collapse; background: #fff; color: var(--villa-text); font-size: 13px; line-height: 1.5; }
+.admin-dashboard-shell[class] :is(.admin-data-table, .booking-history-table, .staff-history-table, .work-task-table, .assignment-table, .fd-table-wrap table) th { padding: 13px 16px; background: #f3f0eb; color: #75695d; font-size: 10px; font-weight: 650; letter-spacing: .045em; text-transform: uppercase; white-space: nowrap; }
+.admin-dashboard-shell[class] :is(.admin-data-table, .booking-history-table, .staff-history-table, .work-task-table, .assignment-table, .fd-table-wrap table) td { padding: 15px 16px; border-bottom: 1px solid #eeeae4; vertical-align: middle; }
+.admin-dashboard-shell[class] :is(.admin-data-table, .booking-history-table, .staff-history-table, .work-task-table, .assignment-table) td small { display: block; margin-top: 4px; color: var(--villa-text-muted); font-size: 11px; line-height: 1.5; }
+.admin-dashboard-shell[class] :is(.admin-data-table, .booking-history-table, .staff-history-table, .work-task-table, .assignment-table) tbody tr { cursor: default; }
+.admin-dashboard-shell[class] :is(.admin-data-table, .booking-history-table, .staff-history-table, .work-task-table, .assignment-table) tbody tr:hover { background: #fcfaf6; }
+.admin-dashboard-shell[class] :is(.fd-table-wrap, .admin-table-wrap, .booking-history-table-wrap, .staff-history-table-wrap, .work-task-table-wrap, .assignment-table-wrap):focus-visible { outline: 2px solid #9d7959; outline-offset: 3px; }
+.admin-dashboard-shell[class] :is(.fd-table-wrap, .admin-table-wrap, .booking-history-table-wrap, .staff-history-table-wrap, .work-task-table-wrap, .assignment-table-wrap)::-webkit-scrollbar { height: 10px; }
+.admin-dashboard-shell[class] :is(.fd-table-wrap, .admin-table-wrap, .booking-history-table-wrap, .staff-history-table-wrap, .work-task-table-wrap, .assignment-table-wrap)::-webkit-scrollbar-thumb { border: 2px solid #f1ebe4; border-radius: 8px; background: #b09a83; }
 .admin-dashboard-shell[class] .fd-table-wrap :is(th, td):last-child { position: static; box-shadow: none; }
 .admin-dashboard-shell[class] .fd-data-table th { padding: 13px 16px; }
 .admin-dashboard-shell[class] .fd-sort-heading { min-height: 24px; padding: 0; }
@@ -181,27 +176,6 @@
 .admin-dashboard-shell[class] .work-drawer-scroll { padding: 24px; }
 .admin-dashboard-shell[class] .work-drawer-footer { padding: 16px 24px; background: #fffefa; }
 
-/* Actual shift records use the same controls and table density. */
-.admin-dashboard-shell[class] :is(.staff-work-hours, .admin-work-hours) { display: grid; gap: 20px; }
-.admin-dashboard-shell[class] :is(.staff-work-hours-heading, .admin-work-hours-heading) { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 20px; }
-.admin-dashboard-shell[class] :is(.staff-work-hours-heading, .admin-work-hours-heading) h2 { margin: 4px 0 8px; font-size: 20px; }
-.admin-dashboard-shell[class] :is(.staff-work-hours-heading, .admin-work-hours-heading) p { max-width: 600px; color: var(--villa-text-muted); font-size: 13px; line-height: 1.6; }
-.admin-dashboard-shell[class] :is(.staff-work-hours-heading, .admin-work-hours-heading) > div > span { font-size: 10px; letter-spacing: .12em; color: #8f765c; }
-.admin-work-hours-controls { display: flex; align-items: center; flex-wrap: wrap; gap: 12px; }
-.admin-work-hours-search { display: flex; align-items: center; flex: 1 1 240px; gap: 8px; }
-.admin-work-hours-controls input, .admin-work-hours-controls select, .admin-work-hours-review input { min-height: 42px; min-width: 0; max-width: 100%; padding: 9px 12px; border: 1px solid #ddd5ca; border-radius: 6px; background: #fff; color: #51493f; font-size: 13px; }
-.admin-work-hours-search input { width: 100%; }
-.admin-work-hours-review { display: grid; gap: 8px; min-width: 220px; }
-.admin-work-hours-review > div { display: flex; gap: 8px; }
-.admin-work-hours-review button, .staff-hours-refresh { min-height: 36px; padding: 7px 12px; border: 1px solid #d9cbb9; border-radius: 5px; background: #fff; color: #795438; font-size: 12px; }
-.admin-work-hours-review button:disabled { opacity: .5; }
-.admin-work-hours-table-wrap, .staff-hours-table-wrap { border: 1px solid var(--villa-border); border-radius: 8px; }
-.staff-hours-active { display: flex; align-items: center; flex-wrap: wrap; gap: 10px; padding: 16px; background: #eef2e8; border: 1px solid #dce2d2; border-radius: 7px; color: #536345; font-size: 13px; }
-.staff-hours-active strong { margin-left: auto; font-variant-numeric: tabular-nums; }
-.staff-hours-refresh { justify-self: start; }
-.staff-hours-notice { color: #536345; }
-.staff-hours-error, .admin-work-hours-error { padding: 14px; border: 1px solid #edd1c6; border-radius: 6px; background: #fff5ef; color: #954c35; font-size: 13px; }
-.staff-hours-status, .admin-work-hours-status { display: inline-flex; padding: 4px 8px; border-radius: 4px; background: #f2ede5; color: #776047; font-size: 11px; white-space: nowrap; }
 .admin-dashboard-shell[class] :is(button, a, input, select, textarea):focus-visible { outline: 2px solid #a98660; outline-offset: 3px; }
 
 /* Keep every booking value visible without a second horizontal viewport. */
@@ -382,8 +356,6 @@
 .admin-dashboard-shell[class] .assignment-table { min-width: 900px; }
 .admin-dashboard-shell[class] .fd-table-wrap table { min-width: 1150px; }
 .admin-dashboard-shell[class] .booking-history-table { min-width: 1200px; }
-.calendar-work-hours-link { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 14px; margin-bottom: 18px; padding: 14px 16px; border: 1px solid var(--villa-border); border-radius: 7px; background: #fffefa; }
-.calendar-work-hours-link p { max-width: 540px; color: var(--villa-text-muted); font-size: 12px; line-height: 1.6; }
 .record-toolbar > label { display: inline-flex; align-items: center; gap: 8px; min-width: 0; color: #776653; font-size: 12px; }
 .record-toolbar > label > input[type="date"] { min-width: 0; max-width: 100%; min-height: 42px; padding: 8px; border: 1px solid #ddd6cd; border-radius: 6px; background: #fff; color: #51493f; }
 .admin-dashboard-shell[class] .admin-stat-card { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 8px 16px; align-items: center; }
@@ -404,3 +376,55 @@
 .admin-dashboard-shell[class] :is(.work-card, .work-checklist, .work-task-table, .assignment-table) progress::-webkit-progress-bar { background: #e7e1d6; }
 .admin-dashboard-shell[class] :is(.work-card, .work-checklist, .work-task-table, .assignment-table) progress::-webkit-progress-value { background: #8b7559; }
 .admin-dashboard-shell[class] :is(.work-card, .work-checklist, .work-task-table, .assignment-table) progress::-moz-progress-bar { background: #8b7559; }
+
+@media (max-width: 760px) {
+  .admin-dashboard-shell:not(.staff-dashboard-shell):not(.fd-shell) .admin-bookings-page .admin-bookings-list > .admin-table-wrap {
+    overflow-x: auto !important;
+    overflow-y: hidden !important;
+    touch-action: pan-x pan-y;
+  }
+
+  .admin-dashboard-shell[class] .admin-page-content,
+  .admin-dashboard-shell[class] .admin-page-content > * {
+    min-width: 0;
+    max-width: 100%;
+  }
+
+  .admin-dashboard-shell[class] :is(.admin-page-actions, .admin-panel-header, .record-toolbar) {
+    flex-wrap: wrap;
+  }
+
+  .admin-dashboard-shell[class] .admin-page-content :is(input, select, textarea) {
+    max-width: 100%;
+  }
+}
+
+@media (max-width: 480px) {
+  .admin-dashboard-shell[class] .admin-topbar {
+    min-height: 64px;
+    padding-inline: 12px;
+    gap: 8px;
+  }
+
+  .admin-dashboard-shell[class] .admin-topbar-titles {
+    min-width: 0;
+  }
+
+  .admin-dashboard-shell[class] .admin-topbar-titles h1 {
+    font-size: 17px;
+    overflow-wrap: anywhere;
+  }
+
+  .admin-dashboard-shell[class] .portal-topbar-actions {
+    flex: 0 0 auto;
+  }
+
+  .fd-shell .fd-main {
+    padding-inline: 12px;
+  }
+
+  .fd-shell .fd-table-controls,
+  .fd-shell .fd-table-pagination {
+    padding-inline: 12px;
+  }
+}

@@ -1,4 +1,5 @@
 import { useEffect, useId, useMemo, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { Bell, CheckCheck, ChevronRight, ClipboardList, LoaderCircle, X } from 'lucide-react';
 import { newUnreadNotifications, notificationId, staffNotificationTime } from './staffNotificationFeed.mjs';
 import { playStaffNotificationSound, showStaffBrowserNotification } from './staffBrowserNotifications.mjs';
@@ -22,6 +23,8 @@ export default function StaffNotifications({ staffId, notifications, apiRequest,
   const pendingRead = useRef(false);
   const root = useRef(null);
   const bell = useRef(null);
+  const panel = useRef(null);
+  const [panelPosition, setPanelPosition] = useState(null);
   const panelId = useId();
   const storageKey = `theVillaStaffAlerts:${staffId}`;
 
@@ -73,11 +76,30 @@ export default function StaffNotifications({ staffId, notifications, apiRequest,
 
   useEffect(() => {
     if (!open) return;
-    const outside = event => { if (!root.current?.contains(event.target)) setOpen(false); };
+    const positionPanel = () => {
+      const bounds = bell.current?.getBoundingClientRect();
+      if (!bounds) return;
+      const height = Math.min(panel.current?.scrollHeight || 740, window.innerHeight - 24);
+      setPanelPosition({
+        top: Math.max(12, Math.min(bounds.bottom + 8, window.innerHeight - height - 12)),
+        right: Math.max(12, window.innerWidth - bounds.right),
+      });
+    };
+    positionPanel();
+    const outside = event => {
+      if (!root.current?.contains(event.target) && !panel.current?.contains(event.target)) setOpen(false);
+    };
     const key = event => { if (event.key === 'Escape') { setOpen(false); bell.current?.focus(); } };
+    window.addEventListener('resize', positionPanel);
+    document.addEventListener('scroll', positionPanel, true);
     document.addEventListener('pointerdown', outside);
     document.addEventListener('keydown', key);
-    return () => { document.removeEventListener('pointerdown', outside); document.removeEventListener('keydown', key); };
+    return () => {
+      window.removeEventListener('resize', positionPanel);
+      document.removeEventListener('scroll', positionPanel, true);
+      document.removeEventListener('pointerdown', outside);
+      document.removeEventListener('keydown', key);
+    };
   }, [open]);
 
   const feed = useMemo(() => {
@@ -115,11 +137,8 @@ export default function StaffNotifications({ staffId, notifications, apiRequest,
     if (item.taskId) openTask(item.taskId);
   }
 
-  return <div className="staff-alert-center" ref={root}>
-    <button type="button" ref={bell} className={`staff-alert-bell admin-topbar-icon-btn${unread ? ' has-unread' : ''}`} aria-label={`Notifications${unread ? `, ${unread} unread` : ''}`} aria-expanded={open} aria-controls={panelId} onClick={() => { setOpen(value => !value); setAlerts([]); }}>
-      <Bell size={21} />{unread > 0 && <span className="staff-alert-count" aria-hidden="true">{unread > 99 ? '99+' : unread}</span>}
-    </button>
-    {open && <section id={panelId} className="staff-alert-panel" aria-label="Staff notifications">
+  const notificationPanel = open && createPortal(
+    <section ref={panel} id={panelId} className="staff-alert-panel" style={panelPosition || undefined} aria-label="Staff notifications">
       <header><div><h2>Notifications</h2><p>{unread ? `${unread} unread update${unread === 1 ? '' : 's'}` : 'You’re all caught up'}</p></div><button type="button" className="staff-alert-close" aria-label="Close notifications" onClick={() => setOpen(false)}><X size={18} /></button></header>
       <div className="staff-alert-toolbar"><span>Assignments and updates</span><button type="button" disabled={!unread || reading} onClick={() => read(feed, true)}>{reading ? <LoaderCircle className="staff-alert-spin" size={14} /> : <CheckCheck size={14} />} Mark all read</button></div>
       {error && <p className="staff-alert-error" role="alert">{formatUserFacingMessage(error)}</p>}
@@ -127,13 +146,23 @@ export default function StaffNotifications({ staffId, notifications, apiRequest,
         <span className="staff-alert-icon"><ClipboardList size={18} /></span><span className="staff-alert-copy"><strong>{item.title || 'Staff update'}</strong><span>{item.message}</span><time dateTime={item.timestamp || undefined}>{staffNotificationTime(item.timestamp)}</time></span>{item.unread && <i aria-label="Unread" />}
       </button>) : <div className="staff-alert-empty"><Bell size={30} /><strong>No notifications yet</strong><p>Your assignments and updates will appear here.</p></div>}</div>
       <footer className="staff-alert-browser"><div><strong>Browser alerts</strong><small>Updates in other tabs while this portal stays open</small></div><button type="button" disabled={browserBusy || !popupsEnabled} onClick={toggleBrowserAlerts}>{browserBusy ? 'Enabling…' : browserEnabled ? 'Turn off' : 'Enable'}</button>{browserError && <p role="status">{browserError}</p>}</footer>
-    </section>}
-    <div className="staff-alert-popups" aria-live="polite" aria-atomic="false">
+    </section>,
+    document.body
+  );
+
+  return <>
+    <div className="staff-alert-center" ref={root}>
+      <button type="button" ref={bell} className={`staff-alert-bell admin-topbar-icon-btn${unread ? ' has-unread' : ''}`} aria-label={`Notifications${unread ? `, ${unread} unread` : ''}`} aria-expanded={open} aria-controls={panelId} onClick={() => { setOpen(value => !value); setAlerts([]); }}>
+        <Bell size={21} />{unread > 0 && <span className="staff-alert-count" aria-hidden="true">{unread > 99 ? '99+' : unread}</span>}
+      </button>
+      <div className="staff-alert-popups" aria-live="polite" aria-atomic="false">
       {alerts.map(item => <article className="staff-alert-popup" key={item.id}>
         <span className="staff-alert-popup-icon"><Bell size={21} /></span><div><small>THE VILLA · STAFF UPDATE</small><strong>{item.title || 'New notification'}</strong><p>{item.message}</p><button type="button" disabled={reading} onClick={() => activate(item)}>{item.taskId ? 'View assignment' : 'View update'}<ChevronRight size={14} /></button></div>
         <button type="button" className="staff-alert-close" aria-label="Dismiss notification popup" onClick={() => setAlerts(current => current.filter(entry => entry.id !== item.id))}><X size={16} /></button>
       </article>)}
       {alerts.length > 0 && (missedCount > 0 || alerts.length > 1) && <button type="button" className="staff-alert-more" onClick={() => { setOpen(true); setAlerts([]); }}>View all {unread} unread updates</button>}
+      </div>
     </div>
-  </div>;
+    {notificationPanel}
+  </>;
 }

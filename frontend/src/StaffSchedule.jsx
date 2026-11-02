@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { CalendarDays, ChevronLeft, ChevronRight, Clock3, X } from 'lucide-react';
 import { dateKey, dateLabel, isLate, orderTasks, timeLabel } from './taskFlow.mjs';
 
-export default function StaffSchedule({tasks,shift,openTask,showOwner=false,onViewTodos,onViewWorkHours}) {
+export default function StaffSchedule({tasks,shift,openTask,showOwner=false,onViewTodos}) {
   const [selected,setSelected]=useState(dateKey());
   const [mode,setMode]=useState('Month');
   const [showCompleted,setShowCompleted]=useState(false);
@@ -64,7 +64,7 @@ export default function StaffSchedule({tasks,shift,openTask,showOwner=false,onVi
     onViewTodos?.(selected);
   }
 
-  return <><div className="calendar-work-hours-link"><p>Assignments show planned work. Work hours show your recorded clock-in and clock-out times.</p>{onViewWorkHours && <button type="button" className="staff-btn-ghost" onClick={() => onViewWorkHours(selected)}>Work hours · {dateLabel(selected)}</button>}</div><div className="work-calendar-layout"><section className="work-calendar">
+  return <div className="work-calendar-layout"><section className="work-calendar">
     <div className="work-calendar-toolbar"><div><small>YOUR SCHEDULE</small><h3>{date.toLocaleDateString('en-PH',{month:'long',year:'numeric'})}</h3></div><div className="work-calendar-navigation"><button className="work-icon-button" aria-label={`Previous ${mode.toLowerCase()}`} onClick={()=>move(-1)}><ChevronLeft size={17}/></button><button className="staff-btn-ghost" onClick={()=>setSelected(dateKey())}>Today</button><button className="work-icon-button" aria-label={`Next ${mode.toLowerCase()}`} onClick={()=>move(1)}><ChevronRight size={17}/></button></div><div className="work-segments">{['Month','Week'].map(value=><button key={value} aria-pressed={mode===value} onClick={()=>setMode(value)}>{value}</button>)}</div></div>
     <div className="work-calendar-weekdays">{['Mon','Tue','Wed','Thu','Fri','Sat','Sun'].map(day=><span key={day}>{day}</span>)}</div>
     <div className={`work-calendar-days ${mode.toLowerCase()}`}>{days.map(day=>{const value=key(day);const events=visible.filter(task=>task.dueDate===value).sort((a,b)=>(a.dueTime || '23:59').localeCompare(b.dueTime || '23:59'));const allDayTasks=tasks.filter(task=>task.dueDate===value && task.status!=='Cancelled');const unavailable=allDayTasks.some(task=>isLate(task));return <button key={value} aria-label={`${dateLabel(value)}: ${events.length} tasks${unavailable?', Needs attention':''}`} aria-pressed={selected===value} className={`${day.getMonth()!==date.getMonth()?'muted':''} ${selected===value?'selected':''} ${value===dateKey()?'today':''} ${unavailable?'unavailable':''}`} onClick={()=>{setSelected(value);setDayModalOpen(true);}}><span className="work-day-number">{day.getDate()}</span>{unavailable && <span className="work-day-unavailable">Needs attention</span>}<span className="work-day-events">{events.slice(0,mode==='Week'?5:2).map(task=><span key={task.id} className={`work-calendar-event ${isLate(task)?'late':task.status==='Completed'?'done':task.status==='In Progress'?'working':''}`}><i/>{task.title}</span>)}{events.length>(mode==='Week'?5:2) && <small>+{events.length-(mode==='Week'?5:2)} more</small>}</span><span className="work-day-mobile-count">{events.length || ''}</span></button>;})}</div>
@@ -80,5 +80,5 @@ export default function StaffSchedule({tasks,shift,openTask,showOwner=false,onVi
     })}{!dayTasks.length && <div className="work-empty"><CalendarDays size={28}/><strong>A clear day</strong><p>No assignments scheduled for this date.</p></div>}</div>
     <footer className="work-day-modal-footer">{onViewTodos && <button type="button" className="staff-btn-primary" onClick={viewTodos}>Open tasks for this date</button>}<button type="button" className="staff-btn-ghost" onClick={()=>setDayModalOpen(false)}>Close</button></footer>
   </section></div>}
-  </div></>;
+  </div>;
 }

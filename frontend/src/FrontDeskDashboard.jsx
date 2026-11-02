@@ -6,7 +6,7 @@ import { CalendarDays, CheckCircle2, ClipboardCheck, CreditCard, LogOut, Pencil,
 import { ConfirmSignOut } from './SystemFeedback';
 import { frontDeskSection } from './portalRouting.mjs';
 import { deskApi, deskSession, refreshDeskSession, signOutDesk } from './frontDeskApi.mjs';
-import { bookingReadiness, deskBookingAction, deskDate, normalizeDeskBooking, peso } from './frontDeskModel.mjs';
+import { bookingReadiness, deskBookingAction, deskDate, matchesVillaFilter, normalizeDeskBooking, peso, VILLA_FILTER_OPTIONS } from './frontDeskModel.mjs';
 import { snapshotRows } from './dashboardSnapshot.mjs';
 import { singleFlightRefresh } from './liveTransport.mjs';
 import { dateKey, isLate, timeLabel } from './taskFlow.mjs';
@@ -130,7 +130,6 @@ export default function FrontDeskDashboard() {
   }, [selectedTask, selectedReceipt]);
 
   const bookings = useMemo(() => rawBookings.map(normalizeDeskBooking), [rawBookings]);
-  const villaNames = [...new Set([...bookings.map(booking => booking.villaName), ...tasks.map(task => task.villaName)].filter(Boolean))].sort((a, b) => a.localeCompare(b, 'en', { numeric: true }));
   const active = bookings.filter(booking => !booking.cancelled && !booking.checkedOut);
   const outstanding = active.filter(booking => !booking.external && booking.balanceAmount > 0 && booking.verified);
   const visible = bookings.filter(booking => {
@@ -141,7 +140,7 @@ export default function FrontDeskDashboard() {
       if (scope === 'arrivals' && (booking.cancelled || booking.checkedOut || booking.checkedIn || (day && booking.checkIn !== day))) return false;
       if (scope === 'inHouse' && !booking.checkedIn) return false;
     }
-    return (!villaFilter || booking.villaName === villaFilter) && (!paymentFilter || booking.paymentStatus === paymentFilter) && (!stayFilter || bookingStay(booking) === stayFilter);
+    return matchesVillaFilter(booking.villaName, villaFilter) && (!paymentFilter || booking.paymentStatus === paymentFilter) && (!stayFilter || bookingStay(booking) === stayFilter);
   });
 
   const go = id => { if (window.matchMedia("(max-width: 980px)").matches) setSidebarCollapsed(true); navigate({ pathname: '/front-desk', search: id === 'bookings' ? '' : `?section=${id}` }); setVillaFilter(''); setPaymentFilter(''); setStayFilter(''); setTaskStatus(''); setTaskType(''); setReceiptMethod(''); setReceiptDate(''); };
@@ -256,7 +255,7 @@ export default function FrontDeskDashboard() {
       filters={<>
         {['bookings', 'walkIns'].includes(section) && <div className="fd-segments" role="group" aria-label="Booking view">{[['arrivals', 'Incoming'], ['inHouse', 'In house'], ['all', 'All bookings']].map(([value, text]) => <button type="button" key={value} aria-pressed={scope === value} onClick={() => setScope(value)}>{text}</button>)}</div>}
         {scope === 'arrivals' && ['bookings', 'walkIns'].includes(section) && <label className="fd-date">Arrival day<input type="date" value={day} onChange={event => setDay(event.target.value)}/><button type="button" onClick={() => setDay(today)}>Today</button></label>}
-        <label>Villa<select value={villaFilter} onChange={event => setVillaFilter(event.target.value)}><option value="">All villas</option>{villaNames.map(name => <option key={name}>{name}</option>)}</select></label>
+        <label>Villa<select value={villaFilter} onChange={event => setVillaFilter(event.target.value)}><option value="">All villas</option>{VILLA_FILTER_OPTIONS.map(name => <option key={name}>{name}</option>)}</select></label>
         <label>Payment<select value={paymentFilter} onChange={event => setPaymentFilter(event.target.value)}><option value="">All payments</option>{['Paid', 'Partially paid', 'Unpaid', 'Handled by Airbnb'].map(value => <option key={value}>{value}</option>)}</select></label>
         <label>Stay status<select value={stayFilter} onChange={event => setStayFilter(event.target.value)}><option value="">All statuses</option>{[...new Set(bookings.map(bookingStay))].sort().map(value => <option key={value}>{value}</option>)}</select></label>
         <button type="button" className="fd-button" onClick={() => { setScope('all'); setDay(''); setVillaFilter(''); setPaymentFilter(''); setStayFilter(''); }}>Reset filters</button>
@@ -287,9 +286,9 @@ export default function FrontDeskDashboard() {
 
   function renderStaff() {
     const scheduled = tasks.filter(task => ['housekeeping-pre-arrival', 'housekeeping-turnover'].includes(task.assignmentType || task.assignment_type) && task.status !== 'Cancelled'
-      && (!monitorDay || task.dueDate === monitorDay) && (!owner || task.assignedStaffId === owner) && (!villaFilter || task.villaName === villaFilter)
+      && (!monitorDay || task.dueDate === monitorDay) && (!owner || task.assignedStaffId === owner) && matchesVillaFilter(task.villaName, villaFilter)
       && (!taskStatus || preparationState(task).label === taskStatus) && (!taskType || (task.assignmentType || task.assignment_type) === taskType));
-    const unassigned = active.filter(booking => !booking.checkedIn && booking.verified && (!monitorDay || booking.checkIn === monitorDay) && (!villaFilter || booking.villaName === villaFilter) && bookingReadiness(booking, tasks).label === 'No preparation assigned');
+    const unassigned = active.filter(booking => !booking.checkedIn && booking.verified && (!monitorDay || booking.checkIn === monitorDay) && matchesVillaFilter(booking.villaName, villaFilter) && bookingReadiness(booking, tasks).label === 'No preparation assigned');
     return <div className="fd-stack">
       {unassigned.length > 0 && <div className="fd-notice warning"><strong>{unassigned.length} arrivals need preparation staff.</strong><span>Ask Admin to review staff assignments for the selected day.</span></div>}
       <FrontDeskTable key="staff" title="Cleaning and room preparation" description={`${monitorDay ? deskDate(monitorDay) : 'All scheduled days'} · Monitoring only. Open Details to view instructions, checklist steps, and handover notes.`}
@@ -299,7 +298,7 @@ export default function FrontDeskDashboard() {
           <label className="fd-date">Preparation day<input type="date" value={monitorDay} onChange={event => setMonitorDay(event.target.value)}/><button type="button" onClick={() => setMonitorDay(today)}>Today</button></label>
           <button type="button" className="fd-button" onClick={() => setMonitorDay('')}>All days</button>
           <label>Staff member<select value={owner} onChange={event => setOwner(event.target.value)}><option value="">All staff</option>{staff.filter(member => tasks.some(task => task.assignedStaffId === member.id)).map(member => <option key={member.id} value={member.id}>{member.name || member.fullName}</option>)}</select></label>
-          <label>Villa<select value={villaFilter} onChange={event => setVillaFilter(event.target.value)}><option value="">All villas</option>{villaNames.map(name => <option key={name}>{name}</option>)}</select></label>
+          <label>Villa<select value={villaFilter} onChange={event => setVillaFilter(event.target.value)}><option value="">All villas</option>{VILLA_FILTER_OPTIONS.map(name => <option key={name}>{name}</option>)}</select></label>
           <label>Status<select value={taskStatus} onChange={event => setTaskStatus(event.target.value)}><option value="">All statuses</option>{['Assigned', 'In progress', 'Overdue', 'Awaiting approval', 'Ready · approved'].map(value => <option key={value}>{value}</option>)}</select></label>
           <label>Work type<select value={taskType} onChange={event => setTaskType(event.target.value)}><option value="">All work</option><option value="housekeeping-pre-arrival">Arrival preparation</option><option value="housekeeping-turnover">Check-out cleaning</option></select></label>
           <button type="button" className="fd-button" onClick={() => { setMonitorDay(''); setOwner(''); setVillaFilter(''); setTaskStatus(''); setTaskType(''); }}>Reset filters</button>

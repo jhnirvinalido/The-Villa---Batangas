@@ -4,7 +4,7 @@
 .staff-alert-bell:hover,.staff-alert-bell[aria-expanded=true] { background:var(--villa-cream,#fbfaf8); box-shadow:0 5px 18px #38271d0d; }
 .staff-alert-bell.has-unread>svg { animation:staffAlertBell 900ms ease both; }
 .staff-alert-count { position:absolute; top:-6px; right:-7px; min-width:21px; height:21px; padding:0 5px; display:grid; place-items:center; border:2px solid white; border-radius:20px; background:#b7524e; color:white; font-size:10px; font-weight:700; }
-.staff-alert-panel { position:absolute; z-index:1500; top:49px; right:0; width:min(410px,calc(100vw - 32px)); background:#fff; border:1px solid var(--villa-border,#e5ded7); border-radius:10px; box-shadow:0 12px 32px #3421171c; overflow:hidden; animation:staffAlertEnter 220ms ease-out; }
+.staff-alert-panel { position:fixed; z-index:3000; top:12px; right:12px; width:min(410px,calc(100vw - 24px)); max-height:calc(100dvh - 24px); background:#fff; border:1px solid var(--villa-border,#e5ded7); border-radius:10px; box-shadow:0 12px 32px #3421171c; overflow:hidden; animation:staffAlertEnter 220ms ease-out; }
 .staff-alert-panel header { display:flex; justify-content:space-between; align-items:center; gap:16px; padding:20px; }
 .staff-alert-panel h2 { margin:0; font-size:19px; color:var(--villa-text,#292522); }
 .staff-alert-panel header p { margin:6px 0 0; font-size:12px; color:var(--villa-text-muted,#756e68); }
@@ -43,7 +43,7 @@
 @keyframes staffAlertBell { 20%,60% { transform:rotate(12deg); } 40%,80% { transform:rotate(-12deg); } }
 @keyframes staffAlertSpin { to { transform:rotate(360deg); } }
 @media(max-width:680px) { .staff-dashboard-shell .staff-workspace-heading {margin-bottom:14px;padding:11px 0;gap:12px;} }
-@media(max-width:600px) { .staff-alert-popups { right:16px; bottom:16px; } .staff-alert-panel { position:fixed; top:100px; right:16px; } .staff-alert-popups .staff-alert-popup:nth-child(n+2) { display:none; } }
+@media(max-width:600px) { .staff-alert-popups { right:16px; bottom:16px; } .staff-alert-popups .staff-alert-popup:nth-child(n+2) { display:none; } }
 @media(prefers-reduced-motion:reduce) { .staff-alert-panel,.staff-alert-popup,.staff-alert-bell.has-unread>svg,.staff-alert-spin { animation:none; } .staff-alert-bell { transition:none; } }
 .staff-alert-browser { display:flex; flex-wrap:wrap; justify-content:space-between; align-items:center; gap:12px; padding:15px 20px; border-top:1px solid #e5ded7; background:#fbfaf8; }
 .staff-alert-browser>div { flex:1; min-width:180px; }

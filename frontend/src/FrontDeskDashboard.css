@@ -110,6 +110,7 @@
 .fd-payment-summary { display:grid; gap:6px; padding:16px; border-radius:11px; background:#f7f4ee; font-size:13px; }
 .fd-payment-summary>span { color:var(--fd-muted); font-size:11px; }
 .fd-payment-summary>div { display:flex; justify-content:space-between; gap:16px; margin-top:10px; padding-top:12px; border-top:1px solid var(--fd-border); }
+.fd-charge-help { color:var(--fd-muted); font-size:11px; line-height:1.55; }
 .fd-charge { display:flex; align-items:center; gap:12px; font-size:12px; }
 .fd-charge strong { margin-left:auto; }
 .fd-charge-fields { display:grid; grid-template-columns:minmax(0,1fr) 100px auto; gap:8px; }

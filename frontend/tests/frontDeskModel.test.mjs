@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { bookingReadiness, deskBookingAction, minimumVillaCount, normalizeDeskBooking } from '../src/frontDeskModel.mjs';
+import { bookingReadiness, deskBookingAction, matchesVillaFilter, minimumVillaCount, normalizeDeskBooking, VILLA_FILTER_OPTIONS } from '../src/frontDeskModel.mjs';
 
 const day = '2026-11-01';
 const raw = { id: 'booking-1', booking_status: 'Confirmed', stay_status: 'Not Checked In', check_in_date: day, check_out_date: '2026-11-02', total_amount: '5000.00', amount_paid: '2500.00', balance_amount: '2500.00', payment_choice: 'half' };
@@ -42,4 +42,12 @@ test('villa selection uses available capacity and rejects groups without enough 
   assert.equal(minimumVillaCount(4, villas), 1);
   assert.equal(minimumVillaCount(6, villas), 2);
   assert.equal(minimumVillaCount(8, villas), Infinity);
+});
+
+test('villa filters stay limited to Villas 1-3 and match combined villa names exactly', () => {
+  assert.deepEqual(VILLA_FILTER_OPTIONS, ['Villa 1', 'Villa 2', 'Villa 3']);
+  assert.equal(matchesVillaFilter('Villa 2, Villa 1, Villa 3, Villa 4', 'Villa 1'), true);
+  assert.equal(matchesVillaFilter('Villa 10, Villa 2', 'Villa 1'), false);
+  assert.equal(matchesVillaFilter('Villa 4', 'Villa 3'), false);
+  assert.equal(matchesVillaFilter('Villa 4', ''), true);
 });
