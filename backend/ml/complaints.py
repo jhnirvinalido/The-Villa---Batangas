@@ -9,6 +9,21 @@ from feedback_policy import analysis_input
 from .preprocessing import VERSION, normalize, phrases
 
 VOCABULARY = json.loads((Path(__file__).parent / 'categories.json').read_text())
+POLARITY_CUES = {
+    'positive': re.compile(
+        r'\b(?:clean|spotless|good|great|excellent|friendly|helpful|comfortable|'
+        r'beautiful|wonderful|enjoyed|recommend|malinis|mabait)\b'
+    ),
+    'negative': re.compile(
+        r'\b(?:dirty|filthy|unclean|bad|poor|rude|unfriendly|unhelpful|'
+        r'uncomfortable|disappointing|broken|weak|slow|smelly|'
+        r'madumi|marumi|pangit|mabaho)\b'
+    ),
+}
+NEGATION = re.compile(
+    r'\b(?:not\b(?!\s+only\b)|never\b|no\b|hindi\b|di\b)'
+    r'(?:\s+\w+){0,2}\s*$'
+)
 
 
 def categories(text):
@@ -21,6 +36,23 @@ def categories(text):
     return result
 
 
+def lexical_sentiment(text):
+    normalized = normalize(text)
+    counts = {'positive': 0, 'negative': 0}
+    for sentiment, cue_pattern in POLARITY_CUES.items():
+        for match in cue_pattern.finditer(normalized):
+            preceding_text = normalized[:match.start()]
+            if NEGATION.search(preceding_text):
+                counts['negative' if sentiment == 'positive' else 'positive'] += 1
+            else:
+                counts[sentiment] += 1
+    if counts['positive'] and not counts['negative']:
+        return 'positive'
+    if counts['negative'] and not counts['positive']:
+        return 'negative'
+    return None
+
+
 def analyze_review(row, model=None):
     if model is None:
         from .inference import load_model
@@ -29,8 +61,11 @@ def analyze_review(row, model=None):
     result = []
     for clause in phrases(safe['text']):
         prediction = model.predict_one(clause['normalized'])
+        sentiment = lexical_sentiment(clause['normalized'])
         result.append({**clause, 'categories': categories(clause['normalized']),
-                       'sentiment': prediction['label'] if prediction['known_feature_occurrences'] else None})
+                       'sentiment': sentiment or (
+                           prediction['label'] if prediction['known_feature_occurrences'] else None
+                       )})
     return result
 
 

@@ -16,6 +16,7 @@ export const setChecklistItemDone = (checklist, itemId, done) =>
   (checklist || []).map(item => item.id === itemId ? { ...item, done } : item);
 export const setChecklistDone = (checklist, done) =>
   (checklist || []).map(item => ({ ...item, done }));
+export const readyForCompletion = (task) => ['In Progress', 'Pending Review'].includes(task.status) && checklistCount(task).total > 0 && checklistCount(task).done === checklistCount(task).total;
 export const readyForReview = (task) => task.status === 'In Progress' && checklistCount(task).total > 0 && checklistCount(task).done === checklistCount(task).total;
 export function orderTasks(tasks, now = Date.now()) {
   const rank = task => isLate(task, now) ? 0 : task.status === 'In Progress' ? 1 : task.status === 'Pending' ? 2 : task.status === 'Pending Review' ? 3 : 4;
@@ -39,6 +40,7 @@ export function matchesFocus(task, focus, now = Date.now()) {
   switch (focus) {
     case 'To do': return task.status === 'Pending';
     case 'In progress': return task.status === 'In Progress';
+    case 'Completed': return task.status === 'Completed';
     case 'Due today': return task.dueDate === dateKey(new Date(now));
     case 'Overdue': return isLate(task, now);
     case 'Needs correction': return !!returnedFeedback(task);

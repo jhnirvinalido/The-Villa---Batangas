@@ -145,18 +145,37 @@ class FeedbackAPITests(unittest.TestCase):
         self.assertTrue(update['approved_at'])
         self.assertTrue(all(call.args[0]=='feedback_recommendation_reports' for call in self.db.table.call_args_list))
 
-    def test_recommendation_generation_saves_draft_and_returns_it(self):
+    def test_recommendation_generation_queues_an_idempotent_evidence_job(self):
         main.app.dependency_overrides[admin.require_admin]=lambda:{'account':{'id':'admin-test'}}
-        draft={'actions':[{'category':'Pool cleanliness','action':'Inspect the pool.'}],'model':'test-model'}
-        analysis={'summary':{'fingerprint':'snapshot'},'model':{'version':'test-version'}}
-        self.db.table.return_value.insert.return_value.execute.return_value=SimpleNamespace(data=[{'id':self.booking_id,'status':'draft','recommendation':draft}])
-        with patch.object(admin,'service_client',return_value=self.db),patch('feedback_analysis.build_report',return_value=analysis),patch('ml.recommendations.generate',return_value=draft):
+        queued={'id':self.booking_id,'status':'queued','attempts':0,'max_attempts':3,
+                'next_attempt_at':None,'last_error':None,'report_id':None}
+        analysis={'summary':{'fingerprint':'snapshot','top_complaints':[{'category':'Pool cleanliness'}]},'model':{'version':'test-version'}}
+        self.db.table.return_value.select.return_value.limit.return_value.execute.return_value=SimpleNamespace(data=[])
+        self.db.table.return_value.select.return_value.eq.return_value.order.return_value.limit.return_value.execute.return_value=SimpleNamespace(data=[])
+        self.db.rpc.return_value.execute.return_value=SimpleNamespace(data=queued)
+        with patch.dict(os.environ,{'GEMINI_API_KEY':'test-key','GEMINI_MODEL':'test-model'}), \
+             patch.object(admin,'service_client',return_value=self.db), \
+             patch('feedback_analysis.build_report',return_value=analysis):
             response=self.client.post('/admin/guest-feedback/recommendations',json={'source':'all','villa':'','rating':None,'start':None,'end':None})
+            duplicate=self.client.post('/admin/guest-feedback/recommendations',json={'source':'all','villa':'','rating':None,'start':None,'end':None})
         self.assertEqual(response.status_code,200)
-        self.assertEqual(response.json()['data']['recommendation'],draft)
-        saved=self.db.table.return_value.insert.call_args.args[0]
-        self.assertEqual(saved['created_by_staff_id'],'admin-test')
-        self.assertEqual(saved['evidence_fingerprint'],'snapshot')
+        self.assertEqual(response.json()['data'],queued)
+        self.assertEqual(duplicate.status_code,200)
+        self.assertEqual(duplicate.json()['data'],queued)
+        self.assertEqual(self.db.rpc.call_count,2)
+        for request in self.db.rpc.call_args_list:
+            self.assertEqual(request.args[0],'enqueue_feedback_recommendation_job')
+            self.assertEqual(request.args[1]['p_job']['evidence_fingerprint'],'snapshot')
+
+    def test_recommendations_without_negative_evidence_are_not_queued(self):
+        main.app.dependency_overrides[admin.require_admin]=lambda:{'account':{'id':'admin-test'}}
+        self.db.table.return_value.select.return_value.limit.return_value.execute.return_value=SimpleNamespace(data=[])
+        analysis={'summary':{'fingerprint':'snapshot','top_complaints':[]},'model':{'version':'test-version'}}
+        with patch.object(admin,'service_client',return_value=self.db), \
+             patch('feedback_analysis.build_report',return_value=analysis):
+            response=self.client.post('/admin/guest-feedback/recommendations',json={})
+        self.assertEqual(response.status_code,422)
+        self.db.rpc.assert_not_called()
 
     def test_candidate_feedback_to_gemini_draft_requires_admin_approval(self):
         main.app.dependency_overrides[admin.require_admin]=lambda:{'account':{'id':'admin-test'}}
@@ -186,11 +205,29 @@ class FeedbackAPITests(unittest.TestCase):
                 'rationale':'A guest reported unstable Wi-Fi; verify the connection before choosing a service change.',
             }]})
         }]}}]}
-        self.db.rpc.return_value.execute.return_value=SimpleNamespace(
-            data={'submitted':True,'duplicate':False})
+        saved_job={}
+        saved_report={}
+        def rpc_call(name, params):
+            if name == 'submit_verified_guest_feedback':
+                data={'submitted':True,'duplicate':False}
+            elif name == 'enqueue_feedback_recommendation_job':
+                saved_job.update(params['p_job'])
+                data={'id':self.booking_id,'status':'queued','attempts':0,'max_attempts':3,**saved_job}
+            elif name == 'claim_feedback_recommendation_job':
+                data={'id':self.booking_id,'claim_id':'claim-1','attempts':1,'max_attempts':3,**saved_job}
+            elif name == 'persist_feedback_recommendation_report':
+                saved_report.update({'id':self.booking_id,**params['p_report']})
+                data={'created':True,'report':saved_report}
+            elif name == 'finish_feedback_recommendation_job':
+                data=True
+            else:
+                raise AssertionError(f'Unexpected database RPC: {name}')
+            return SimpleNamespace(execute=lambda:SimpleNamespace(data=data))
+        self.db.rpc.side_effect=rpc_call
         self.db.table.return_value.select.return_value.eq.return_value.limit.return_value.execute.side_effect=[
             SimpleNamespace(data=[submitted_record]),SimpleNamespace(data=[stored])]
         self.db.table.return_value.select.return_value.limit.return_value.execute.return_value=SimpleNamespace(data=[])
+        self.db.table.return_value.select.return_value.eq.return_value.order.return_value.limit.return_value.execute.return_value=SimpleNamespace(data=[])
         self.db.table.return_value.insert.return_value.execute.return_value=SimpleNamespace(data=[stored])
         self.db.table.return_value.update.return_value.eq.return_value.eq.return_value.execute.return_value=SimpleNamespace(data=[{**stored,'status':'approved'}])
         self.db.table.return_value.update.return_value.eq.return_value.execute.return_value=SimpleNamespace(data=[submitted_record])
@@ -211,6 +248,8 @@ class FeedbackAPITests(unittest.TestCase):
             self.assertTrue(submission.json()['submitted'])
             submitted_analysis=self.db.table.return_value.update.call_args_list[0].args[0]
             self.assertEqual(submitted_analysis['sentiment_label'],'negative')
+            self.db.table.return_value.select.return_value.eq.return_value.limit.return_value.execute.side_effect=None
+            self.db.table.return_value.select.return_value.eq.return_value.limit.return_value.execute.return_value=SimpleNamespace(data=[])
 
             analysis=build_report(self.db,filters)
             self.assertEqual(analysis['summary']['phrase_sentiments'],
@@ -228,8 +267,10 @@ class FeedbackAPITests(unittest.TestCase):
             }
             generated=self.client.post('/admin/guest-feedback/recommendations',json={})
             self.assertEqual(generated.status_code,200)
-            self.assertEqual(generated.json()['data']['status'],'draft')
-            recommendation=generated.json()['data']['recommendation']
+            self.assertEqual(generated.json()['data']['status'],'queued')
+            from feedback_recommendations import process_recommendation_job
+            self.assertTrue(process_recommendation_job(self.db))
+            recommendation=saved_report['recommendation']
             self.assertTrue(recommendation['requires_admin_approval'])
             self.assertEqual(recommendation['actions'][0]['negative_review_count'],1)
             request_payload=gemini.call_args.kwargs['json']
@@ -238,6 +279,8 @@ class FeedbackAPITests(unittest.TestCase):
                 self.assertNotIn(private_value,serialized_payload)
             self.assertNotIn('EX-3D1FFDEE0B00',serialized_payload)
 
+            self.db.table.return_value.select.return_value.eq.return_value.limit.return_value.execute.side_effect=None
+            self.db.table.return_value.select.return_value.eq.return_value.limit.return_value.execute.return_value=SimpleNamespace(data=[saved_report])
             approved=self.client.post(
                 f'/admin/guest-feedback/recommendations/{self.booking_id}/approve')
         self.assertEqual(approved.status_code,200)
@@ -246,7 +289,7 @@ class FeedbackAPITests(unittest.TestCase):
         self.assertEqual(update['approved_by_staff_id'],'admin-test')
         self.assertTrue(update['approved_at'])
         tables={call.args[0] for call in self.db.table.call_args_list}
-        self.assertEqual(tables,{'guest_feedback','feedback_recommendation_reports'})
+        self.assertEqual(tables,{'guest_feedback','feedback_recommendation_reports','feedback_recommendation_jobs'})
 
     def test_public_written_reviews_need_no_login_and_exclude_sensitive_fields(self):
         record={'id':'review','overall_rating':2,'comments':'Maria Cruz reported a problem with the pool.',

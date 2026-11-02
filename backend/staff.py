@@ -57,7 +57,7 @@ STAFF_SETTINGS_SELECT = (
 
 class StaffTaskUpdateRequest(ApiModel):
     expected_updated_at: str | None = Field(default=None, alias="expectedUpdatedAt")
-    status: Literal["Pending", "In Progress", "Pending Review"] | None = None
+    status: Literal["Pending", "In Progress", "Pending Review", "Completed"] | None = None
     progress: int | None = Field(default=None, ge=0, le=100)
     checklist: list[dict[str, Any]] | None = None
     notes: str | None = Field(default=None, max_length=5000)
@@ -1069,10 +1069,10 @@ def staff_update_task(
             status_code=409,
             detail="A completed or cancelled task can no longer be changed.",
         )
-    if current.get("status") == "Pending Review":
+    if current.get("status") == "Pending Review" and current.get("source") == "manual-maintenance-request":
         raise HTTPException(
             status_code=409,
-            detail="This task is waiting for administrator review.",
+            detail="This repair is waiting for administrator verification.",
         )
 
     if data.expected_updated_at and data.expected_updated_at != str(current.get("updated_at") or ""):
@@ -1105,10 +1105,19 @@ def staff_update_task(
             raise HTTPException(status_code=422, detail="Describe the parts or supplies being awaited.")
 
     next_status = data.status or current.get("status")
-    allowed = {
-        "Pending": {"Pending", "In Progress"},
-        "In Progress": {"In Progress", "Pending Review"},
-    }
+    is_maintenance_task = current.get("source") == "manual-maintenance-request"
+    allowed = (
+        {
+            "Pending": {"Pending", "In Progress"},
+            "In Progress": {"In Progress", "Pending Review"},
+        }
+        if is_maintenance_task
+        else {
+            "Pending": {"Pending", "In Progress"},
+            "In Progress": {"In Progress", "Completed"},
+            "Pending Review": {"Pending Review", "Completed"},
+        }
+    )
     if next_status not in allowed.get(
         str(current.get("status")),
         {str(current.get("status"))},
@@ -1136,7 +1145,7 @@ def staff_update_task(
         updates["started_at"] = now_iso()
 
     if next_status == "Pending Review":
-        if current.get("source") == "manual-maintenance-request":
+        if is_maintenance_task:
             from maintenance import details
             if (maintenance_snapshot or details(current)).get("waitingForParts") or len(str(updates.get("notes", current.get("notes")) or "").strip()) < 5:
                 raise HTTPException(status_code=409, detail="Clear waiting for parts and record the repair performed before requesting verification.")
@@ -1148,6 +1157,18 @@ def staff_update_task(
             )
         updates["progress"] = 100
         updates["submitted_at"] = now_iso()
+
+    if next_status == "Completed" and current.get("status") != "Completed":
+        if is_maintenance_task:
+            raise HTTPException(status_code=409, detail="Maintenance work must be submitted for administrator verification.")
+        checklist = updates.get("checklist", current.get("checklist") or [])
+        if not checklist or not all(bool(item.get("done")) for item in checklist):
+            raise HTTPException(
+                status_code=409,
+                detail="Complete every checklist item before marking this assignment complete.",
+            )
+        updates["progress"] = 100
+        updates["submitted_at"] = None
 
     status_changed = next_status != current.get("status")
     updates["status"] = next_status
@@ -1202,14 +1223,18 @@ def staff_update_task(
         )
 
     if status_changed:
-        title = (
-            "Assignment Submitted for Review"
-            if next_status == "Pending Review"
-            else "Assignment Started"
-        )
+        title = {
+            "Pending Review": "Repair Submitted for Verification",
+            "Completed": "Assignment Completed",
+            "In Progress": "Assignment Started",
+        }.get(next_status, "Assignment Updated")
         notify_admins(
             title,
-            f"{context['account']['full_name']} changed “{current['title']}” to {next_status}.",
+            (
+                f"{context['account']['full_name']} completed “{current['title']}”."
+                if next_status == "Completed"
+                else f"{context['account']['full_name']} changed “{current['title']}” to {next_status}."
+            ),
             notification_type="staff-task-update",
             icon="task",
             task_id=str(task_id),

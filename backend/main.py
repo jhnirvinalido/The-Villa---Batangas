@@ -5179,6 +5179,41 @@ async def stop_feedback_analysis_worker():
         _feedback_analysis_task = None
 
 
+_feedback_recommendation_task = None
+
+async def feedback_recommendation_worker():
+    from feedback_recommendations import process_recommendation_job
+    while True:
+        try:
+            processed = await asyncio.to_thread(process_recommendation_job)
+            if processed:
+                continue
+        except asyncio.CancelledError:
+            raise
+        except Exception:
+            logging.getLogger("thevilla.feedback.recommendations").warning(
+                "Recommendation worker could not process a job. Check database and provider status."
+            )
+        await asyncio.sleep(5)
+
+@app.on_event("startup")
+async def start_feedback_recommendation_worker():
+    global _feedback_recommendation_task
+    if os.getenv("FEEDBACK_RECOMMENDATION_WORKER_ENABLED", "true").lower() in {"true", "1", "yes"}:
+        _feedback_recommendation_task = asyncio.create_task(feedback_recommendation_worker())
+
+@app.on_event("shutdown")
+async def stop_feedback_recommendation_worker():
+    global _feedback_recommendation_task
+    if _feedback_recommendation_task:
+        _feedback_recommendation_task.cancel()
+        try:
+            await _feedback_recommendation_task
+        except asyncio.CancelledError:
+            pass
+        _feedback_recommendation_task = None
+
+
 _feedback_worker_task = None
 
 async def feedback_invitation_worker():

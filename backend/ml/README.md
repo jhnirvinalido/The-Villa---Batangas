@@ -1,7 +1,8 @@
 # The Villa feedback analysis
 
 The deployed flow is completed + fully paid stay → secure email link → star
-rating + written feedback → conservative NLP → clause-level Naive Bayes →
+rating + written feedback → conservative NLP → clause-level Naive Bayes with
+high-confidence polarity cues →
 vocabulary-based complaint categorization → distinct-review frequencies →
 Gemini recommendation draft → administrator approval. Star ratings remain a
 separate business statistic; they are never sentiment labels or inference input.
@@ -124,6 +125,10 @@ poool→pool, mahinaa→mahina, slooow→slow, gud→good), case/Unicode normali
 and conservative clause splitting. It preserves negation and meaningful Tagalog;
 there is no blind spellchecker or promised translation. Original comments stay
 unchanged. Inspect per-phrase original/normalized text in the admin dashboard.
+The clause analyzer uses a versioned, high-confidence polarity lexicon to correct
+clear cues such as “clean” and “dirty” when the pilot model disagrees; ambiguous
+or mixed-polarity clauses remain with the model. This is a targeted correction,
+not a claim that the pilot classifier is generally accurate.
 
 Each category is counted once per distinct review if at least one matched clause
 is predicted negative. Positive staff comments do not automatically count as
@@ -139,6 +144,7 @@ Apply migrations in order (earlier booking/feedback migrations first):
 2. `20261021_import_historical_guest_feedback.sql`
 3. `20261021_feedback_text_sentiment.sql`
 4. `20261021_feedback_analysis_pipeline.sql`
+5. `20261102_feedback_recommendation_jobs.sql` (after the existing `feedback_recommendation_reports` table exists)
 
 These have not been applied to your live database by this change. The final
 migration adds stored phrase analysis and private recommendation reports. Original
@@ -184,26 +190,38 @@ Gemini tests use mocks; no live Gemini call was made (keys are not configured).
 Actual training and grouped evaluation use the local phrase CSV. Category
 smoke evaluation does not substitute for a client-reviewed benchmark.
 
-## Automatic sentiment analysis and manual recommendations
+## Automatic sentiment analysis and queued recommendations
 
-The backend worker checks feedback every 60 seconds and persists sentiment
+The backend sentiment worker checks feedback every 60 seconds and persists
 analysis when feedback text, model version, or preprocessing version changes.
-It does not call Gemini or create recommendation drafts. The worker can be
-disabled in test environments with `FEEDBACK_ANALYSIS_WORKER_ENABLED=false`.
-The empty automatic-recommendation migration is not needed for this workflow.
-The existing feedback analysis schema, including
-`feedback_recommendation_reports`, must still be present for saving and viewing
-manual recommendation drafts.
+The separate recommendation worker claims queued jobs using a database
+`FOR UPDATE SKIP LOCKED` lease, so multiple API processes cannot claim the same
+job simultaneously. Jobs are unique per evidence/model fingerprint; report
+persistence takes a transaction advisory lock and reuses an existing report.
+Apply `migrations/20261102_feedback_recommendation_jobs.sql` after the existing
+feedback analysis schema. The migration adds a unique active-report index and
+stops without changing data if duplicate active fingerprints already exist;
+review those rows before retrying it. The recommendation worker can be disabled with
+`FEEDBACK_RECOMMENDATION_WORKER_ENABLED=false`; do so only when an external
+worker runs `feedback_recommendations.process_recommendation_job`.
 
 In Admin → Guest Feedback, an administrator clicks **Generate recommendations**
-to request a Gemini draft from the current negative categorized evidence. The
-button appears only when Gemini is configured, recommendation storage is
-available, and complaint evidence exists. Drafts are stored with evidence/model
-fingerprints. Administrator approval records the actor and time; approval does
-not create tasks or perform maintenance. Generating recommendations is an
-external Gemini request and may consume quota. Unchanged evidence already has
-its saved draft; new feedback changes the evidence snapshot and enables a new
-generation request.
+to queue a Gemini draft from current negative categorized evidence. The button
+appears only when Gemini is configured, recommendation storage is available,
+and complaint evidence exists. The panel reports queued, processing, retry,
+failed, and completed states. Transient errors receive at most three attempts
+with 30- and 60-second backoff. Invalid provider output is marked failed
+without retry. Admin approval records the actor and time and never creates
+tasks or performs maintenance.
+
+The worker is at-least-once with respect to the external Gemini request: if a
+process loses its lease after Gemini responds but before saving the report, a
+retry can make another provider request and may incur another charge. Database
+claims and idempotent report persistence prevent duplicate active reports, but
+cannot promise exactly-once provider billing. Expired claims recover
+automatically; jobs that exhaust attempts stay failed and can be requeued by
+an administrator. Unchanged evidence reuses its existing job/report; changed
+feedback or model version creates a distinct fingerprint.
 
 ## Exact historical dates
 

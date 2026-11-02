@@ -3,6 +3,7 @@ import math
 import sys
 import tempfile
 import unittest
+from types import SimpleNamespace
 from unittest.mock import MagicMock,patch
 from pathlib import Path
 sys.path.insert(0,str(Path(__file__).parents[1]))
@@ -124,6 +125,31 @@ class PilotModelTests(unittest.TestCase):
                             for result in (negative,positive,neutral,ambiguous,empty)))
         self.assertEqual(empty['known_feature_occurrences'],0)
         self.assertIsNone(empty['label'])
+
+    def test_it_26_neutral_factual_review_persists_candidate_prediction(self):
+        from ml.inference import save_pilot_prediction
+        from feedback_policy import admin_feedback_projection
+        candidate=Path(__file__).parents[1]/'ml'/'candidates'/'20261031_human_approved_232'/'sentiment_model.json'
+        client=MagicMock()
+        client.table.return_value.update.return_value.eq.return_value.execute.return_value=SimpleNamespace(
+            data=[{'id':'it-26'}])
+        row={'id':'it-26','comments':'We stayed at Villa 1 for one night.'}
+        with patch.dict('os.environ',{'FEEDBACK_MODEL_PATH':str(candidate)}):
+            prediction=predict_feedback(row)
+            saved=save_pilot_prediction(client,row)
+        self.assertEqual(prediction['label'],'neutral')
+        self.assertEqual(prediction['model_version'],'pilot-phrase-tfidf-nb-fc77f3514af3')
+        self.assertTrue(saved)
+        persisted=client.table.return_value.update.call_args.args[0]
+        self.assertEqual(persisted['sentiment_label'],'neutral')
+        self.assertEqual(persisted['sentiment_model_version'],prediction['model_version'])
+        self.assertEqual(persisted['phrase_analysis'][0]['sentiment'],'neutral')
+        dashboard_row=admin_feedback_projection({
+            **row,'sentiment_label':persisted['sentiment_label'],
+            'sentiment_model_version':persisted['sentiment_model_version'],
+        })
+        self.assertEqual(dashboard_row['sentiment_label'],'neutral')
+        self.assertEqual(dashboard_row['sentiment_model_version'],prediction['model_version'])
     def test_storage_failure_does_not_claim_analysis_succeeded(self):
         from ml.inference import save_pilot_prediction
         client=MagicMock();client.table.return_value.update.return_value.eq.return_value.execute.side_effect=RuntimeError('Schema unavailable')

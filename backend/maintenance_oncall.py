@@ -393,23 +393,6 @@ def notify_admins(client, row, kind, message):
         emit_table('admin_notifications', {'recipient_staff_account_id': recipient['id']})
 
 
-def notify_maintenance_team(client, row):
-    snapshot = domain.details(row)
-    suggested = parse(snapshot.get('suggestedArrival'))
-    when = suggested.astimezone(ZoneInfo('Asia/Manila')).strftime('%b %d at %I:%M %p') if suggested else 'a date before the next guest check-in'
-    recipients = rows(client.table('staff_accounts').select('id').in_('role', ['staff', 'maintenance'])
-                      .eq('department', 'Maintenance').eq('is_active', True)
-                      .eq('account_status', 'Active').execute())
-    for recipient in recipients:
-        client.table('admin_notifications').upsert({
-            'id': str(uuid5(NAMESPACE_URL, f"maintenance-broadcast:{row['id']}:{recipient['id']}")),
-            'recipient_staff_account_id': recipient['id'], 'title': 'New maintenance request',
-            'message': f"{row['task_code']}: {row['title']} at {row.get('villa_name') or 'the property'}. Suggested availability: {when}.",
-            'type': 'assignment', 'icon': 'task', 'task_id': row['id'], 'is_read': False,
-        }, on_conflict='id', ignore_duplicates=True).execute()
-        emit_table('admin_notifications', {'recipient_staff_account_id': recipient['id']})
-
-
 def send_notice(row, staff):
     """Return acknowledgement, never presumed delivery/acceptance by a technician."""
     problem = link_configuration_error()

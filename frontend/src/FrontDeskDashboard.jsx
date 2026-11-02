@@ -31,9 +31,9 @@ const bookingStay = booking => booking.checkedOut ? 'Checked out' : booking.chec
 const workLabel = task => (task.assignmentType || task.assignment_type) === 'housekeeping-turnover' ? 'Check-out cleaning' : 'Arrival preparation';
 const processedDay = value => value && Number.isFinite(new Date(value).getTime()) ? dateKey(new Date(value)) : '';
 function preparationState(task) {
-  if (task.status === 'Completed') return { label: 'Ready · approved', tone: 'success' };
+  if (task.status === 'Completed') return { label: 'Assignment complete', tone: 'success' };
   if (isLate(task)) return { label: 'Overdue', tone: 'danger' };
-  return { label: task.status === 'Pending Review' ? 'Awaiting approval' : task.status === 'Pending' ? 'Assigned' : task.status === 'In Progress' ? 'In progress' : task.status, tone: 'warning' };
+  return { label: task.status === 'Pending Review' ? 'Ready to complete' : task.status === 'Pending' ? 'Assigned' : task.status === 'In Progress' ? 'In progress' : task.status, tone: 'warning' };
 }
 
 
@@ -299,7 +299,7 @@ export default function FrontDeskDashboard() {
           <button type="button" className="fd-button" onClick={() => setMonitorDay('')}>All days</button>
           <label>Staff member<select value={owner} onChange={event => setOwner(event.target.value)}><option value="">All staff</option>{staff.filter(member => tasks.some(task => task.assignedStaffId === member.id)).map(member => <option key={member.id} value={member.id}>{member.name || member.fullName}</option>)}</select></label>
           <label>Villa<select value={villaFilter} onChange={event => setVillaFilter(event.target.value)}><option value="">All villas</option>{VILLA_FILTER_OPTIONS.map(name => <option key={name}>{name}</option>)}</select></label>
-          <label>Status<select value={taskStatus} onChange={event => setTaskStatus(event.target.value)}><option value="">All statuses</option>{['Assigned', 'In progress', 'Overdue', 'Awaiting approval', 'Ready · approved'].map(value => <option key={value}>{value}</option>)}</select></label>
+          <label>Status<select value={taskStatus} onChange={event => setTaskStatus(event.target.value)}><option value="">All statuses</option>{['Assigned', 'In progress', 'Overdue', 'Ready to complete', 'Assignment complete'].map(value => <option key={value}>{value}</option>)}</select></label>
           <label>Work type<select value={taskType} onChange={event => setTaskType(event.target.value)}><option value="">All work</option><option value="housekeeping-pre-arrival">Arrival preparation</option><option value="housekeeping-turnover">Check-out cleaning</option></select></label>
           <button type="button" className="fd-button" onClick={() => { setMonitorDay(''); setOwner(''); setVillaFilter(''); setTaskStatus(''); setTaskType(''); }}>Reset filters</button>
         </>}

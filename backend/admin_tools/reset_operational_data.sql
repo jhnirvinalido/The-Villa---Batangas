@@ -39,7 +39,7 @@ declare
     'public_booking_checkouts','manual_booking_checkouts',
     'staff_accounts','staff_settings','admin_settings','profiles','villa_catalog',
     'guest_feedback','companion_feedback','companion_feedback_invitations',
-    'feedback_recommendation_reports','feedback_analysis_jobs'
+    'feedback_recommendation_reports','feedback_recommendation_jobs','feedback_analysis_jobs'
   ];
 begin
   if not exists(select 1 from public.staff_accounts where lower(role::text)='admin') then

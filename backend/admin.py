@@ -23,6 +23,7 @@ from person_names import validate_person_name
 from villa_catalog import DEFAULT_VILLA_CATALOG, get_villa_catalog_map
 from staff_admin_auth import validate_portal_access_token
 from feedback_analysis import AnalysisFilters
+from booking_assignments import find_schedule_conflict, load_active_staff_tasks, task_window
 
 import requests
 
@@ -2171,7 +2172,7 @@ def update_task(
     if current.get("source") == "manual-maintenance-request":
         raise HTTPException(status_code=409, detail="Open Villas & Pricing to update or verify this villa operation.")
     if current.get("status") == "Completed":
-        raise HTTPException(status_code=409, detail="An approved assignment cannot be edited.")
+        raise HTTPException(status_code=409, detail="A completed assignment cannot be edited.")
     supplied = model_values(data)
 
     if not supplied:
@@ -2217,13 +2218,50 @@ def update_task(
     if data.notes is not None:
         updates["notes"] = data.notes
 
+    schedule_changed = (
+        str(current.get("assigned_staff_id")) != str(staff.get("id"))
+        or ("due_date" in updates and str(updates["due_date"]) != str(current.get("due_date")))
+        or ("due_time" in updates and str(updates["due_time"]) != str(current.get("due_time")))
+    )
+    effective_status = data.status or current.get("status")
+    reactivated = (
+        effective_status in {"Pending", "In Progress", "Pending Review"}
+        and current.get("status") not in {"Pending", "In Progress", "Pending Review"}
+    )
+    candidate = {
+        **current,
+        **updates,
+        "assigned_staff_id": str(staff["id"]),
+    }
+    if (schedule_changed or reactivated) and effective_status in {"Pending", "In Progress", "Pending Review"}:
+        if not task_window(candidate):
+            raise HTTPException(
+                status_code=409,
+                detail="Set a valid due date and time before assigning or rescheduling this work.",
+            )
+        active_tasks = load_active_staff_tasks(client, [staff["id"]])
+        conflict = find_schedule_conflict(candidate, active_tasks, exclude_task_id=str(task_id))
+        if conflict:
+            if task_window(conflict) is None:
+                detail = (
+                    f"{staff.get('full_name') or 'The selected staff member'} has an active assignment "
+                    "without a confirmed schedule. Schedule that assignment first or choose another staff member."
+                )
+            else:
+                detail = (
+                    f"{staff.get('full_name') or 'The selected staff member'} already has overlapping work "
+                    f"for “{conflict.get('title') or 'another assignment'}” on "
+                    f"{conflict.get('due_date')} at {conflict.get('due_time')}. Choose another time or staff member."
+                )
+            raise HTTPException(status_code=409, detail=detail)
+
     status_changed = data.status is not None and data.status != current.get("status")
     if data.status is not None:
         current_status = str(current.get("status") or "Pending")
         allowed_transitions = {
             "Pending": {"Pending", "In Progress", "Cancelled"},
-            "In Progress": {"In Progress", "Pending Review", "Completed", "Cancelled"},
-            "Pending Review": {"Pending Review", "In Progress", "Completed", "Cancelled"},
+            "In Progress": {"In Progress", "Cancelled"},
+            "Pending Review": {"Pending Review", "In Progress", "Cancelled"},
             "Completed": {"Completed"},
             "Cancelled": {"Cancelled", "Pending"},
         }
@@ -2234,23 +2272,7 @@ def update_task(
             )
 
         updates["status"] = data.status
-        if data.status == "Completed":
-            checklist_for_approval = updates.get("checklist", current.get("checklist") or [])
-            if checklist_for_approval and not all(
-                bool(item.get("done")) for item in checklist_for_approval
-            ):
-                raise HTTPException(
-                    status_code=409,
-                    detail="Complete every checklist item before approving the assignment.",
-                )
-            updates.update(
-                {
-                    "progress": 100,
-                    "approved_at": now_iso(),
-                    "approved_by_staff_id": context["account"]["id"],
-                }
-            )
-        elif data.status in {"In Progress", "Pending", "Cancelled"}:
+        if data.status in {"In Progress", "Pending", "Cancelled"}:
             updates["approved_at"] = None
             updates["approved_by_staff_id"] = None
 
@@ -2307,28 +2329,6 @@ def update_task(
             },
         )
 
-    if status_changed:
-        client.table("admin_notifications").insert(
-            {
-                "recipient_staff_account_id": result[0]["assigned_staff_id"],
-                "title": "Assignment Approved"
-                if data.status == "Completed"
-                else "Assignment Updated",
-                "message": f"“{result[0]['title']}” is now {data.status}.",
-                "type": "assignment-status",
-                "icon": "task",
-                "task_id": result[0]["id"],
-                "is_read": False,
-            }
-        ).execute()
-
-    if str(current.get("assigned_staff_id")) != str(result[0].get("assigned_staff_id")):
-        create_notification(
-            str(result[0]["assigned_staff_id"]), "New Assignment",
-            f"You were assigned “{result[0]['title']}”. Review your checklist and schedule in the staff portal.",
-            notification_type="assignment", icon="task", task_id=str(result[0]["id"]),
-        )
-
     return {"message": "Assignment updated successfully.", "data": task_api(result[0], staff)}
 
 
@@ -2338,7 +2338,7 @@ def delete_task(task_id: UUID, context: dict[str, Any] = Depends(require_admin))
     if current.get("source") == "manual-maintenance-request":
         raise HTTPException(status_code=409, detail="Open Villas & Pricing to update or verify this villa operation.")
     if current.get("status") == "Completed":
-        raise HTTPException(status_code=409, detail="An approved assignment cannot be deleted.")
+        raise HTTPException(status_code=409, detail="A completed assignment cannot be deleted.")
     (
         service_client()
         .table("admin_tasks")
@@ -4340,7 +4340,7 @@ def check_in_booking(
     }
 
 
-def choose_turnover_staff() -> dict[str, Any] | None:
+def choose_turnover_staff(due_date: str, due_time: str) -> dict[str, Any] | None:
     """
     Turnover assignment is secondary to checkout. If staff/task tables are not
     available, checkout still succeeds and the warning is logged.
@@ -4368,28 +4368,31 @@ def choose_turnover_staff() -> dict[str, Any] | None:
         return None
 
     try:
-        active_tasks = rows(
-            client.table("admin_tasks")
-            .select("assigned_staff_id,status")
-            .in_("status", ["Pending", "In Progress", "Pending Review"])
-            .execute()
-        )
+        active_tasks = load_active_staff_tasks(client, [member["id"] for member in housekeeping])
     except Exception as error:
         logger.warning(
             "Task workload could not be loaded for automatic turnover: %s",
             error,
         )
-        active_tasks = []
+        return None
 
     workload: dict[str, int] = {}
     for task in active_tasks:
         key = str(task.get("assigned_staff_id"))
         workload[key] = workload.get(key, 0) + 1
 
-    return min(
-        housekeeping,
-        key=lambda item: workload.get(str(item["id"]), 0),
-    )
+    candidate = {"due_date": due_date, "due_time": due_time, "status": "Pending"}
+    available = [
+        member for member in housekeeping
+        if not find_schedule_conflict(
+            candidate,
+            [task for task in active_tasks if str(task.get("assigned_staff_id")) == str(member["id"])],
+        )
+    ]
+    if not available:
+        logger.warning("No Housekeeping staff member has a free slot for checkout turnover on %s at %s.", due_date, due_time)
+        return None
+    return min(available, key=lambda item: workload.get(str(item["id"]), 0))
 
 
 def pending_front_desk_intents(booking_id: str) -> list[dict[str, Any]]:
@@ -4420,7 +4423,9 @@ def create_checkout_turnover_task(
     notes: str | None,
     now: str,
 ) -> dict[str, Any] | None:
-    housekeeping_staff = choose_turnover_staff()
+    due_date = updated.get("check_out_date") or date.today().isoformat()
+    due_time = "14:00:00"
+    housekeeping_staff = choose_turnover_staff(due_date, due_time)
     if not housekeeping_staff:
         return None
 
@@ -4462,8 +4467,8 @@ def create_checkout_turnover_task(
                     "department": "Housekeeping",
                     "assigned_role": housekeeping_staff.get("position"),
                     "priority": "High",
-                    "due_date": updated.get("check_out_date") or date.today().isoformat(),
-                    "due_time": "14:00:00",
+                    "due_date": due_date,
+                    "due_time": due_time,
                     "status": "Pending",
                     "progress": 0,
                     "checklist": checklist,
@@ -5762,9 +5767,14 @@ def guest_feedback_analysis(
     result['gemini_configured'] = configured()
     try:
         result['recommendation_reports'] = rows(client.table('feedback_recommendation_reports').select('id,created_at,status,recommendation,approved_at,filters,evidence_fingerprint').eq('evidence_fingerprint',result['summary']['fingerprint']).order('created_at',desc=True).limit(5).execute())
+        jobs = rows(client.table('feedback_recommendation_jobs').select(
+            'id,status,attempts,max_attempts,next_attempt_at,last_error,report_id'
+        ).eq('evidence_fingerprint',result['summary']['fingerprint']).limit(1).execute())
+        result['recommendation_job'] = jobs[0] if jobs else None
         result['recommendation_storage_ready'] = True
     except Exception:
         result['recommendation_reports'] = []
+        result['recommendation_job'] = None
         result['recommendation_storage_ready'] = False
     return result
 
@@ -5775,32 +5785,47 @@ def create_feedback_recommendations(
     context: dict[str, Any] = Depends(require_admin),
 ):
     from feedback_analysis import build_report
-    from ml.recommendations import generate
     client = service_client()
-    # Check storage before an external API request.
+    # Keep one report for each model-and-evidence snapshot, even after worker retries.
     try:
         client.table('feedback_recommendation_reports').select('id').limit(1).execute()
+        client.table('feedback_recommendation_jobs').select('id').limit(1).execute()
         analysis = build_report(client,filters)
     except Exception:
         raise HTTPException(status_code=503, detail="Recommendation storage or feedback is unavailable. Check the feedback database setup.") from None
+    if not analysis['summary']['top_complaints']:
+        raise HTTPException(status_code=422, detail="No negative categorized evidence is available for recommendations.")
+    from ml.recommendations import configured
+    if not configured():
+        raise HTTPException(status_code=422, detail="Configure GEMINI_API_KEY and GEMINI_MODEL before requesting recommendations.")
+    fingerprint = analysis['summary']['fingerprint']
     try:
-        draft = generate(analysis['summary'])
-    except ValueError as error:
-        raise HTTPException(status_code=422, detail=str(error)) from None
-    except RuntimeError as error:
-        raise HTTPException(status_code=502, detail=str(error)) from None
+        existing = rows(client.table('feedback_recommendation_reports').select(
+            'id,created_at,status,recommendation,approved_at,filters,evidence_fingerprint'
+        ).eq('evidence_fingerprint',fingerprint).order('created_at',desc=True).limit(1).execute())
+    except Exception:
+        raise HTTPException(status_code=503, detail="Existing recommendation reports could not be checked.") from None
+    if existing:
+        return {'data': existing[0]}
     try:
-        saved = rows(client.table('feedback_recommendation_reports').insert({
+        job = client.rpc('enqueue_feedback_recommendation_job', {'p_job': {
             'created_by_staff_id':str(context['account']['id']),
             'filters':filters.model_dump(mode='json'),
-            'evidence_fingerprint':analysis['summary']['fingerprint'],
+            'evidence_fingerprint':fingerprint,
             'evidence_summary':analysis['summary'], 'model_version':analysis['model']['version'],
-            'recommendation':draft, 'status':'draft',
-        }).execute())
-        if not saved: raise ValueError('No saved draft')
-        return {'data':saved[0]}
+        }}).execute()
+        data = getattr(job,'data',None)
+        if isinstance(data,list):
+            data = data[0] if data else None
+        if not isinstance(data, dict):
+            raise ValueError('No recommendation job was saved.')
+        return {'data':{
+            key:data.get(key) for key in (
+                'id','status','attempts','max_attempts','next_attempt_at','last_error','report_id'
+            )
+        }}
     except Exception:
-        raise HTTPException(status_code=503, detail="The recommendation was generated but could not be saved. No approval was recorded.") from None
+        raise HTTPException(status_code=503, detail="The recommendation job could not be queued. No recommendation or approval was saved.") from None
 
 
 @admin_router.post("/guest-feedback/recommendations/{report_id}/approve")

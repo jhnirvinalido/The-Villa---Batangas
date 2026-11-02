@@ -1,8 +1,11 @@
-"""Ensure approved admin tasks cannot be edited or deleted."""
+"""Ensure completed admin tasks cannot be edited or deleted."""
 import ast
 import unittest
 from pathlib import Path
+from types import SimpleNamespace
 from unittest.mock import MagicMock
+
+from booking_assignments import find_schedule_conflict, task_window
 
 
 class HTTPError(Exception):
@@ -51,12 +54,22 @@ class CompletedTaskGuards(unittest.TestCase):
         )
         self.client = MagicMock()
         self.current = {"id": "task-1", "status": "Completed", "title": "Approved"}
+        self.active_tasks = []
         env = {
             "Depends": lambda _: None,
             "require_admin": None,
             "HTTPException": HTTPError,
             "service_client": lambda: self.client,
             "fetch_task": lambda _: self.current,
+            "fetch_staff": lambda staff_id: {
+                "id": str(staff_id), "full_name": "Staff Member", "is_active": True,
+            },
+            "model_values": lambda data: {
+                key: value for key, value in vars(data).items() if value is not None
+            },
+            "find_schedule_conflict": find_schedule_conflict,
+            "load_active_staff_tasks": lambda client, staff_ids: self.active_tasks,
+            "task_window": task_window,
         }
         exec(compile(ast.fix_missing_locations(module), "admin.py", "exec"), env)
         self.update = env["update_task"]
@@ -79,17 +92,75 @@ class CompletedTaskGuards(unittest.TestCase):
             self.assertEqual(caught.exception.status_code, 409)
         self.client.table.assert_not_called()
 
-    def test_approved_task_cannot_be_edited(self):
+    def test_completed_task_cannot_be_edited(self):
         with self.assertRaises(HTTPError) as caught:
             self.update("task-1", object(), self.context)
         self.assertEqual(caught.exception.status_code, 409)
         self.client.table.assert_not_called()
 
-    def test_approved_task_cannot_be_deleted(self):
+    def test_completed_task_cannot_be_deleted(self):
         with self.assertRaises(HTTPError) as caught:
             self.delete("task-1", self.context)
         self.assertEqual(caught.exception.status_code, 409)
         self.client.table.assert_not_called()
+
+    def test_admin_cannot_complete_an_assignment_on_staffs_behalf(self):
+        self.current.update(status="Pending Review", assigned_staff_id="staff-1")
+        data = SimpleNamespace(
+            status="Completed", review_note=None, assigned_staff_id=None, title=None,
+            description=None, department=None, priority=None, due_date=None, due_time=None,
+            progress=None, checklist=None, attachments=None, notes=None,
+        )
+        with self.assertRaises(HTTPError) as caught:
+            self.update("task-1", data, self.context)
+        self.assertEqual(caught.exception.status_code, 409)
+        self.assertIn("cannot move from Pending Review to Completed", str(caught.exception))
+
+    def test_admin_cannot_put_an_assignment_into_review(self):
+        self.current.update(status="In Progress", assigned_staff_id="staff-1")
+        data = SimpleNamespace(
+            status="Pending Review", review_note=None, assigned_staff_id=None, title=None,
+            description=None, department=None, priority=None, due_date=None, due_time=None,
+            progress=None, checklist=None, attachments=None, notes=None,
+        )
+        with self.assertRaises(HTTPError) as caught:
+            self.update("task-1", data, self.context)
+        self.assertEqual(caught.exception.status_code, 409)
+        self.assertIn("cannot move from In Progress to Pending Review", str(caught.exception))
+
+    def test_rescheduling_rejects_an_overlapping_staff_assignment(self):
+        self.current.update(
+            status="Pending", assigned_staff_id="staff-1",
+            due_date="2026-10-26", due_time="14:00:00",
+        )
+        self.active_tasks = [{
+            "id": "task-2", "title": "Existing preparation", "status": "Pending",
+            "due_date": "2026-10-26", "due_time": "14:30:00",
+        }]
+        data = SimpleNamespace(
+            status=None, review_note=None, assigned_staff_id="staff-2", title=None,
+            description=None, department=None, priority=None, due_date=None, due_time=None,
+            progress=None, checklist=None, attachments=None, notes=None,
+        )
+        with self.assertRaises(HTTPError) as caught:
+            self.update("task-1", data, self.context)
+        self.assertEqual(caught.exception.status_code, 409)
+        self.assertIn("already has overlapping work", str(caught.exception))
+
+    def test_staff_assignment_cannot_be_saved_without_a_due_time(self):
+        self.current.update(
+            status="Pending", assigned_staff_id="staff-1",
+            due_date="2026-10-26", due_time=None,
+        )
+        data = SimpleNamespace(
+            status=None, review_note=None, assigned_staff_id="staff-2", title=None,
+            description=None, department=None, priority=None, due_date=None, due_time=None,
+            progress=None, checklist=None, attachments=None, notes=None,
+        )
+        with self.assertRaises(HTTPError) as caught:
+            self.update("task-1", data, self.context)
+        self.assertEqual(caught.exception.status_code, 409)
+        self.assertIn("valid due date and time", str(caught.exception))
 
 
 if __name__ == "__main__":

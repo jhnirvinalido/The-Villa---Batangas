@@ -13,6 +13,7 @@ import {
   RefreshCw,
   ClipboardCheck,
   ClipboardList,
+  CheckCircle2,
   LayoutDashboard,
   Timer,
   History,
@@ -24,7 +25,6 @@ import {
 import "./staffDashboard.css";
 import StaffSchedule from "./StaffSchedule";
 import StaffVillaOperations from "./StaffVillaOperations";
-import StaffNotifications from "./StaffNotifications";
 import StaffTaskBoard, { StaffOverview } from "./StaffTaskBoard";
 import StaffTaskWorkspace from "./StaffTaskWorkspace";
 import { RecordPagination } from "./RecordListControls";
@@ -49,7 +49,8 @@ const SIDEBAR_ITEMS = [
   { id: "calendar", label: "My schedule", icon: CalendarDays },
   { id: "todo", label: "My assignments", icon: ClipboardList, preset: { tab: "My work", focus: "All work" }, count: "all" },
   { id: "inProgress", label: "In progress", icon: Timer, preset: { tab: "My work", focus: "In progress" }, count: "inProgress" },
-  { id: "review", label: "Awaiting approval", icon: ClipboardCheck, preset: { tab: "In review", focus: "All work" }, count: "review" },
+  { id: "review", label: "Needs completion", icon: ClipboardCheck, preset: { tab: "In review", focus: "All work" }, count: "review" },
+  { id: "completed", label: "Completed", icon: CheckCircle2, preset: { tab: "My work", focus: "Completed" }, count: "completed" },
   { id: "history", label: "History", icon: History },
 ];
 
@@ -1073,7 +1074,7 @@ function StaffHistoryList({ history, isMaintenanceStaff, openTask }) {
       <tbody>{page.rows.map(task => <tr key={task.id}>
         <td><strong className="staff-history-title">{task.title}</strong><small>{task.villaName} · {task.guestName || 'General assignment'}</small></td><td>{task.bookingCode || task.bookingId || '—'}</td><td>{formatDate(task.dueDate)}</td><td>{task.status === 'Completed' ? formatDateTime(task.completedAt || task.updatedAt) : '—'}</td><td><StatusPill status={statusLabel(task)}/></td>
         <td><button type="button" className="work-task-view-button" aria-label={`View details for ${task.title}`} onClick={() => openTask(task.id)}>View details</button></td>
-      </tr>)}{!page.total && <tr><td colSpan={6}><EmptyState icon={History} title={search || status ? 'No matching history' : isMaintenanceStaff ? 'No completed maintenance yet' : 'No task history yet'} message="Completed, cancelled and overdue assignments can be reviewed here."/></td></tr>}</tbody></table>
+      </tr>)}{!page.total && <tr><td colSpan={6}><EmptyState icon={History} title={search || status ? 'No matching history' : isMaintenanceStaff ? 'No completed maintenance yet' : 'No cancelled assignments'} message={isMaintenanceStaff ? "Completed maintenance work can be reviewed here." : "Completed work is in Completed. Active overdue work stays in My assignments."}/></td></tr>}</tbody></table>
     </section>
     <RecordPagination page={page} pageSize={pageSize} onPageChange={changePage} onPageSizeChange={setPageSize} label="history records"/>
   </div>;
@@ -1112,8 +1113,6 @@ export default function StaffDashboard() {
   );
   const [, setAdminContact] = React.useState(ADMIN_CONTACT);
   const [allTasks, setAllTasks] = React.useState([]);
-  const [staffNotifications, setStaffNotifications] = React.useState([]);
-  const [notificationPopupsEnabled, setNotificationPopupsEnabled] = React.useState(true);
   const linkedTaskOpened = React.useRef(false);
   const [dataLoading, setDataLoading] = React.useState(true);
   const [signOutConfirmOpen, setSignOutConfirmOpen] = React.useState(false);
@@ -1221,8 +1220,6 @@ export default function StaffDashboard() {
       const nextTasks = Array.isArray(data.tasks) ? data.tasks : [];
       nextTasks.forEach(task => taskUpdatedAtRef.current.set(String(task.id), task.updatedAt || task.updated_at || null));
       setAllTasks(current => snapshotRows(current, nextTasks));
-      setStaffNotifications(current => snapshotRows(current, data.notifications));
-      setNotificationPopupsEnabled(data.settings?.pushNotifications !== false);
       setDataError("");
     } catch (error) {
       const message =
@@ -1237,22 +1234,8 @@ export default function StaffDashboard() {
   }, []);
   const loadStaffData = React.useMemo(() => singleFlightRefresh(fetchStaffData), [fetchStaffData]);
 
-  const loadStaffNotifications = React.useMemo(() => singleFlightRefresh(async () => {
-    const payload = await staffApiRequest("/staff/notifications");
-    setStaffNotifications(current => snapshotRows(current, payload?.data));
-  }), []);
-
-  // Inbox delivery must not wait for a checklist save or the full workspace
-  // snapshot. Both subscriptions share one authenticated streaming connection.
-  useLiveUpdates({
-    domains: ["notifications", "tasks", "messages"],
-    refreshAuth: refreshPortalSession,
-    safetyRefreshMs: 3000,
-    onChange: loadStaffNotifications,
-  });
-
   const liveStatus = useLiveUpdates({
-    domains: ["accounts", "staff", "tasks", "notifications", "messages"],
+    domains: ["accounts", "staff", "tasks", "messages"],
     refreshAuth: refreshPortalSession,
     safetyRefreshMs: 5000,
     onChange: async () => {
@@ -1283,7 +1266,7 @@ export default function StaffDashboard() {
 
   function navigate(nextView, preset = {tab:"My work",focus:"All work"}) {
     if (nextView === 'villas') setVillaFocus('');
-    if (["todo","inProgress","review"].includes(nextView)) setTaskBoardPreset(preset);
+    if (["todo","inProgress","review","completed"].includes(nextView)) setTaskBoardPreset(preset);
     setView(nextView);
     if (window.matchMedia("(max-width: 980px)").matches) setSidebarCollapsed(true);
   }
@@ -1357,21 +1340,6 @@ async function commitTaskUpdate(
     setTaskModalOpen(true);
   }
 
-  async function openNotificationTask(taskId) {
-    if (tasks.some(task => task.id === taskId)) { openTask(taskId); return; }
-    // The lightweight inbox can arrive before the workspace snapshot.
-    try {
-      const payload = await staffApiRequest("/staff/tasks");
-      const latest = Array.isArray(payload?.data) ? payload.data : [];
-      latest.forEach(task => taskUpdatedAtRef.current.set(String(task.id), task.updatedAt || task.updated_at || null));
-      setAllTasks(latest);
-      if (latest.some(task => task.id === taskId)) openTask(taskId, latest);
-      else showToast("This assignment is no longer available in your account.");
-    } catch (error) {
-      showToast(error instanceof Error ? error.message : "Unable to open this assignment.");
-    }
-  }
-
 async function signOut() {
     if (signingOutLock.current) return;
     signingOutLock.current = true;
@@ -1409,6 +1377,7 @@ async function signOut() {
       todo: workspaceTasks.filter((task) => task.status === "Pending" && !isLate(task)).length,
       inProgress: workspaceTasks.filter((task) => task.status === "In Progress" && !isLate(task)).length,
       review: workspaceTasks.filter((task) => task.status === "Pending Review").length,
+      completed: workspaceTasks.filter((task) => task.status === "Completed").length,
     };
   }, [workspaceTasks]);
 
@@ -1420,7 +1389,7 @@ async function signOut() {
     const history = workspaceTasks
       .filter((task) => isMaintenanceStaff
         ? task.status === "Completed"
-        : ["Completed", "Cancelled"].includes(task.status) || isLate(task))
+        : task.status === "Cancelled")
       .sort((a, b) => String(b.updatedAt || b.dueDate || "").localeCompare(String(a.updatedAt || a.dueDate || "")));
     return <StaffHistoryList history={history} isMaintenanceStaff={isMaintenanceStaff} openTask={openTask}/>;
   }
@@ -1472,7 +1441,8 @@ async function signOut() {
       case "overview": return <StaffOverview tasks={tasks} shift={currentStaff.shift} openTask={openTask} viewCalendar={()=>navigate("calendar")} viewHistory={()=>navigate("history")} viewTasks={(tab,focus)=>navigate(tab==='In review'?'review':'todo',{tab,focus})} />;
       case "todo":
       case "inProgress":
-      case "review": return renderTasks();
+      case "review":
+      case "completed": return renderTasks();
       case "history": return renderHistory();
       case "calendar": return <StaffSchedule tasks={workspaceTasks} shift={currentStaff.shift} openTask={openTask} onViewTodos={(dueDate)=>navigate("todo",{tab:"Schedule",focus:"All work",dueDate})} />;
       case "profile": return renderProfile();
@@ -1565,9 +1535,6 @@ async function signOut() {
             </div>
             <div className="portal-topbar-actions">
             <button type="button" className="portal-refresh-button" disabled={dataLoading} onClick={() => loadStaffData()} aria-label="Refresh workspace"><RefreshCw size={16}/><span>Refresh</span></button>
-            <div className="admin-notification-wrap">
-              <StaffNotifications key={currentStaff.id} staffId={currentStaff.id} notifications={staffNotifications} setNotifications={setStaffNotifications} popupsEnabled={notificationPopupsEnabled} apiRequest={staffApiRequest} openTask={openNotificationTask} refresh={() => loadStaffData({ silent: true })} />
-            </div>
             </div>
           </div>
           {dataLoading && <LoadingScreen message="Loading your staff workspace…"/>}

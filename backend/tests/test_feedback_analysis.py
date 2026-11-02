@@ -4,7 +4,7 @@ import unittest
 from types import SimpleNamespace
 from unittest.mock import MagicMock, patch
 from feedback_analysis import AnalysisFilters, records_for
-from ml.complaints import analyze_review, categories, report
+from ml.complaints import analyze_review, categories, lexical_sentiment, report
 from ml.naive_bayes import TfidfNB
 from ml.preprocessing import normalize, phrases
 from ml.recommendations import generate
@@ -32,6 +32,27 @@ class AnalysisTests(unittest.TestCase):
         self.assertEqual(result[0]['categories'], ['Pool cleanliness'])
         self.assertIn('Staff service',categories('friendly staff'))
         self.assertEqual(len(phrases('not dirty pool but weak aircon')),2)
+
+    def test_mixed_sentiment_review_classifies_each_clear_clause_correctly(self):
+        from ml.inference import load_model
+        _, model = load_model()
+        result = analyze_review(
+            {'id': 'mixed-1', 'comments': 'The room was clean, but the pool was dirty.'},
+            model,
+        )
+        self.assertEqual(
+            [(item['text'], item['sentiment']) for item in result],
+            [('The room was clean', 'positive'), ('the pool was dirty', 'negative')],
+        )
+        self.assertEqual(result[1]['categories'], ['Pool cleanliness'])
+
+    def test_clear_lexical_cues_override_model_and_respect_simple_negation(self):
+        self.assertEqual(lexical_sentiment('The room was clean'), 'positive')
+        self.assertEqual(lexical_sentiment('The pool was dirty'), 'negative')
+        self.assertEqual(lexical_sentiment('The pool was not dirty'), 'positive')
+        self.assertEqual(lexical_sentiment('The room was not clean'), 'negative')
+        self.assertEqual(lexical_sentiment('The room was not only clean'), 'positive')
+        self.assertIsNone(lexical_sentiment('The room was clean but the service was poor'))
 
     def test_distinct_reviews_count_once_per_category_and_positive_not_complaint(self):
         rows=[{'id':'a','comments':'dirty pool. dirty pool. friendly staff.','overall_rating':5},

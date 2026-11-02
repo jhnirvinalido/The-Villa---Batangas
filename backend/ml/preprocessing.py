@@ -2,7 +2,7 @@
 import re
 import unicodedata
 
-VERSION = 'villa-nlp-v1'
+VERSION = 'villa-nlp-v2'
 # Explicit vocabulary corrections only. Do not fuzzy-correct names or unknown Tagalog.
 CORRECTIONS = {
     'drrty': 'dirty', 'poool': 'pool', 'mahinaa': 'mahina',

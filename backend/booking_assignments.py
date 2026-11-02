@@ -18,6 +18,7 @@ MANILA = ZoneInfo("Asia/Manila")
 SOURCE = "automatic-booking-preparation"
 ASSIGNMENT_TYPE = "housekeeping-pre-arrival"
 ACTIVE_STATES = ("Pending", "In Progress", "Pending Review")
+SCHEDULED_STATES = ("Pending", "In Progress")
 PREPARATION_MINUTES = 60
 _ALLOCATION_LOCK = Lock()
 CHECKLIST = (
@@ -107,11 +108,13 @@ def task_window(task):
         window = entry.get("preparationWindow") or {}
         if window.get("start") and window.get("end"):
             try:
-                start, end = (datetime.fromisoformat(window[key]).astimezone(MANILA) for key in ("start", "end"))
-                # A rescheduled task must use its edited schedule, not its original slot.
-                if (end.date().isoformat() == str(task.get("due_date"))[:10]
-                        and end.time().replace(tzinfo=None) == parse_time(task.get("due_time"))):
-                    return start, end
+                original_start, original_end = (
+                    datetime.fromisoformat(window[key]).astimezone(MANILA)
+                    for key in ("start", "end")
+                )
+                day = date.fromisoformat(str(task.get("due_date"))[:10])
+                end = datetime.combine(day, parse_time(task.get("due_time")), MANILA)
+                return end - (original_end - original_start), end
             except (ValueError, TypeError):
                 pass
     try:
@@ -120,6 +123,55 @@ def task_window(task):
         return end - timedelta(minutes=PREPARATION_MINUTES), end
     except (ValueError, TypeError):
         return None
+
+
+def find_schedule_conflict(candidate, tasks, exclude_task_id=None):
+    """Find active work that overlaps a proposed scheduled task window."""
+    candidate_window = task_window(candidate)
+    if candidate_window is None:
+        return None
+
+    candidate_date = candidate_window[1].date().isoformat()
+    for task in tasks:
+        if task.get("status") not in SCHEDULED_STATES:
+            continue
+        if exclude_task_id is not None and str(task.get("id")) == str(exclude_task_id):
+            continue
+        window = task_window(task)
+        if window is None:
+            try:
+                task_date = date.fromisoformat(str(task.get("due_date"))[:10]).isoformat()
+            except (TypeError, ValueError):
+                return task
+            if task_date == candidate_date:
+                return task
+            continue
+        if candidate_window[0] < window[1] and candidate_window[1] > window[0]:
+            return task
+    return None
+
+
+def load_active_staff_tasks(client, staff_ids):
+    """Load every scheduled or unscheduled active assignment for these staff."""
+    staff_ids = [str(staff_id) for staff_id in staff_ids]
+    if not staff_ids:
+        return []
+
+    tasks = []
+    for offset in range(0, 100000, 1000):
+        page = _rows(
+            client.table("admin_tasks")
+            .select("id,assigned_staff_id,status,due_date,due_time,status_history,title")
+            .in_("assigned_staff_id", staff_ids)
+            .in_("status", list(ACTIVE_STATES))
+            .order("id")
+            .range(offset, offset + 999)
+            .execute()
+        )
+        tasks.extend(page)
+        if len(page) < 1000:
+            return tasks
+    raise RuntimeError("Task workload is too large to allocate safely")
 
 
 def choose_staff(booking, staff_rows, tasks, now=None):
@@ -145,15 +197,19 @@ def choose_staff(booking, staff_rows, tasks, now=None):
             continue
         own = [t for t in tasks if str(t.get("assigned_staff_id")) == str(staff["id"])
                and t.get("status") in ACTIVE_STATES]
-        daily = [t for t in own if str(t.get("due_date") or "")[:10] == arrival.date().isoformat()]
-        if any(task_window(task) is None for task in daily):
-            continue
         for hours in range(24):
             end = latest_end - timedelta(hours=hours)
             start = end - duration
             if start.date() != arrival.date() or start < now or not shift_contains(staff, start, end):
                 continue
-            if any(window and start < window[1] and end > window[0] for window in map(task_window, own)):
+            candidate = {
+                "due_date": end.date().isoformat(),
+                "due_time": end.time().replace(tzinfo=None).isoformat(),
+                "status_history": [{
+                    "preparationWindow": {"start": start.isoformat(), "end": end.isoformat()},
+                }],
+            }
+            if find_schedule_conflict(candidate, own):
                 continue
             candidates.append((staff, start, end))
             break
@@ -188,7 +244,6 @@ def _notify_outcome(client, booking, task=None, staff=None, reason=None):
     if task:
         key = f"assigned/{booking_id}"
         message = f"{staff.get('full_name') or 'Housekeeping staff'} was automatically assigned to prepare {booking.get('villa_name') or 'the booked villas'} for {reference}, due {task['due_date']} at {task['due_time']}."
-        _notify(client, str(staff["id"]), key, "New Pre-arrival Assignment", message, task["id"])
         title = "Housekeeping Automatically Assigned"
     else:
         key = f"needs-staff/{booking_id}"
@@ -219,17 +274,7 @@ def _assign(booking, client, now):
     if not staff:
         _notify_outcome(client, booking, reason="No active Housekeeping staff member is available.")
         return {"status": "needs_staff"}
-    # Fetch all pages: truncating task workload could silently double-book staff.
-    tasks = []
-    for offset in range(0, 100000, 1000):
-        page = _rows(client.table("admin_tasks").select("id,assigned_staff_id,status,due_date,due_time,status_history")
-                     .in_("assigned_staff_id", [str(s["id"]) for s in staff]).in_("status", list(ACTIVE_STATES))
-                     .order("id").range(offset, offset + 999).execute())
-        tasks.extend(page)
-        if len(page) < 1000:
-            break
-    else:
-        raise RuntimeError("Task workload is too large to allocate safely")
+    tasks = load_active_staff_tasks(client, [s["id"] for s in staff])
     selection = choose_staff(booking, staff, tasks, now)
     if not selection:
         _notify_outcome(client, booking, reason="No free Housekeeping preparation window fits the recorded shifts before arrival.")

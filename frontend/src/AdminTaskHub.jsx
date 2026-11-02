@@ -10,8 +10,8 @@ import { deskTableRows } from './frontDeskTableModel.mjs';
 
 const views = [
   { label: 'Active', statuses: ['Pending', 'In Progress'] },
-  { label: 'For review', statuses: ['Pending Review'] },
-  { label: 'Approved', statuses: ['Completed'] },
+  { label: 'Needs action', statuses: ['Pending Review'] },
+  { label: 'Completed', statuses: ['Completed'] },
 ];
 
 export default function AdminTaskHub({ tasks, bookings = [], staff, openTask, openBooking, manageStaff, readOnly = false, initialDay = '' }) {
@@ -77,7 +77,7 @@ export default function AdminTaskHub({ tasks, bookings = [], staff, openTask, op
           <td><span className="assignment-table-task"><span>{task.villaName || task.title}</span><small>{task.bookingCode || task.title}</small></span><small className="assignment-table-secondary">{assignmentKind(task)}</small>{isPreparation(task) && task.bookingCheckIn && <small className="assignment-table-secondary">Arrival {dateLabel(task.bookingCheckIn)}</small>}</td>
           <td>{task.assignedTo || 'Unassigned'}</td>
           <td className={isLate(task) ? 'is-overdue' : ''}>{dateLabel(task.dueDate)}<small className="assignment-table-secondary">{timeLabel(task.dueTime)}</small></td>
-          <td>{isLate(task) ? 'Overdue' : task.status === 'Pending' ? 'Assigned' : task.status === 'Pending Review' ? 'For review' : task.status === 'Completed' ? 'Approved' : task.status}</td>
+          <td>{isLate(task) ? 'Overdue' : task.status === 'Pending' ? 'Assigned' : task.status === 'Pending Review' ? task.source === 'manual-maintenance-request' ? 'Repair verification' : 'Needs staff completion' : task.status}</td>
           <td><div className="assignment-table-progress"><span>{(task.checklist || []).filter(item => item.done).length} / {(task.checklist || []).length} steps</span><progress value={task.progress || 0} max="100"/></div></td>
           {!readOnly && <td><button type="button" className="assignment-view-button" aria-label={`View details for ${task.title}`} onClick={() => openTask(task.id)}>View details</button></td>}
         </tr>)}</tbody>

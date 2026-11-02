@@ -21,6 +21,13 @@ export default function FeedbackAnalysisPanel({apiRequest,refreshKey}) {
     const controller=new AbortController();const timer=setTimeout(()=>load(controller.signal),0);
     return()=>{clearTimeout(timer);controller.abort();};
   },[load,refreshKey]);
+  useEffect(()=>{
+    const status=report?.recommendation_job?.status;
+    if(!['queued','processing','retry'].includes(status))return undefined;
+    const controller=new AbortController();
+    const timer=setInterval(()=>load(controller.signal),4000);
+    return()=>{clearInterval(timer);controller.abort();};
+  },[load,report?.recommendation_job?.status]);
   async function approve(id) {
     setBusy(true);setError('');
     try {await apiRequest(`/admin/guest-feedback/recommendations/${id}/approve`,{method:'POST'});await load();}
@@ -42,12 +49,21 @@ export default function FeedbackAnalysisPanel({apiRequest,refreshKey}) {
     }
   }
   const draft=report?.recommendation_reports?.[0];
+  const job=report?.recommendation_job;
+  const jobActive=['queued','processing','retry'].includes(job?.status);
   const complaints=report?.summary?.top_complaints || [];
   return <section className="feedback-recommendations-section" aria-label="Recommended improvements">
     <div className="guest-feedback-toolbar"><div><h3><Sparkles size={18}/>Recommended improvements</h3><p>Generate suggestions when you choose. Review them before approving.</p></div>{draft && <span className={`feedback-report-status ${draft.status}`}>{draft.status==='approved'?'Approved':'For review'}</span>}</div>
     <div className="feedback-recommendations-scroll" role="region" aria-label="Scrollable recommendations" tabIndex={0}>
     {error && <p className="guest-feedback-error" role="alert">{formatUserFacingMessage(error)}</p>}
-    {!draft && <p className="feedback-auto-status" role="status">
+    {!draft && job?.status==='queued' && <p className="feedback-auto-status" role="status">Recommendation request queued. Waiting for the worker…</p>}
+    {!draft && job?.status==='processing' && <p className="feedback-auto-status" role="status">Generating a draft. You can stay on this page while it finishes…</p>}
+    {!draft && job?.status==='retry' && <p className="feedback-auto-status" role="status">The provider had a temporary problem. Retrying (attempt {job.attempts} of {job.max_attempts})…</p>}
+    {!draft && job?.status==='failed' && <p className="guest-feedback-error" role="alert">
+      Recommendation generation stopped after {job.attempts} attempt{job.attempts===1?'':'s'}.
+      {job.last_error?` ${job.last_error}`:''} You can request a new attempt.
+    </p>}
+    {!draft && !jobActive && <p className="feedback-auto-status" role="status">
       {loading?'Loading feedback analysis…':
         !report?'Feedback analysis is unavailable right now.':
         !report?.gemini_configured?'Configure Gemini before generating recommendations.':
@@ -61,7 +77,7 @@ export default function FeedbackAnalysisPanel({apiRequest,refreshKey}) {
     </> }
     </div>
     {draft && <div className="feedback-approval-row"><small>Draft suggestions · administrator review required</small>{draft.status==='draft'?<button className="admin-btn-primary" disabled={busy} onClick={()=>approve(draft.id)}>{busy?'Approving…':'Approve recommendations'}</button>:<span><CheckCircle2 size={15}/>Approved {draft.approved_at?new Date(draft.approved_at).toLocaleDateString('en-PH'):''}</span>}</div>}
-    {!draft && !loading && report?.gemini_configured && report?.recommendation_storage_ready && complaints.length>0 &&
-      <div className="feedback-approval-row"><small>Generation runs only when you request it.</small><button className="admin-btn-primary" disabled={busy} onClick={generateRecommendations}>{busy?'Generating…':'Generate recommendations'}</button></div>}
+    {!draft && !jobActive && !loading && report?.gemini_configured && report?.recommendation_storage_ready && complaints.length>0 &&
+      <div className="feedback-approval-row"><small>Generation runs only when you request it.</small><button className="admin-btn-primary" disabled={busy} onClick={generateRecommendations}>{busy?'Queueing…':job?.status==='failed'?'Retry recommendations':'Generate recommendations'}</button></div>}
   </section>;
 }

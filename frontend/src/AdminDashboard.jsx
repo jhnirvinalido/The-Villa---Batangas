@@ -70,7 +70,6 @@ import "./AdminDashboard.css";
 import AdminTaskHub from "./AdminTaskHub";
 import "./StaffFlow.css";
 import "./AdminTaskHub.css";
-import AssignmentReview from "./AssignmentReview";
 import ManualBooking from "./ManualBooking";
 import { ProfilePhoto } from "./ProfileIdentity";
 
@@ -243,12 +242,6 @@ const DEPARTMENTS = [
 ];
 
 const PRIORITIES = ["High", "Medium", "Low"];
-const ASSIGNMENT_STATUSES = [
-  "Pending",
-  "In Progress",
-  "Pending Review",
-  "Completed",
-];
 
 // Booking-based assignment presets for all staff departments.
 const ASSIGNMENT_TEMPLATES = [
@@ -3462,6 +3455,10 @@ async function saveEditedAssignment(event) {
     }
     if (!validDateString(editingAssignment.dueDate)) {
       showToast("Select a valid due date.");
+      return;
+    }
+    if (!editingAssignment.dueTime) {
+      showToast("Select a due time so this assignment has a confirmed, non-overlapping schedule.");
       return;
     }
     if (editingAssignment.dueDate < today) {
@@ -8547,7 +8544,7 @@ Villas Under Maintenance
               <label className="modern-history-search"><Search size={17} /><input type="search" placeholder="Search assignments, guests, staff, or activity" value={assignmentHistorySearch} onChange={(event) => setAssignmentHistorySearch(event.target.value)} /></label>
               <select aria-label="Filter activity status" value={assignmentHistoryStatus} onChange={(event) => setAssignmentHistoryStatus(event.target.value)}>
                 <option value="All">All activity</option>
-                {["Pending", "In Progress", "Pending Review", "Completed", "Cancelled"].map((status) => <option key={status} value={status}>{status}</option>)}
+                {["Pending", "In Progress", "Cancelled"].map((status) => <option key={status} value={status}>{status}</option>)}
               </select>
             </div>
             <div className="modern-history-results">
@@ -8725,7 +8722,6 @@ Villas Under Maintenance
               >
                 <Pencil size={15} /> Edit
               </button>}
-              {displayAssignmentStatus(selectedAssignment) === "Pending Review" && <AssignmentReview key={selectedAssignment.id} task={selectedAssignment} update={updateAssignment} />}
             </footer>
           </section>
         </div>
@@ -8900,6 +8896,7 @@ Villas Under Maintenance
                     <span>Due Date</span>
                     <input
                       type="date"
+                      required
                       min={today}
                       value={editingAssignment.dueDate}
                       onChange={(event) =>
@@ -8915,6 +8912,7 @@ Villas Under Maintenance
                     <span>Due Time</span>
                     <input
                       type="time"
+                      required
                       value={editingAssignment.dueTime || ""}
                       onChange={(event) =>
                         setEditingAssignment((current) => ({

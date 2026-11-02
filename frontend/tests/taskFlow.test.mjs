@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { canStartTask, dateKey, isLate, orderTasks, readyForReview } from '../src/taskFlow.mjs';
+import { canStartTask, dateKey, isLate, orderTasks, readyForCompletion, readyForReview } from '../src/taskFlow.mjs';
 const now = Date.parse('2026-10-20T12:00:00+08:00');
 test('on-call work starts only after acceptance and stays actionable after its arrival time', () => {
   const task = { status: 'Pending', dueDate: '2026-10-19', dueTime: '10:00', maintenanceOnCall: { state: 'Awaiting response' } };
@@ -32,6 +32,13 @@ test('review is allowed only after work starts and every assigned step is comple
   assert.equal(readyForReview({status:'In Progress',checklist:[{done:true},{done:false}]}),false);
   assert.equal(readyForReview({status:'In Progress',checklist:[{done:true}]}),true);
 });
+test('regular assignments can be completed directly after all checklist steps are done',()=>{
+  assert.equal(readyForCompletion({status:'Pending',checklist:[{done:true}]}),false);
+  assert.equal(readyForCompletion({status:'In Progress',checklist:[{done:true},{done:false}]}),false);
+  assert.equal(readyForCompletion({status:'In Progress',checklist:[{done:true}]}),true);
+  assert.equal(readyForCompletion({status:'Pending Review',checklist:[{done:true}]}),true);
+  assert.equal(readyForReview({status:'Pending Review',checklist:[{done:true}]}),false);
+});
 test('checklist helpers update one step or all steps without mutating input',async()=>{
   const {setChecklistDone,setChecklistItemDone}=await import('../src/taskFlow.mjs');
   const checklist=[{id:'a',label:'First',done:false},{id:'b',label:'Second',done:false}];
@@ -57,6 +64,7 @@ test('my work includes completed and review assignments while retaining focused 
   assert.deepEqual(filterTaskQueue(tasks,{},now).map(t=>t.status),['In Progress','Pending','Pending Review','Completed']);
   assert.deepEqual(filterTaskQueue(tasks,{focus:'To do'},now).map(t=>t.status),['Pending']);
   assert.deepEqual(filterTaskQueue(tasks,{view:'In review'},now).map(t=>t.status),['Pending Review']);
+  assert.deepEqual(filterTaskQueue(tasks,{focus:'Completed'},now).map(t=>t.status),['Completed']);
   assert.deepEqual(filterTaskQueue(tasks,{view:'History'},now).map(t=>t.status),['Completed','Cancelled']);
 });
 test('checklist edits require an explicit task start', async()=>{

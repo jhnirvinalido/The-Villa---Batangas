@@ -51,7 +51,7 @@ export default function AdminGuestFeedback({apiRequest}) {
     <div className="feedback-reviews-scroll" role="region" aria-label="Scrollable guest reviews" tabIndex={0}><div className="guest-feedback-review-grid">{reviews.map(row=><article key={row.id} className="guest-feedback-review">
       <header><div><h3>{row.hide_identity?'Anonymous guest':row.guest_name || 'Guest'}</h3>{row.villa_name && <span>{row.villa_name}</span>}</div><strong><Star size={15}/>{row.overall_rating}/5</strong></header>
       <p className="guest-feedback-comment">{row.comments}</p>
-      <footer><time>{row.review_date || row.review_date_label || (row.created_at?new Date(row.created_at).toLocaleDateString('en-PH',{month:'short',day:'numeric',year:'numeric'}):'')}</time><span className={`feedback-sentiment ${row.sentiment_label || ''}`}>{row.sentiment_label || (row.analysis_status==='insufficient_vocabulary'?'Unclassified':'Analyzing…')}</span></footer>
+      <footer><time>{row.review_date || row.review_date_label || (row.created_at?new Date(row.created_at).toLocaleDateString('en-PH',{month:'short',day:'numeric',year:'numeric'}):'')}</time><span className={`feedback-sentiment ${row.sentiment_label || ''}`}>{row.sentiment_label || (row.analysis_status==='insufficient_vocabulary'?'Unclassified':'Analyzing…')}</span>{row.sentiment_model_version && <small className="feedback-model-version">Model: {row.sentiment_model_version}</small>}</footer>
     </article>)}</div>
     {!loading && !error && !reviews.length && <div className="guest-feedback-empty"><MessageSquare size={32}/><h3>No feedback yet</h3><p>Guest reviews will appear here when submitted.</p></div>}
     </div></section></div>

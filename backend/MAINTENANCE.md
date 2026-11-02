@@ -17,7 +17,7 @@ The effective status is derived from durable open task records, avoiding a separ
 ## On-call flow
 
 1. Reporting an issue queues an availability request to an active Maintenance staff contact. Automatic selection considers current workload and does not assume a fixed shift or availability.
-2. The background worker emails the assigned technician at their saved staff-account email address. SMTP acceptance is recorded separately from technician acceptance. Staff assignment and maintenance alerts also appear in the staff web notification center, with an in-app sound while the portal is open.
+2. The background worker emails the assigned technician at their saved personal staff-account email address. SMTP acceptance is recorded separately from technician acceptance. Staff assignment notices are delivered by email, not through an in-app notification center.
 3. The technician opens a private response link without a staff login and accepts with an arrival time, declines, or proposes another time. An administrator can record phone/Messenger responses in the same request. Proposed times require admin approval before work starts.
 4. After the reply window (High 15, Medium 30, Low 60 minutes), one reminder is queued. After the reminder window, an untried backup contact is selected. If no backup remains, admin follow-up is flagged. Confirmed overdue arrivals are flagged, never silently reassigned or started.
 5. Work progresses **Pending → In Progress → Pending Review → Completed**. Repair/inspection findings and admin verification are required. Waiting-for-parts work cannot be submitted. Closed records are read-only.

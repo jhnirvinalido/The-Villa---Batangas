@@ -50,7 +50,7 @@ export function bookingReadiness(booking, tasks) {
   if (booking.checkedIn) return { label: 'Guest in house', staff: '', tone: 'neutral' };
   if (!preparation.length) return { label: 'No preparation assigned', staff: '', tone: 'warning' };
   const ready = preparation.every(task => task.status === 'Completed');
-  return { label: ready ? 'Ready · approved' : preparation.some(task => task.status === 'Pending Review') ? 'Awaiting approval' : 'Preparation in progress', staff: [...new Set(preparation.map(task => task.assignedTo).filter(Boolean))].join(', '), tone: ready ? 'success' : 'warning' };
+  return { label: ready ? 'Preparation complete' : preparation.some(task => task.status === 'Pending Review') ? 'Ready to complete' : 'Preparation in progress', staff: [...new Set(preparation.map(task => task.assignedTo).filter(Boolean))].join(', '), tone: ready ? 'success' : 'warning' };
 }
 
 export function minimumVillaCount(guests, villas) {

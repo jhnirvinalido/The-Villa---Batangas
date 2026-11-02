@@ -200,7 +200,7 @@ def list_maintenance(context=Depends(require_admin)):
 
 @router.post("", status_code=201)
 def create_maintenance(data: MaintenanceRequest, context=Depends(require_admin)):
-    from maintenance_oncall import begin_dispatch, choose_technician, notify_maintenance_team, suggest_maintenance_schedule
+    from maintenance_oncall import begin_dispatch, choose_technician, suggest_maintenance_schedule
     client = service_client()
     staff = technician(data.assigned_staff_id) if data.assigned_staff_id else choose_technician(client)
     if not staff:
@@ -208,8 +208,6 @@ def create_maintenance(data: MaintenanceRequest, context=Depends(require_admin))
     data = data.model_copy(update={"assigned_staff_id": staff["id"], "blocks_booking": False})
     snapshot = request_snapshot(data)
     snapshot.update(suggest_maintenance_schedule(client, data.villa_id))
-    broadcast = str(context.get("account", {}).get("role", "")).lower() == "admin"
-    snapshot["broadcastToMaintenance"] = broadcast
     begin_dispatch({"assigned_staff_id": str(staff["id"]), "priority": data.priority}, snapshot, window=data.response_window_minutes)
     code = "MAINT-" + datetime.now(THE_VILLA_TIMEZONE).strftime("%Y%m%d") + "-" + uuid4().hex[:6].upper()
     record = {**task_fields(data, staff), "task_code": code,
@@ -224,8 +222,6 @@ def create_maintenance(data: MaintenanceRequest, context=Depends(require_admin))
     if not saved:
         raise HTTPException(status_code=500, detail="The maintenance request could not be saved.")
     emit_table("admin_tasks", saved[0])
-    if broadcast:
-        notify_maintenance_team(client, saved[0])
     return {"message": "Maintenance request created.", "data": serialize(saved[0], staff)}
 
 

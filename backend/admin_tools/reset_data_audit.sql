@@ -49,7 +49,7 @@ from unnest(array[
   'admin_notifications','staff_assignment_email_outbox','feedback_invitation_outbox',
   'public_booking_checkouts','manual_booking_checkouts','guest_feedback',
   'companion_feedback','companion_feedback_invitations',
-  'feedback_recommendation_reports','feedback_analysis_jobs','profiles'
+  'feedback_recommendation_reports','feedback_recommendation_jobs','feedback_analysis_jobs','profiles'
 ]) as tables(name)
 order by name;
 

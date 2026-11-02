@@ -8,7 +8,8 @@ from unittest.mock import patch
 
 from booking_assignments import (
     MANILA, SOURCE, ASSIGNMENT_TYPE, assign_prearrival_staff,
-    booking_ready, choose_staff, process_confirmed_bookings, stable_id,
+    booking_ready, choose_staff, find_schedule_conflict, process_confirmed_bookings,
+    stable_id, task_window,
     schedule_prearrival_assignment,
 )
 
@@ -139,7 +140,7 @@ class BookingAssignmentsTests(unittest.TestCase):
         self.assertEqual(self.db.data["admin_tasks"][0]["booking_id"], airbnb["id"])
         self.assertEqual(airbnb["amount_paid"], 0)
 
-    def test_assignment_is_linked_ready_before_arrival_and_notifies_both_roles(self):
+    def test_assignment_is_linked_ready_before_arrival_and_notifies_administrators(self):
         result = self.assign()
         self.assertEqual(result["status"], "assigned")
         task = self.db.data["admin_tasks"][0]
@@ -151,13 +152,13 @@ class BookingAssignmentsTests(unittest.TestCase):
         self.assertEqual(task["status_history"][0]["actor"], "System")
         self.assertTrue(task["checklist"])
         self.assertTrue(all(not item["done"] for item in task["checklist"]))
-        self.assertEqual({n["recipient_staff_account_id"] for n in self.db.data["admin_notifications"]}, {"staff-1", "admin-1"})
+        self.assertEqual({n["recipient_staff_account_id"] for n in self.db.data["admin_notifications"]}, {"admin-1"})
 
     def test_repeated_and_concurrent_payment_events_create_only_one_task_and_notice(self):
         with ThreadPoolExecutor(max_workers=4) as pool:
             list(pool.map(lambda _: self.assign(), range(8)))
         self.assertEqual(len(self.db.data["admin_tasks"]), 1)
-        self.assertEqual(len(self.db.data["admin_notifications"]), 2)
+        self.assertEqual(len(self.db.data["admin_notifications"]), 1)
         self.db.data["admin_notifications"][0]["is_read"] = True
         self.assign()
         self.assertTrue(self.db.data["admin_notifications"][0]["is_read"])
@@ -195,7 +196,7 @@ class BookingAssignmentsTests(unittest.TestCase):
         self.assertEqual(self.db.data["admin_tasks"][0]["assigned_staff_id"], "staff-1")
         self.assertEqual(
             {n["recipient_staff_account_id"] for n in self.db.data["admin_notifications"]},
-            {"staff-1", "admin-1"},
+            {"admin-1"},
         )
 
     def test_random_selection_includes_available_staff_and_excludes_ineligible_staff(self):
@@ -229,6 +230,40 @@ class BookingAssignmentsTests(unittest.TestCase):
         self.assertEqual(assign_prearrival_staff(other, self.db, NOW)["status"], "assigned")
         tasks = self.db.data["admin_tasks"]
         self.assertEqual({t["due_time"] for t in tasks}, {"13:00:00", "14:00:00"})
+
+    def test_schedule_conflicts_block_overlap_but_allow_adjacent_slots(self):
+        candidate = {"id":"new", "status":"Pending", "due_date":"2026-10-26", "due_time":"14:00"}
+        existing = [{"id":"old", "status":"Pending", "due_date":"2026-10-26", "due_time":"13:30"}]
+        self.assertEqual(find_schedule_conflict(candidate, existing), existing[0])
+        existing[0]["due_time"] = "13:00"
+        self.assertIsNone(find_schedule_conflict(candidate, existing))
+        existing[0].update(status="Pending Review", due_time="14:30")
+        self.assertIsNone(find_schedule_conflict(candidate, existing))
+
+    def test_unscheduled_active_work_blocks_a_conflicting_day_or_unknown_schedule(self):
+        candidate = {"status":"Pending", "due_date":"2026-10-26", "due_time":"14:00"}
+        for task in (
+            {"status":"Pending", "due_date":"2026-10-26", "due_time":None},
+            {"status":"In Progress", "due_date":None, "due_time":None},
+        ):
+            self.assertIs(find_schedule_conflict(candidate, [task]), task)
+        other_day = {"status":"Pending", "due_date":"2026-10-27", "due_time":None}
+        self.assertIsNone(find_schedule_conflict(candidate, [other_day]))
+
+    def test_rescheduling_preserves_the_original_preparation_duration(self):
+        task = {
+            "due_date":"2026-10-27",
+            "due_time":"15:30",
+            "status_history":[{
+                "preparationWindow":{
+                    "start":"2026-10-26T13:00:00+08:00",
+                    "end":"2026-10-26T15:00:00+08:00",
+                },
+            }],
+        }
+        start, end = task_window(task)
+        self.assertEqual(end-start, timedelta(hours=2))
+        self.assertEqual(end.isoformat(), "2026-10-27T15:30:00+08:00")
 
     def test_task_with_missing_time_blocks_unsafe_schedule_guess(self):
         tasks = [{"assigned_staff_id":"staff-1", "status":"Pending", "due_date":"2026-10-26", "due_time":None}]
@@ -264,7 +299,7 @@ class BookingAssignmentsTests(unittest.TestCase):
         self.db.fail_table = None
         self.assertEqual(self.assign()["status"], "existing")
         self.assertEqual(len(self.db.data["admin_tasks"]), 1)
-        self.assertEqual(len(self.db.data["admin_notifications"]), 2)
+        self.assertEqual(len(self.db.data["admin_notifications"]), 1)
 
     def test_worker_skips_unpaid_and_past_bookings(self):
         self.db.data["bookings"] = [{**self.row, "amount_paid":0}, {**self.row, "id":"past", "check_in_date":"2026-10-24"}]

@@ -7,10 +7,21 @@ import { RecordPagination } from './RecordListControls';
 import { paginateRecords } from './recordListModel.mjs';
 import { deskTableRows } from './frontDeskTableModel.mjs';
 
+function taskStatusLabel(task) {
+  if (isLate(task)) return 'Overdue';
+  if (task.status === 'Pending') return 'Assigned';
+  if (task.status === 'Pending Review') {
+    return task.source === 'manual-maintenance-request' || task.maintenanceOnCall
+      ? 'Repair verification'
+      : 'Ready to complete';
+  }
+  return task.status;
+}
+
 export function TaskCard({ task, openTask, showOwner = false }) {
   const count = checklistCount(task);
   return <article className={`work-card ${isLate(task) ? 'late' : ''}`}>
-    <div className="work-card-top"><span className={`work-status ${task.status === 'Completed' ? 'done' : task.status === 'In Progress' ? 'working' : ''}`}>{isLate(task) ? 'Overdue' : task.status === 'Pending' ? 'Assigned' : task.status === 'Pending Review' ? 'Awaiting approval' : task.status}</span><span className={`work-priority ${task.priority?.toLowerCase()}`}>{task.priority} priority</span></div>{returnedFeedback(task) && <span className="work-correction-label">Changes requested</span>}
+    <div className="work-card-top"><span className={`work-status ${task.status === 'Completed' ? 'done' : task.status === 'In Progress' ? 'working' : ''}`}>{taskStatusLabel(task)}</span><span className={`work-priority ${task.priority?.toLowerCase()}`}>{task.priority} priority</span></div>{returnedFeedback(task) && <span className="work-correction-label">Changes requested</span>}
     <BookingPreparationContext task={task}/><h3>{task.title}</h3><p>{task.villaName || task.department || 'Villa operations'}</p>{showOwner && <p className="work-card-owner">{task.assignedTo || 'Unassigned staff'}</p>}
     <div className="work-card-progress"><span>{count.done} / {count.total} steps</span><span>{task.progress || 0}%</span></div><progress value={task.progress || 0} max="100" />
     <div className="work-card-bottom"><span><CalendarDays size={14}/>{dateLabel(task.dueDate)} · {timeLabel(task.dueTime)}</span><button type="button" className="work-task-view-button" aria-label={`View details for ${task.title}`} onClick={() => openTask(task.id)}>View details<ChevronRight size={15}/></button></div>
@@ -20,7 +31,7 @@ export default function StaffTaskBoard({ tasks, openTask, initialView = "My work
   const [search,setSearch] = useState('');
   const [priority,setPriority] = useState('');
   const [status,setStatus] = useState('');
-  const [layout,setLayout] = useState('table');
+  const [layout,setLayout] = useState(() => typeof window !== 'undefined' && window.matchMedia('(max-width: 650px)').matches ? 'cards' : 'table');
   const [dueDate,setDueDate] = useState(initialDueDate);
   const [sort,setSort] = useState({ key: '', direction: 'asc' });
   const [pageSize,setPageSize] = useState(10);
@@ -43,7 +54,7 @@ export default function StaffTaskBoard({ tasks, openTask, initialView = "My work
   return <div className="work-board">
     <div className="work-toolbar record-toolbar">
       <label className="work-search"><Search size={16}/><input type="search" aria-label="Search your tasks" placeholder="Search assignment, villa or booking…" value={search} onChange={event => setSearch(event.target.value)}/></label>
-      <select aria-label="Filter task status" value={status} onChange={event => setStatus(event.target.value)}><option value="">All statuses</option>{['Pending','In Progress','Pending Review','Completed','Overdue'].map(value => <option key={value} value={value}>{value === 'Pending' ? 'To do' : value === 'Pending Review' ? 'Awaiting approval' : value}</option>)}</select>
+      <select aria-label="Filter task status" value={status} onChange={event => setStatus(event.target.value)}><option value="">All statuses</option>{['Pending','In Progress','Pending Review','Completed','Overdue'].map(value => <option key={value} value={value}>{value === 'Pending' ? 'To do' : value === 'Pending Review' ? 'Ready to complete' : value}</option>)}</select>
       <select aria-label="Filter task priority" value={priority} onChange={event => setPriority(event.target.value)}><option value="">All priorities</option>{['High','Medium','Low'].map(value => <option key={value}>{value}</option>)}</select>
       <input type="date" aria-label="Filter task due date" value={dueDate} onChange={event => setDueDate(event.target.value)}/>
       {(search || status || priority || dueDate || sort.key) && <button type="button" className="staff-btn-ghost" onClick={() => {setSearch('');setStatus('');setPriority('');setDueDate('');setSort({key:'',direction:'asc'});}}>Clear filters</button>}
@@ -52,9 +63,9 @@ export default function StaffTaskBoard({ tasks, openTask, initialView = "My work
     {layout === 'cards' ? <div className="work-task-card-grid">{page.rows.map(task => <TaskCard key={task.id} task={task} openTask={openTask}/>)}</div> :
     <div className="work-task-table-wrap villa-table-frame" role="region" aria-label="Staff tasks table" tabIndex={0}><table className="work-task-table">
       <thead><tr>{sortHeading('task','Assignment')}{sortHeading('villa','Villa')}{sortHeading('due','Due')}{sortHeading('priority','Priority')}{sortHeading('status','Status')}{sortHeading('progress','Progress')}<th scope="col">Action</th></tr></thead>
-      <tbody>{page.rows.map(task=><tr key={task.id}><td><strong>{task.title}</strong><small>{task.bookingCode || task.bookingId || 'No booking code'}</small></td><td>{task.villaName || task.department || 'Villa operations'}</td><td>{dateLabel(task.dueDate)} · {timeLabel(task.dueTime)}</td><td>{task.priority || 'Medium'}</td><td>{isLate(task) ? 'Overdue' : task.status}</td><td><span>{checklistCount(task).done} / {checklistCount(task).total} steps</span><progress value={task.progress || 0} max="100"/></td><td><button type="button" className="work-task-view-button" aria-label={`View ${task.title}`} onClick={()=>openTask(task.id)}>View details<ChevronRight size={14}/></button></td></tr>)}</tbody>
+      <tbody>{page.rows.map(task=><tr key={task.id}><td><strong>{task.title}</strong><small>{task.bookingCode || task.bookingId || 'No booking code'}</small></td><td>{task.villaName || task.department || 'Villa operations'}</td><td>{dateLabel(task.dueDate)} · {timeLabel(task.dueTime)}</td><td>{task.priority || 'Medium'}</td><td>{taskStatusLabel(task)}</td><td><span>{checklistCount(task).done} / {checklistCount(task).total} steps</span><progress value={task.progress || 0} max="100"/></td><td><button type="button" className="work-task-view-button" aria-label={`View ${task.title}`} onClick={()=>openTask(task.id)}>View details<ChevronRight size={14}/></button></td></tr>)}</tbody>
     </table></div>}
-    {!visible.length && <div className="work-empty"><CheckCircle2 size={32}/><strong>{search || priority || status ? 'No matching tasks' : dueDate ? 'No assignments for this date' : initialView === 'My work' ? 'You’re all caught up' : 'Nothing here yet'}</strong><p>{dueDate ? 'Show all assignments to see work scheduled on other dates.' : search || priority || status ? 'Try adjusting your search, status or priority.' : 'New assignments and updates will appear automatically.'}</p></div>}
+    {!visible.length && <div className="work-empty"><CheckCircle2 size={32}/><strong>{search || priority || status ? 'No matching tasks' : dueDate ? 'No assignments for this date' : initialFocus === 'Completed' ? 'No completed assignments yet' : initialView === 'My work' ? 'You’re all caught up' : 'Nothing here yet'}</strong><p>{dueDate ? 'Show all assignments to see work scheduled on other dates.' : search || priority || status ? 'Try adjusting your search, status or priority.' : initialFocus === 'Completed' ? 'Assignments appear here after you mark them complete.' : 'New assignments and updates will appear automatically.'}</p></div>}
     <RecordPagination page={page} pageSize={pageSize} onPageChange={changePage} onPageSizeChange={setPageSize} label="assignments"/>
   </div>;
 }
