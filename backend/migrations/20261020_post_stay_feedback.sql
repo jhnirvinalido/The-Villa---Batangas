@@ -157,7 +157,11 @@ begin
 end;
 $$;
 
-create or replace function public.queue_guest_feedback_invitation(
+-- This RPC may already exist with an older return type; PostgreSQL cannot
+-- change a function's return type with CREATE OR REPLACE.
+drop function if exists public.queue_guest_feedback_invitation(uuid, text, text);
+
+create function public.queue_guest_feedback_invitation(
     p_booking_id uuid,
     p_nonce text,
     p_token_hash text
