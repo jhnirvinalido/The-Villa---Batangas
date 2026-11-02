@@ -80,6 +80,18 @@ class BackendFlowTests(unittest.TestCase):
         self.assertIn('PGRST202',message)
         self.assertIn('apply the feedback migration',message)
         self.assertNotIn('sensitive database response',message)
+    def test_outbox_rpc_logs_safe_database_code(self):
+        class APIError(Exception):
+            code='23502'
+            def __str__(self):
+                return 'sensitive database response'
+        self.client.rpc.side_effect=APIError()
+        with self.assertLogs(service.logger,level='WARNING') as logs,self.assertRaises(APIError):
+            service._feedback_rpc(self.client,'claim_guest_feedback_invitation',{})
+        message=logs.output[0]
+        self.assertIn('claim_guest_feedback_invitation',message)
+        self.assertIn('23502',message)
+        self.assertNotIn('sensitive database response',message)
     def test_payment_evidence_combines_deposit_and_room_balance_not_service_charges(self):
         def table(name):
             query=MagicMock()

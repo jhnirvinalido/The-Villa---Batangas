@@ -94,6 +94,20 @@ def queue_feedback_invitation(record, client=None):
         )
         return False
 
+def _feedback_rpc(client, name, params):
+    try:
+        return client.rpc(name,params).execute()
+    except Exception as error:
+        error_code = str(getattr(error, 'code', '') or '')
+        code_detail = f' Database error code: {error_code}.' if error_code else ''
+        logger.warning(
+            'Feedback outbox RPC %s failed. Error type: %s.%s',
+            name,
+            type(error).__name__,
+            code_detail,
+        )
+        raise
+
 def _message(record, token, message_id):
     import booking
     booking_id = str(record.get('id') or '').strip()
@@ -181,11 +195,11 @@ def process_feedback_outbox():
     client = booking._service()
     # A bounded reconciliation sweep also covers interrupted hooks and payments
     # settled after checkout. Existing outbox rows make this idempotent.
-    records = client.rpc('guest_feedback_invitation_candidates',{}).execute().data or []
+    records = _feedback_rpc(client,'guest_feedback_invitation_candidates',{}).data or []
     for record in records:
         queue_feedback_invitation(record,client)
     for _ in range(10):
-        claim = client.rpc('claim_guest_feedback_invitation',{}).execute().data
+        claim = _feedback_rpc(client,'claim_guest_feedback_invitation',{}).data
         if not claim:
             break
         record = claim['booking']
@@ -193,8 +207,8 @@ def process_feedback_outbox():
         reason = None
         sending = False
         try:
-            if not client.rpc('feedback_booking_eligible',{'p_booking_id':str(record['id'])}).execute().data:
-                client.rpc('finish_guest_feedback_invitation',{'p_booking_id':str(record['id']),'p_claim':claim['claim_id'],'p_status':'suppressed','p_error':'no_longer_eligible'}).execute()
+            if not _feedback_rpc(client,'feedback_booking_eligible',{'p_booking_id':str(record['id'])}).data:
+                _feedback_rpc(client,'finish_guest_feedback_invitation',{'p_booking_id':str(record['id']),'p_claim':claim['claim_id'],'p_status':'suppressed','p_error':'no_longer_eligible'})
                 continue
             validate_email(str(record.get('customer_email') or ''),check_deliverability=False)
             token = token_for(str(record['id']),claim['token_nonce'])
@@ -233,4 +247,4 @@ def process_feedback_outbox():
             reason = 'delivery_uncertain' if status=='uncertain' else 'smtp_unavailable'
         # If completion fails after SMTP acceptance, do NOT resend. The lease
         # becomes uncertain and requires reconciliation by an operator.
-        client.rpc('finish_guest_feedback_invitation',{'p_booking_id':str(record['id']),'p_claim':claim['claim_id'],'p_status':status,'p_error':reason}).execute()
+        _feedback_rpc(client,'finish_guest_feedback_invitation',{'p_booking_id':str(record['id']),'p_claim':claim['claim_id'],'p_status':status,'p_error':reason})
