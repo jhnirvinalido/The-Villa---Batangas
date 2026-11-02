@@ -67,6 +67,19 @@ class BackendFlowTests(unittest.TestCase):
             self.assertEqual(call.args[1]['p_booking_id'],self.id)
         self.assertEqual(wake.call_count,2)
         wake.assert_called_with({'feedback'})
+    def test_queue_api_error_logs_safe_migration_diagnostic(self):
+        class APIError(Exception):
+            code='PGRST202'
+            def __str__(self):
+                return 'sensitive database response'
+        self.client.rpc.side_effect=APIError()
+        with patch.object(service,'booking_eligible',return_value=True),patch.object(booking,'SUPABASE_SERVICE_ROLE_KEY','test-secret'),self.assertLogs(service.logger,level='WARNING') as logs:
+            self.assertFalse(service.queue_feedback_invitation(self.record,self.client))
+        message=logs.output[0]
+        self.assertIn('step queue_invitation_rpc',message)
+        self.assertIn('PGRST202',message)
+        self.assertIn('apply the feedback migration',message)
+        self.assertNotIn('sensitive database response',message)
     def test_payment_evidence_combines_deposit_and_room_balance_not_service_charges(self):
         def table(name):
             query=MagicMock()

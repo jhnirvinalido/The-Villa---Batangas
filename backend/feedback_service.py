@@ -49,28 +49,48 @@ def booking_eligible(client, record):
 def queue_feedback_invitation(record, client=None):
     """Best effort only; the worker reconciles missed checkout/payment hooks."""
     booking_reference = str(record.get('booking_code') or record.get('id') or 'unknown')
+    step = 'initialize'
     try:
         import booking
+        step = 'load_database_client'
         client = client or booking._service()
+        step = 'check_payment_eligibility'
         if not booking_eligible(client,record):
             logger.info(
                 'Feedback invitation not queued because booking %s is not eligible.',
                 booking_reference,
             )
             return False
+        step = 'validate_guest_email'
         validate_email(str(record.get('customer_email') or ''),check_deliverability=False)
+        step = 'create_invitation_token'
         nonce = secrets.token_urlsafe(32)
         token = token_for(str(record['id']),nonce)
+        step = 'queue_invitation_rpc'
         client.rpc('queue_guest_feedback_invitation',{'p_booking_id':str(record['id']),'p_nonce':nonce,'p_token_hash':hashlib.sha256(token.encode()).hexdigest()}).execute()
+        step = 'wake_email_worker'
         from live_updates import hub
         hub.wake({'feedback'})
         return True
     except Exception as error:
         # Do not log the email address, raw feedback, token, or provider response.
+        error_code = str(getattr(error, 'code', '') or '')
+        diagnostics = {
+            'PGRST202': 'RPC is missing from the PostgREST schema cache; apply the feedback migration and reload the schema cache.',
+            'PGRST204': 'A required database column is missing; check the deployed migrations.',
+            '42501': 'Database permission denied; verify the service-role key and RPC grants.',
+            '42P01': 'A required database table is missing; apply the required migrations.',
+            '42883': 'A required database function is missing; apply the feedback migration.',
+        }
+        diagnostic = diagnostics.get(error_code, 'Check the Supabase API/database logs for this error code.')
+        code_detail = f' Database error code: {error_code}.' if error_code else ''
         logger.warning(
-            'Feedback invitation could not be queued for booking %s; reconciliation will retry. Error type: %s.',
+            'Feedback invitation could not be queued for booking %s at step %s; reconciliation will retry. Error type: %s.%s %s',
             booking_reference,
+            step,
             type(error).__name__,
+            code_detail,
+            diagnostic,
         )
         return False
 
