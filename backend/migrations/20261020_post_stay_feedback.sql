@@ -430,7 +430,10 @@ begin
 end;
 $$;
 
-create or replace function public.list_verified_guest_feedback()
+-- The deployed RPC may return a different type; replace only this signature.
+drop function if exists public.list_verified_guest_feedback();
+
+create function public.list_verified_guest_feedback()
 returns setof public.guest_feedback
 language sql
 security definer
