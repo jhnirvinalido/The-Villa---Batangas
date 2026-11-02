@@ -1959,44 +1959,6 @@ function EmptyState({
   );
 }
 
-function createChartEntranceAnimation(reducedMotion, stagger = 75) {
-  const duration = reducedMotion ? 0 : 420;
-  const easing = "easeOutCubic";
-  const delay = (context) =>
-    reducedMotion || context.type !== "data"
-      ? 0
-      : context.dataIndex * stagger + context.datasetIndex * 45;
-
-  return {
-    duration,
-    easing,
-    delay,
-    animateRotate: !reducedMotion,
-    animateScale: !reducedMotion,
-  };
-}
-
-function createChartRiseAnimation(reducedMotion, stagger = 45) {
-  const animation = createChartEntranceAnimation(reducedMotion, stagger);
-
-  const easing = "easeOutCubic";
-
-  return {
-    animation: {
-      duration: animation.duration,
-      easing,
-    },
-    animations: {
-      y: {
-        from: (context) => context.chart.scales.y.getPixelForValue(0),
-        duration: animation.duration,
-        easing,
-        delay: animation.delay,
-      },
-    },
-  };
-}
-
 function VillaAnalyticsCharts({ bookings, villas, payments, assignmentSummary, today }) {
   const [period, setPeriod] = React.useState({unit: "year", date: today});
   const chartAnalytics = React.useMemo(() => bookingAnalytics(
@@ -2029,19 +1991,18 @@ function VillaAnalyticsCharts({ bookings, villas, payments, assignmentSummary, t
   };
   const canvasRefs = React.useRef([]);
   React.useEffect(() => {
-    const reducedMotion = window.matchMedia?.("(prefers-reduced-motion: reduce)")?.matches ?? false;
     const options = {
       responsive: true,
       maintainAspectRatio: false,
-      animation: createChartEntranceAnimation(reducedMotion, 35),
+      animation: false,
     };
     const charts = [
       new Chart(canvasRefs.current[0], {type:'line', data:{labels:chartAnalytics.months, datasets:[
         {label:'Confirmed paid or external stays', data:chartAnalytics.monthlyBookings, borderColor:'#7b5037', tension:0, fill:false}
-      ]}, options:{...options, ...createChartRiseAnimation(reducedMotion), scales:{y:{beginAtZero:true,ticks:{precision:0}}}}}),
+      ]}, options:{...options, scales:{y:{beginAtZero:true,ticks:{precision:0}}}}}),
       new Chart(canvasRefs.current[1], {type:'bar', data:{labels:chartAnalytics.villaChart.map(v=>v.name), datasets:[
         {label:'Confirmed paid or external stays', data:chartAnalytics.villaChart.map(v=>v.value), backgroundColor:'#7b5037'}
-      ]}, options:{...options, ...createChartRiseAnimation(reducedMotion), scales:{y:{beginAtZero:true,ticks:{precision:0}}}}}),
+      ]}, options:{...options, scales:{y:{beginAtZero:true,ticks:{precision:0}}}}}),
       new Chart(canvasRefs.current[2], {type:'doughnut', data:{labels:Object.keys(chartAnalytics.bookingStatus), datasets:[
         {data:Object.values(chartAnalytics.bookingStatus),backgroundColor:['#d7a64b','#5b9c77','#5c88b0','#8067a5']}
       ]}, options}),
@@ -2144,8 +2105,6 @@ function SentimentAnalyticsDashboard({ apiRequest, onOpenReviews }) {
     const summary = report?.summary;
     if (!summary) return undefined;
 
-    const reducedMotion = window.matchMedia?.("(prefers-reduced-motion: reduce)")?.matches ?? false;
-    const animation = createChartEntranceAnimation(reducedMotion, 35);
     const sentimentLabels = ["Positive", "Neutral", "Negative", "Unclassified"];
     const sentimentKeys = ["positive", "neutral", "negative", "unclassified"];
     const sentimentCounts = sentimentKeys.map((key) => Number(summary.phrase_sentiments?.[key] || 0));
@@ -2167,7 +2126,7 @@ function SentimentAnalyticsDashboard({ apiRequest, onOpenReviews }) {
         options: {
           responsive: true,
           maintainAspectRatio: false,
-          animation,
+          animation: false,
           plugins: { legend: { position: "bottom" } },
         },
       }));
@@ -2188,7 +2147,7 @@ function SentimentAnalyticsDashboard({ apiRequest, onOpenReviews }) {
           responsive: true,
           maintainAspectRatio: false,
           indexAxis: "y",
-          animation,
+          animation: false,
           scales: {
             x: { beginAtZero: true, ticks: { precision: 0 } },
             y: { grid: { display: false } },
@@ -2212,7 +2171,7 @@ function SentimentAnalyticsDashboard({ apiRequest, onOpenReviews }) {
         options: {
           responsive: true,
           maintainAspectRatio: false,
-          animation,
+          animation: false,
           scales: {
             y: { beginAtZero: true, ticks: { precision: 0 } },
           },
@@ -5117,7 +5076,22 @@ Villas Under Maintenance
         `/admin/bookings/${encodeURIComponent(booking.id)}/${action === "checkin" ? "check-in" : "checkout"}`,
         { method: "POST", body: JSON.stringify({ notes: null }) }
       );
-      if (payload?.data) mergeServerBooking(payload.data);
+      if (payload?.data || action === "checkout") {
+        const serverBooking = payload?.data || {};
+        const checkedOutAt = serverBooking.checked_out_at ||
+          serverBooking.checkedOutAt ||
+          new Date().toISOString();
+        mergeServerBooking(action === "checkout" ? {
+          ...booking,
+          ...serverBooking,
+          booking_status: "Completed",
+          bookingStatus: "Completed",
+          stay_status: "Checked Out",
+          stayStatus: "Checked Out",
+          checked_out_at: checkedOutAt,
+          checkedOutAt,
+        } : serverBooking);
+      }
       if (payload?.turnoverTask) {
         setAssignments((current) => [payload.turnoverTask, ...current.filter((item) => item.id !== payload.turnoverTask.id)]);
       }

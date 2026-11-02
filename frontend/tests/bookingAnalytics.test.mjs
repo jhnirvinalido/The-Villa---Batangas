@@ -93,10 +93,12 @@ test('graphs omit unpaid bookings while pending-payment summary remains accurate
 test('bookings explicitly marked unpaid are omitted even if stored amounts conflict',()=>{
   const data=bookingAnalytics([
     {...reservation,paymentStatus:'Unpaid'},
+    {...reservation,id:'unpaid-airbnb',bookingChannel:'airbnb',paymentStatus:'Unpaid'},
     {...reservation,id:'fully-paid',paymentStatus:'Paid',amountPaid:1000,totalAmount:1000},
   ],villas,2026);
   assert.equal(data.totalBookings,1);
   assert.deepEqual(data.paymentStatus,{Paid:1,Partial:0});
+  assert.deepEqual(data.bookingChannel,{Airbnb:0,'Manual Booking (Messenger)':0,'The Villa':1});
   assert.equal(data.monthlyBookings[9],1);
 });
 

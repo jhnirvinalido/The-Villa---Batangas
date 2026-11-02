@@ -1,8 +1,6 @@
 import { useEffect, useId, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { useLocation } from 'react-router-dom';
 import { AlertCircle, CheckCircle2, LoaderCircle, LogOut, X } from 'lucide-react';
-import { activeRequests } from './requestFeedback.mjs';
 import { formatUserFacingMessage } from './errorMessages.mjs';
 
 export function LoadingScreen({ message = 'Please wait…' }) {
@@ -34,14 +32,10 @@ export function ConfirmAction({ open, busy = false, cancel, confirm, titleText =
 export function ConfirmSignOut(props) { return <ConfirmAction {...props}/>; }
 
 export default function SystemFeedback() {
-  const { pathname } = useLocation();
-  const [pending, setPending] = useState(activeRequests);
-  const [visible, setVisible] = useState(false);
   const [alert, setAlert] = useState(null);
   useEffect(() => {
     const listener = event => {
-      if (event.detail.kind === 'pending') setPending(event.detail.count);
-      else if (event.detail.kind === 'alert') setAlert(event.detail);
+      if (event.detail.kind === 'alert') setAlert(event.detail);
       else if (event.detail.kind === 'dismiss-alert') {
         setAlert(current => current &&
           formatUserFacingMessage(current.message) === formatUserFacingMessage(event.detail.message)
@@ -52,10 +46,5 @@ export default function SystemFeedback() {
     window.addEventListener('villa:feedback', listener);
     return () => window.removeEventListener('villa:feedback', listener);
   }, []);
-  useEffect(() => {
-    const timer = setTimeout(() => setVisible(pending > 0), pending ? 350 : 0);
-    return () => clearTimeout(timer);
-  }, [pending]);
-  const showLoading = visible && pathname !== '/admin-login';
-  return <>{showLoading && <LoadingScreen message="Processing your request…"/>}{alert && !showLoading && createPortal(<div className="fixed right-4 bottom-4 left-4 z-[31000] mx-auto max-w-lg"><AlertMessage message={alert.message} type={alert.type} dismiss={() => setAlert(null)}/></div>, document.body)}</>;
+  return <>{alert && createPortal(<div className="fixed right-4 bottom-4 left-4 z-[31000] mx-auto max-w-lg"><AlertMessage message={alert.message} type={alert.type} dismiss={() => setAlert(null)}/></div>, document.body)}</>;
 }

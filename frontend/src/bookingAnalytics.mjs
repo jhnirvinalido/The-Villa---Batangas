@@ -120,7 +120,7 @@ export function bookingAnalytics(bookings, villas, year, frontDeskPayments = [],
     );
     const checkInInPeriod = checkIn >= start && checkIn < end;
     const markedUnpaid = String(b.paymentStatus || '').trim().toLowerCase() === 'unpaid';
-    const graphEligible = external || (!markedUnpaid && paid > 0);
+    const graphEligible = !markedUnpaid && (external || paid > 0);
     if (!cancelled && checkInInPeriod && !external && balance > 0) {
       pendingPaymentCount++;
       totalOutstandingBalance += balance;
