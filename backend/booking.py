@@ -3349,6 +3349,8 @@ def create_booking(
         "payment_due_amount": float(selected_due),
         "amount_paid": 0,
         "balance_amount": float(total_amount),
+        "front_desk_other_charges": [],
+        "front_desk_other_charges_total": 0,
         "booking_status": "Pending Payment",
         "stay_status": "Not Checked In",
         "payment_status": "Unpaid",
@@ -4968,6 +4970,8 @@ def _prepare_public_booking(data: PublicBookingCreateRequest, *, draft_only: boo
         "payment_due_amount": float(selected_due),
         "amount_paid": 0,
         "balance_amount": float(total_amount),
+        "front_desk_other_charges": [],
+        "front_desk_other_charges_total": 0,
         "booking_status": "Pending Payment",
         "stay_status": "Not Checked In",
         "payment_status": "Unpaid",
@@ -5965,7 +5969,15 @@ def _sync_public_checkout_draft(service, draft):
     if (str(attributes.get("currency") or "").upper() != "PHP"
             or _money(Decimal(str(attributes.get("amount", 0))) / 100) != _money(booking.get("payment_due_amount"))):
         raise HTTPException(status_code=409, detail="Verified payment does not match the checkout amount or currency.")
-    saved = _apply_payment(service, booking, session, payment, public_draft=True)
+    try:
+        saved = _apply_payment(service, booking, session, payment, public_draft=True)
+    except Exception:
+        logger.exception("Verified public payment could not finalize checkout %s", booking.get("id"))
+        return {
+            "state": "payment_received",
+            "message": "PayMongo confirms your payment was received. Your reservation still needs confirmation. Please do not pay again. Contact The Villa with your booking reference if this continues.",
+            "booking": booking,
+        }
     # Only the caller that atomically promoted the draft sends the acknowledgement.
     if saved.pop("_checkout_finalized", False):
         _send_booking_confirmation_email(saved)
@@ -6043,13 +6055,23 @@ def _sync_public_payment_intent(
             "metadata": metadata,
         },
     }
-    saved = _apply_payment(
-        service,
-        booking,
-        session,
-        payment,
-        public_draft=public_draft,
-    )
+    try:
+        saved = _apply_payment(
+            service,
+            booking,
+            session,
+            payment,
+            public_draft=public_draft,
+        )
+    except Exception:
+        if not public_draft:
+            raise
+        logger.exception("Verified public payment could not finalize checkout %s", booking.get("id"))
+        return {
+            "state": "payment_received",
+            "message": "PayMongo confirms your payment was received. Your reservation still needs confirmation. Please do not pay again. Contact The Villa with your booking reference if this continues.",
+            "booking": booking,
+        }
     if public_draft and saved.pop("_checkout_finalized", False):
         _send_booking_confirmation_email(saved)
     return {

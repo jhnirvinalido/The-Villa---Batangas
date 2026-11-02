@@ -1,0 +1,211 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="2000" height="1380" viewBox="0 0 2000 1380" role="img" aria-labelledby="title description">
+  <title id="title">The Villa Level 0 system context diagram</title>
+  <desc id="description">Black-and-white Level 0 data-flow context diagram with The Villa Resort Management System as the central process, surrounded by guest, administrator, front desk, staff, maintenance, and verified external service providers.</desc>
+  <defs>
+    <style>
+      text { font-family: Georgia, "Times New Roman", serif; fill: #000; }
+      .title { font-size: 30px; font-weight: 700; }
+      .subtitle { font-size: 16px; }
+      .entity { fill: #fff; stroke: #000; stroke-width: 2.4; }
+      .process { fill: #fff; stroke: #000; stroke-width: 3; }
+      .entity-title { font-size: 19px; font-weight: 700; }
+      .entity-copy { font-size: 14px; }
+      .process-title { font-size: 27px; font-weight: 700; }
+      .process-copy { font-size: 17px; }
+      .process-small { font-size: 14px; }
+      .flow { fill: none; stroke: #000; stroke-width: 2; }
+      .arrowhead { fill: #000; }
+      .optional { stroke-dasharray: 9 7; }
+      .flow-label { font-size: 14px; font-weight: 400; }
+      .flow-heading { font-size: 13px; font-weight: 700; }
+      .flow-bg { fill: #fff; }
+      .note { fill: #fff; stroke: #000; stroke-width: 1.8; }
+      .note-title { font-size: 15px; font-weight: 700; }
+      .note-copy { font-size: 14px; }
+    </style>
+  </defs>
+
+  <rect width="2000" height="1380" fill="#fff"/>
+  <text x="1000" y="46" text-anchor="middle" class="title">THE VILLA · LEVEL 0 CONTEXT DIAGRAM</text>
+  <text x="1000" y="75" text-anchor="middle" class="subtitle">System boundary and information exchanged with users and external services</text>
+
+  <g aria-label="Data-flow connectors">
+    <path d="M960 210V403" class="flow"/>
+    <path d="M1040 403V210" class="flow"/>
+    <path d="M380 430L728 578" class="flow"/>
+    <path d="M708 630L380 485" class="flow"/>
+    <path d="M380 670H700" class="flow"/>
+    <path d="M700 730H380" class="flow"/>
+    <path d="M380 950L740 850" class="flow"/>
+    <path d="M777 900L380 1020" class="flow"/>
+    <path d="M1240 520L1620 260" class="flow"/>
+    <path d="M1620 300L1270 570" class="flow"/>
+    <path d="M1288 615L1620 445" class="flow"/>
+    <path d="M1620 500L1275 665" class="flow"/>
+    <path d="M1620 675L1300 700" class="flow"/>
+    <path d="M1283 800L1620 865" class="flow"/>
+    <path d="M1229 900L1620 1060" class="flow optional"/>
+    <path d="M1620 1110L1229 960" class="flow optional"/>
+    <path d="M960 997V1195" class="flow"/>
+    <path d="M1040 1195V997" class="flow"/>
+  </g>
+
+  <g aria-hidden="true" class="arrowhead">
+    <path d="M960 403 L965 391 L955 391 Z"/>
+    <path d="M1040 210 L1035 222 L1045 222 Z"/>
+    <path d="M728 578 L715.1 573.9 L718.9 564.7 Z"/>
+    <path d="M380 485 L392.9 489.1 L389.1 498.3 Z"/>
+    <path d="M700 670 L688 665 L688 675 Z"/>
+    <path d="M380 730 L392 735 L392 725 Z"/>
+    <path d="M740 850 L727.5 845 L730.2 854.6 Z"/>
+    <path d="M380 1020 L392.5 1024 L389.7 1014.4 Z"/>
+    <path d="M1620 260 L1609 267.5 L1603.4 259.4 Z"/>
+    <path d="M1270 570 L1280.8 561 L1287 569 Z"/>
+    <path d="M1620 445 L1607.8 451 L1603.2 442.2 Z"/>
+    <path d="M1275 665 L1286.8 658.5 L1291.4 667.3 Z"/>
+    <path d="M1300 700 L1287.8 696 L1288.6 706 Z"/>
+    <path d="M1620 865 L1607.5 859 L1605.6 868.8 Z"/>
+    <path d="M1620 1060 L1608 1050 L1604.1 1059.2 Z"/>
+    <path d="M1229 960 L1241.1 964 L1237.5 973.3 Z"/>
+    <path d="M960 1195 L965 1183 L955 1183 Z"/>
+    <path d="M1040 997 L1035 1009 L1045 1009 Z"/>
+  </g>
+
+  <g aria-label="The Villa system process">
+    <circle cx="1000" cy="700" r="300" class="process"/>
+    <text x="1000" y="492" text-anchor="middle" class="process-small">0</text>
+    <text x="1000" y="548" text-anchor="middle" class="process-title">THE VILLA</text>
+    <text x="1000" y="583" text-anchor="middle" class="process-title">RESORT MANAGEMENT SYSTEM</text>
+    <text x="1000" y="615" text-anchor="middle" class="process-copy">(The Villa – Batangas)</text>
+    <path d="M790 642H1210" stroke="#000" stroke-width="1.7"/>
+    <text x="1000" y="683" text-anchor="middle" class="process-copy">Villa information and guest accounts</text>
+    <text x="1000" y="718" text-anchor="middle" class="process-copy">Reservations, stays and payment records</text>
+    <text x="1000" y="753" text-anchor="middle" class="process-copy">Front Desk, Staff and Maintenance operations</text>
+    <text x="1000" y="788" text-anchor="middle" class="process-copy">Feedback, reporting and notifications</text>
+    <text x="1000" y="844" text-anchor="middle" class="process-small">Role-protected access to application data</text>
+  </g>
+
+  <g aria-label="Guest">
+    <rect x="840" y="100" width="320" height="110" class="entity"/>
+    <text x="1000" y="144" text-anchor="middle" class="entity-title">GUEST (CUSTOMER)</text>
+    <text x="1000" y="173" text-anchor="middle" class="entity-copy">Website visitor or registered guest</text>
+  </g>
+
+  <g aria-label="Administrator and Front Desk">
+    <rect x="50" y="370" width="330" height="150" class="entity"/>
+    <text x="215" y="415" text-anchor="middle" class="entity-title">ADMINISTRATOR /</text>
+    <text x="215" y="442" text-anchor="middle" class="entity-title">FRONT DESK</text>
+    <text x="215" y="476" text-anchor="middle" class="entity-copy">Bookings, property and staff operations</text>
+    <text x="215" y="498" text-anchor="middle" class="entity-copy">Guest arrivals and settlements</text>
+  </g>
+
+  <g aria-label="Staff">
+    <rect x="50" y="605" width="330" height="130" class="entity"/>
+    <text x="215" y="650" text-anchor="middle" class="entity-title">STAFF</text>
+    <text x="215" y="681" text-anchor="middle" class="entity-copy">Assignments, schedules, tasks, messages</text>
+    <text x="215" y="703" text-anchor="middle" class="entity-copy">and work-hour records</text>
+  </g>
+
+  <g aria-label="Maintenance">
+    <rect x="50" y="890" width="330" height="130" class="entity"/>
+    <text x="215" y="935" text-anchor="middle" class="entity-title">MAINTENANCE</text>
+    <text x="215" y="966" text-anchor="middle" class="entity-copy">Maintenance requests and assigned work</text>
+    <text x="215" y="988" text-anchor="middle" class="entity-copy">Task progress and time records</text>
+  </g>
+
+  <g aria-label="External services">
+    <rect x="1620" y="180" width="330" height="155" class="entity"/>
+    <text x="1785" y="220" text-anchor="middle" class="entity-title">SUPABASE</text>
+    <text x="1785" y="252" text-anchor="middle" class="entity-copy">Authentication, PostgreSQL, Storage</text>
+    <text x="1785" y="275" text-anchor="middle" class="entity-copy">Realtime changes and signed SMS hook</text>
+
+    <rect x="1620" y="390" width="330" height="150" class="entity"/>
+    <text x="1785" y="432" text-anchor="middle" class="entity-title">PAYMONGO</text>
+    <text x="1785" y="464" text-anchor="middle" class="entity-copy">Checkout and payment processing</text>
+    <text x="1785" y="487" text-anchor="middle" class="entity-copy">Signed payment webhooks</text>
+
+    <rect x="1620" y="585" width="330" height="150" class="entity"/>
+    <text x="1785" y="627" text-anchor="middle" class="entity-title">GOOGLE IDENTITY SERVICES</text>
+    <text x="1785" y="659" text-anchor="middle" class="entity-copy">Google sign-in ID token</text>
+    <text x="1785" y="682" text-anchor="middle" class="entity-copy">used in Supabase-backed login</text>
+
+    <rect x="1620" y="780" width="330" height="160" class="entity"/>
+    <text x="1785" y="820" text-anchor="middle" class="entity-title">EMAIL / SMS SERVICES</text>
+    <text x="1785" y="852" text-anchor="middle" class="entity-copy">Resend and/or configured SMTP</text>
+    <text x="1785" y="875" text-anchor="middle" class="entity-copy">HTTPSMS receives OTP requests</text>
+    <text x="1785" y="898" text-anchor="middle" class="entity-copy">from the Supabase signed SMS hook</text>
+
+    <rect x="1620" y="980" width="330" height="155" class="entity"/>
+    <text x="1785" y="1020" text-anchor="middle" class="entity-title">GEMINI API · OPTIONAL</text>
+    <text x="1785" y="1052" text-anchor="middle" class="entity-copy">Administrator recommendation drafts</text>
+    <text x="1785" y="1075" text-anchor="middle" class="entity-copy">Reviewed by a person before use</text>
+
+    <rect x="835" y="1195" width="330" height="110" class="entity"/>
+    <text x="1000" y="1238" text-anchor="middle" class="entity-title">MAP &amp; ROUTING SERVICES</text>
+    <text x="1000" y="1268" text-anchor="middle" class="entity-copy">OpenStreetMap tiles and OSRM routes</text>
+  </g>
+
+  <g aria-label="Data-flow labels">
+    <rect x="420" y="215" width="360" height="95" class="flow-bg"/>
+    <rect x="1220" y="215" width="370" height="95" class="flow-bg"/>
+    <rect x="410" y="520" width="270" height="75" class="flow-bg"/>
+    <rect x="410" y="595" width="270" height="75" class="flow-bg"/>
+    <rect x="410" y="670" width="270" height="55" class="flow-bg"/>
+    <rect x="410" y="745" width="270" height="65" class="flow-bg"/>
+    <rect x="410" y="860" width="270" height="55" class="flow-bg"/>
+    <rect x="410" y="1020" width="270" height="55" class="flow-bg"/>
+    <rect x="1310" y="335" width="290" height="50" class="flow-bg"/>
+    <rect x="1310" y="540" width="290" height="50" class="flow-bg"/>
+    <rect x="1310" y="735" width="290" height="35" class="flow-bg"/>
+    <rect x="1310" y="945" width="290" height="35" class="flow-bg"/>
+    <rect x="1310" y="1140" width="290" height="35" class="flow-bg"/>
+
+    <text x="600" y="231" text-anchor="middle" class="flow-heading">GUEST → SYSTEM</text>
+    <text x="600" y="255" text-anchor="middle" class="flow-label">Booking request, guest details,</text>
+    <text x="600" y="275" text-anchor="middle" class="flow-label">villa and date selection, payment choice,</text>
+    <text x="600" y="295" text-anchor="middle" class="flow-label">account updates and post-stay feedback</text>
+
+    <text x="1400" y="231" text-anchor="middle" class="flow-heading">SYSTEM → GUEST</text>
+    <text x="1400" y="255" text-anchor="middle" class="flow-label">Villa and availability information,</text>
+    <text x="1400" y="275" text-anchor="middle" class="flow-label">confirmation, payment/booking status,</text>
+    <text x="1400" y="295" text-anchor="middle" class="flow-label">reviews and feedback acknowledgement</text>
+
+    <text x="540" y="535" text-anchor="middle" class="flow-heading">TO SYSTEM</text>
+    <text x="540" y="557" text-anchor="middle" class="flow-label">Villa and booking changes, external</text>
+    <text x="540" y="577" text-anchor="middle" class="flow-label">bookings, settlements, assignments</text>
+    <text x="540" y="610" text-anchor="middle" class="flow-heading">FROM SYSTEM</text>
+    <text x="540" y="632" text-anchor="middle" class="flow-label">Reservation/payment records, reports,</text>
+    <text x="540" y="652" text-anchor="middle" class="flow-label">feedback and dashboard results</text>
+
+    <text x="540" y="680" text-anchor="middle" class="flow-heading">TO SYSTEM</text>
+    <text x="540" y="702" text-anchor="middle" class="flow-label">Login, task progress and submitted evidence</text>
+    <text x="540" y="758" text-anchor="middle" class="flow-heading">FROM SYSTEM</text>
+    <text x="540" y="780" text-anchor="middle" class="flow-label">Assigned tasks, schedules, notices</text>
+    <text x="540" y="800" text-anchor="middle" class="flow-label">and administrator instructions</text>
+
+    <text x="540" y="875" text-anchor="middle" class="flow-heading">TO SYSTEM</text>
+    <text x="540" y="897" text-anchor="middle" class="flow-label">Maintenance requests and work updates</text>
+    <text x="540" y="1037" text-anchor="middle" class="flow-heading">FROM SYSTEM</text>
+    <text x="540" y="1059" text-anchor="middle" class="flow-label">Assigned maintenance tasks, schedules</text>
+
+    <text x="1450" y="350" text-anchor="middle" class="flow-label">Auth/data requests, records,</text>
+    <text x="1450" y="370" text-anchor="middle" class="flow-label">profile photos and change events</text>
+    <text x="1450" y="555" text-anchor="middle" class="flow-label">Checkout requests and payment details;</text>
+    <text x="1450" y="575" text-anchor="middle" class="flow-label">verified events and transaction status</text>
+    <text x="1450" y="752" text-anchor="middle" class="flow-label">Google ID token → sign-in flow</text>
+    <text x="1450" y="965" text-anchor="middle" class="flow-label">Confirmation, operational and OTP notices</text>
+    <text x="1450" y="1155" text-anchor="middle" class="flow-label">Recommendation request ↔ draft</text>
+
+    <text x="690" y="1100" text-anchor="middle" class="flow-label">Map and route requests</text>
+    <text x="1310" y="1100" text-anchor="middle" class="flow-label">Map tiles and route data</text>
+  </g>
+
+  <g aria-label="Scope note">
+    <rect x="50" y="1235" width="680" height="115" rx="4" class="note"/>
+    <text x="75" y="1268" class="note-title">MANUAL EXTERNAL BOOKING SOURCES</text>
+    <text x="75" y="1297" class="note-copy">Airbnb and Messenger bookings are entered by staff.</text>
+    <text x="75" y="1320" class="note-copy">No Airbnb API or calendar sync is connected.</text>
+  </g>
+
+  <text x="1000" y="1365" text-anchor="middle" class="note-copy">Black and white only · Dashed arrows show optional Gemini recommendations; a human reviews every draft.</text>
+</svg>

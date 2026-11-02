@@ -39,10 +39,15 @@ begin
     -- Serialize against booking writes so concurrent paid checkouts cannot
     -- promote overlapping reservations. A failed transaction retains the draft.
     lock table public.bookings in share row exclusive mode;
-    payload := draft.booking_payload || p_booking_update || jsonb_build_object('id',p_checkout_id);
+    -- Supply required fields for drafts created before these fields were added.
+    payload := jsonb_build_object(
+        'front_desk_other_charges', '[]'::jsonb,
+        'front_desk_other_charges_total', 0
+    ) || draft.booking_payload || p_booking_update || jsonb_build_object('id',p_checkout_id);
     if exists (
         select 1 from public.bookings b
-        where lower(b.booking_status) not in ('cancelled','canceled','expired','rejected')
+        where replace(lower(trim(coalesce(b.booking_status, ''))), '_', ' ') not in
+              ('cancelled','canceled','completed','checked out','checked-out','expired','refunded','rejected')
           and b.check_in_date < (payload->>'check_out_date')::date
           and b.check_out_date > (payload->>'check_in_date')::date
           and exists (

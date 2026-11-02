@@ -1460,7 +1460,7 @@ export default function BookForm() {
           );
 
           if (!active) return;
-          if (["paid", "failed", "expired", "cancelled"].includes(latest?.state)) break;
+          if (["paid", "payment_received", "failed", "expired", "cancelled"].includes(latest?.state)) break;
           if (attempt < attempts) {
             await new Promise((resolve) => window.setTimeout(resolve, 1400));
           }
@@ -1481,8 +1481,8 @@ export default function BookForm() {
         if (active) {
           setPaymentResult((current) => ({
             ...current,
-            state: "pending",
-            message: getUserFacingError(error, "We could not verify the payment yet."),
+            state: "verification_error",
+            message: "We could not check your payment status. If you have already paid, do not pay again. Use Check payment again or contact The Villa with your booking reference.",
           }));
         }
       } finally {
@@ -2808,7 +2808,11 @@ export default function BookForm() {
                       ? "Your payment was not completed."
                       : paymentResult?.state === "expired"
                         ? "This payment link has expired."
-                    : "We are checking your reservation."}
+                    : paymentResult?.state === "payment_received"
+                      ? "Payment received. Confirmation pending."
+                      : paymentResult?.state === "verification_error"
+                        ? "We could not check your reservation."
+                        : "We are checking your reservation."}
               </h2>
 
               <div className="booking-confirmation-message">
@@ -2833,7 +2837,15 @@ export default function BookForm() {
                 </div>
               ) : null}
 
+              {!createdBooking?.booking_code && liveBooking?.bookingId && (
+                <p className="booking-reference">Reference: {liveBooking.bookingId}</p>
+              )}
               <div className="booking-confirmation-buttons">
+                {!["paid", "failed", "expired", "cancelled"].includes(paymentResult?.state) && (
+                  <button type="button" disabled={loading || !liveBooking} onClick={() => liveBookingRefresh.current?.()}>
+                    Check payment again
+                  </button>
+                )}
                 <button
                   type="button"
                   onClick={() =>
@@ -2847,6 +2859,7 @@ export default function BookForm() {
                 <button
                   type="button"
                   className="secondary"
+                  disabled={!["paid", "failed", "expired", "cancelled"].includes(paymentResult?.state)}
                   onClick={() => runStepTransition(
                     1,
                     "Preparing a new reservation…",

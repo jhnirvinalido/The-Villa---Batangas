@@ -1,0 +1,240 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="2500" height="1450" viewBox="0 0 2500 1450" role="img" aria-labelledby="title description">
+  <title id="title">The Villa Level 1 data flow diagram</title>
+  <desc id="description">A black-and-white Level 1 data flow diagram showing eight clearly numbered processes, their key inputs and outputs, six logical Supabase data stores, user roles, and configured external services.</desc>
+  <defs>
+    <style>
+      text { font-family: Georgia, "Times New Roman", serif; fill: #000; }
+      .title { font-size: 32px; font-weight: 700; }
+      .subtitle { font-size: 17px; }
+      .box { fill: #fff; stroke: #000; stroke-width: 2; }
+      .process { fill: #fff; stroke: #000; stroke-width: 2.5; }
+      .actor-title, .service-title { font-size: 17px; font-weight: 700; }
+      .actor-copy, .service-copy { font-size: 13px; }
+      .process-id { font-size: 16px; font-weight: 700; }
+      .process-title { font-size: 19px; font-weight: 700; }
+      .process-copy { font-size: 13px; }
+      .store-title { font-size: 15px; font-weight: 700; }
+      .store-copy { font-size: 12px; }
+      .flow { fill: none; stroke: #000; stroke-width: 2; }
+      .optional { stroke-dasharray: 9 7; }
+      .arrowhead { fill: #000; }
+      .label { font-size: 12px; }
+      .label-bg { fill: #fff; }
+      .note-title { font-size: 15px; font-weight: 700; }
+      .note-copy { font-size: 13px; }
+    </style>
+  </defs>
+
+  <rect width="2500" height="1450" fill="#fff"/>
+  <text x="1250" y="46" text-anchor="middle" class="title">THE VILLA · LEVEL 1 DATA FLOW DIAGRAM</text>
+  <text x="1250" y="76" text-anchor="middle" class="subtitle">Eight numbered processes · key information exchanged · logical data stores</text>
+
+  <g aria-label="External users">
+    <rect x="35" y="320" width="300" height="180" class="box"/>
+    <text x="185" y="355" text-anchor="middle" class="actor-title">SYSTEM USERS</text>
+    <text x="185" y="385" text-anchor="middle" class="actor-copy">Guest · Administrator</text>
+    <text x="185" y="407" text-anchor="middle" class="actor-copy">Front Desk · Staff</text>
+    <text x="185" y="429" text-anchor="middle" class="actor-copy">Maintenance</text>
+    <text x="185" y="465" text-anchor="middle" class="actor-copy">Role-appropriate access and updates</text>
+  </g>
+  <path d="M335 410H385V380H415" class="flow"/>
+  <path d="M415 380L403 375L403 385Z" class="arrowhead"/>
+  <path d="M335 470H370V780H1410V850" class="flow"/>
+  <path d="M1410 850L1405 838L1415 838Z" class="arrowhead"/>
+  <rect x="760" y="765" width="145" height="24" class="label-bg"/>
+  <text x="832" y="782" text-anchor="middle" class="label">guest feedback</text>
+
+  <g aria-label="Configured external services">
+    <rect x="405" y="105" width="300" height="82" class="box"/>
+    <text x="555" y="138" text-anchor="middle" class="service-title">SUPABASE AUTH</text>
+    <text x="555" y="164" text-anchor="middle" class="service-copy">Identity and session service</text>
+    <path d="M555 187V300" class="flow"/>
+    <path d="M555 300L550 288L560 288Z" class="arrowhead"/>
+    <path d="M610 300V187" class="flow"/>
+    <path d="M610 187L605 199L615 199Z" class="arrowhead"/>
+
+    <rect x="755" y="105" width="300" height="82" class="box"/>
+    <text x="905" y="138" text-anchor="middle" class="service-title">GOOGLE IDENTITY</text>
+    <text x="905" y="164" text-anchor="middle" class="service-copy">ID token when configured</text>
+    <path d="M905 187V225H700V300" class="flow"/>
+    <path d="M700 300L695 288L705 288Z" class="arrowhead"/>
+
+    <rect x="1110" y="105" width="340" height="82" class="box"/>
+    <text x="1280" y="138" text-anchor="middle" class="service-title">MAP / ROUTING PROVIDERS</text>
+    <text x="1280" y="164" text-anchor="middle" class="service-copy">OpenStreetMap tiles and OSRM</text>
+    <path d="M1280 187V225H1020V300" class="flow"/>
+    <path d="M1020 300L1015 288L1025 288Z" class="arrowhead"/>
+    <path d="M1195 360H1210V200H1295V187" class="flow"/>
+    <path d="M1295 187L1290 199L1300 199Z" class="arrowhead"/>
+
+    <rect x="2095" y="348" width="360" height="118" class="box"/>
+    <text x="2275" y="386" text-anchor="middle" class="service-title">PAYMONGO</text>
+    <text x="2275" y="414" text-anchor="middle" class="service-copy">Checkout request and result</text>
+    <text x="2275" y="438" text-anchor="middle" class="service-copy">Signed payment webhook</text>
+    <path d="M1975 380H2095" class="flow"/>
+    <path d="M2095 430H1975" class="flow"/>
+    <path d="M2095 380L2083 375L2083 385Z" class="arrowhead"/>
+    <path d="M1975 430L1987 425L1987 435Z" class="arrowhead"/>
+
+    <rect x="2095" y="857" width="360" height="118" class="box"/>
+    <text x="2275" y="895" text-anchor="middle" class="service-title">EMAIL / SMS SERVICES</text>
+    <text x="2275" y="923" text-anchor="middle" class="service-copy">Resend / configured SMTP and HTTPSMS</text>
+    <text x="2275" y="947" text-anchor="middle" class="service-copy">Configured channels and delivery status</text>
+    <path d="M1195 870H1205V820H2055V915H2095" class="flow"/>
+    <path d="M2095 915L2083 910L2083 920Z" class="arrowhead"/>
+
+    <rect x="2095" y="1055" width="360" height="118" class="box"/>
+    <text x="2275" y="1093" text-anchor="middle" class="service-title">GEMINI API · OPTIONAL</text>
+    <text x="2275" y="1121" text-anchor="middle" class="service-copy">Feedback analysis / recommendation drafts</text>
+    <text x="2275" y="1145" text-anchor="middle" class="service-copy">Administrator reviews suggestions</text>
+    <path d="M1975 930H2055V1090H2095" class="flow optional"/>
+    <path d="M2095 1090L2083 1085L2083 1095Z" class="arrowhead"/>
+    <path d="M2095 1137H2055V970H1975" class="flow optional"/>
+    <path d="M1975 970L1987 965L1987 975Z" class="arrowhead"/>
+  </g>
+
+  <rect x="390" y="270" width="1640" height="870" fill="#fff" stroke="#000" stroke-width="2" stroke-dasharray="10 7"/>
+  <text x="1700" y="258" text-anchor="middle" class="process-id">THE VILLA WEB SYSTEM · REACT + FASTAPI ON RENDER</text>
+
+  <g aria-label="Process flows">
+    <path d="M805 380H845" class="flow"/>
+    <path d="M845 380L833 375L833 385Z" class="arrowhead"/>
+
+    <path d="M1195 380H1235" class="flow"/>
+    <path d="M1235 380L1223 375L1223 385Z" class="arrowhead"/>
+
+    <path d="M1585 380H1625" class="flow"/>
+    <path d="M1625 380L1613 375L1613 385Z" class="arrowhead"/>
+
+    <path d="M1585 440H1595V640H600V850" class="flow"/>
+    <path d="M600 850L595 838L605 838Z" class="arrowhead"/>
+    <rect x="890" y="625" width="330" height="24" class="label-bg"/>
+    <text x="1055" y="642" text-anchor="middle" class="label">booking / stay details for operations</text>
+
+    <path d="M805 930H845" class="flow"/>
+    <path d="M845 930L833 925L833 935Z" class="arrowhead"/>
+
+    <path d="M1585 930H1625" class="flow"/>
+    <path d="M1625 930L1613 925L1613 935Z" class="arrowhead"/>
+  </g>
+
+  <g aria-label="Eight application processes">
+    <rect x="415" y="300" width="390" height="160" rx="12" class="process"/>
+    <text x="438" y="328" class="process-id">1.0</text>
+    <text x="610" y="335" text-anchor="middle" class="process-title">Manage accounts &amp; access</text>
+    <text x="440" y="372" class="process-copy">Input: credentials, profile and role data</text>
+    <text x="440" y="397" class="process-copy">Process: sign-in, session and role checks</text>
+    <text x="440" y="432" class="process-copy">Output: authenticated user and profile</text>
+
+    <rect x="845" y="300" width="350" height="160" rx="12" class="process"/>
+    <text x="868" y="328" class="process-id">2.0</text>
+    <text x="1020" y="335" text-anchor="middle" class="process-title">Provide villa information</text>
+    <text x="870" y="372" class="process-copy">Input: search, dates and catalog edits</text>
+    <text x="870" y="397" class="process-copy">Process: return details; check availability</text>
+    <text x="870" y="432" class="process-copy">Output: villas, dates and map information</text>
+
+    <rect x="1235" y="300" width="350" height="160" rx="12" class="process"/>
+    <text x="1258" y="328" class="process-id">3.0</text>
+    <text x="1410" y="335" text-anchor="middle" class="process-title">Manage reservations</text>
+    <text x="1260" y="372" class="process-copy">Input: guest request or staff booking</text>
+    <text x="1260" y="397" class="process-copy">Process: create holds, bookings and stays</text>
+    <text x="1260" y="432" class="process-copy">Output: booking status and stay details</text>
+
+    <rect x="1625" y="300" width="350" height="160" rx="12" class="process"/>
+    <text x="1648" y="328" class="process-id">4.0</text>
+    <text x="1800" y="335" text-anchor="middle" class="process-title">Process payments</text>
+    <text x="1650" y="372" class="process-copy">Input: checkout request or staff settlement</text>
+    <text x="1650" y="397" class="process-copy">Process: verify provider result and record</text>
+    <text x="1650" y="432" class="process-copy">Output: payment status, balance, receipt</text>
+
+    <rect x="415" y="850" width="390" height="160" rx="12" class="process"/>
+    <text x="438" y="878" class="process-id">5.0</text>
+    <text x="610" y="885" text-anchor="middle" class="process-title">Manage stays &amp; tasks</text>
+    <text x="440" y="922" class="process-copy">Input: arrivals, assignments and requests</text>
+    <text x="440" y="947" class="process-copy">Process: check-in/out, tasks and schedules</text>
+    <text x="440" y="982" class="process-copy">Output: stay, task and work-hour updates</text>
+
+    <rect x="845" y="850" width="350" height="160" rx="12" class="process"/>
+    <text x="868" y="878" class="process-id">6.0</text>
+    <text x="1020" y="885" text-anchor="middle" class="process-title">Send notifications</text>
+    <text x="870" y="922" class="process-copy">Input: booking, payment and stay events</text>
+    <text x="870" y="947" class="process-copy">Process: prepare supported email / SMS</text>
+    <text x="870" y="982" class="process-copy">Output: notice delivery result</text>
+
+    <rect x="1235" y="850" width="350" height="160" rx="12" class="process"/>
+    <text x="1258" y="878" class="process-id">7.0</text>
+    <text x="1410" y="885" text-anchor="middle" class="process-title">Collect guest feedback</text>
+    <text x="1260" y="922" class="process-copy">Input: review and feedback submission</text>
+    <text x="1260" y="947" class="process-copy">Process: validate and store guest response</text>
+    <text x="1260" y="982" class="process-copy">Output: verified review and feedback data</text>
+
+    <rect x="1625" y="850" width="350" height="160" rx="12" class="process"/>
+    <text x="1648" y="878" class="process-id">8.0</text>
+    <text x="1800" y="885" text-anchor="middle" class="process-title">Analyze &amp; report</text>
+    <text x="1650" y="922" class="process-copy">Input: feedback and operational records</text>
+    <text x="1650" y="947" class="process-copy">Process: prepare insights and draft advice</text>
+    <text x="1650" y="982" class="process-copy">Output: reports for administrator review</text>
+  </g>
+
+  <g aria-label="Logical Supabase data stores">
+    <rect x="435" y="490" width="350" height="70" class="box"/>
+    <text x="610" y="518" text-anchor="middle" class="store-title">D1 · ACCOUNTS</text>
+    <text x="610" y="542" text-anchor="middle" class="store-copy">Supabase Auth, profiles and staff roles</text>
+    <path d="M610 460V490" class="flow"/>
+    <path d="M610 490L605 478L615 478Z" class="arrowhead"/>
+    <path d="M625 490V460" class="flow"/>
+    <path d="M625 460L620 472L630 472Z" class="arrowhead"/>
+
+    <rect x="865" y="490" width="310" height="70" class="box"/>
+    <text x="1020" y="518" text-anchor="middle" class="store-title">D2 · VILLA CATALOG</text>
+    <text x="1020" y="542" text-anchor="middle" class="store-copy">Villa details, images and prices</text>
+    <path d="M1020 460V490" class="flow"/>
+    <path d="M1020 490L1015 478L1025 478Z" class="arrowhead"/>
+    <path d="M1035 490V460" class="flow"/>
+    <path d="M1035 460L1030 472L1040 472Z" class="arrowhead"/>
+
+    <rect x="1255" y="490" width="310" height="70" class="box"/>
+    <text x="1410" y="518" text-anchor="middle" class="store-title">D3 · BOOKINGS &amp; STAYS</text>
+    <text x="1410" y="542" text-anchor="middle" class="store-copy">Bookings, holds and stay workflow</text>
+    <path d="M1410 460V490" class="flow"/>
+    <path d="M1410 490L1405 478L1415 478Z" class="arrowhead"/>
+    <path d="M1425 490V460" class="flow"/>
+    <path d="M1425 460L1420 472L1430 472Z" class="arrowhead"/>
+
+    <rect x="1645" y="490" width="310" height="70" class="box"/>
+    <text x="1800" y="518" text-anchor="middle" class="store-title">D4 · PAYMENTS</text>
+    <text x="1800" y="542" text-anchor="middle" class="store-copy">Transactions and settlements</text>
+    <path d="M1800 460V490" class="flow"/>
+    <path d="M1800 490L1795 478L1805 478Z" class="arrowhead"/>
+    <path d="M1815 490V460" class="flow"/>
+    <path d="M1815 460L1810 472L1820 472Z" class="arrowhead"/>
+
+    <rect x="435" y="1050" width="350" height="70" class="box"/>
+    <text x="610" y="1078" text-anchor="middle" class="store-title">D5 · WORKFORCE</text>
+    <text x="610" y="1102" text-anchor="middle" class="store-copy">Tasks, assignments and work-hour records</text>
+    <path d="M610 1010V1050" class="flow"/>
+    <path d="M610 1050L605 1038L615 1038Z" class="arrowhead"/>
+    <path d="M625 1050V1010" class="flow"/>
+    <path d="M625 1010L620 1022L630 1022Z" class="arrowhead"/>
+
+    <rect x="1260" y="1050" width="690" height="70" class="box"/>
+    <text x="1605" y="1078" text-anchor="middle" class="store-title">D6 · FEEDBACK &amp; REPORTING DATA</text>
+    <text x="1605" y="1102" text-anchor="middle" class="store-copy">Guest reviews and feedback records used for analysis and administrator reports</text>
+    <path d="M1410 1010V1050" class="flow"/>
+    <path d="M1410 1050L1405 1038L1415 1038Z" class="arrowhead"/>
+    <path d="M1425 1050V1010" class="flow"/>
+    <path d="M1425 1010L1420 1022L1430 1022Z" class="arrowhead"/>
+    <path d="M1800 1010V1050" class="flow"/>
+    <path d="M1800 1050L1795 1038L1805 1038Z" class="arrowhead"/>
+    <path d="M1815 1050V1010" class="flow"/>
+    <path d="M1815 1010L1810 1022L1820 1022Z" class="arrowhead"/>
+  </g>
+
+  <g aria-label="Diagram scope notes">
+    <rect x="35" y="1220" width="2420" height="155" class="box"/>
+    <text x="65" y="1255" class="note-title">HOW TO READ THIS DIAGRAM</text>
+    <text x="65" y="1285" class="note-copy">Each numbered box states the process input, the work performed, and the resulting information. Solid arrows show the main application data flow; dashed arrows indicate optional Gemini use.</text>
+    <text x="65" y="1312" class="note-copy">Two-way arrows connect processes with the information they read and update. D1–D6 are logical groupings in Supabase PostgreSQL, not separate database products.</text>
+    <text x="65" y="1339" class="note-copy">Supabase Auth and Storage are provider services; profile images use Storage. Airbnb/Messenger bookings are entered manually. Map requests come from the guest browser; Gemini drafts require administrator review.</text>
+  </g>
+</svg>

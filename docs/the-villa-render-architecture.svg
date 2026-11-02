@@ -1,235 +1,226 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="1230" viewBox="0 0 1600 1230" role="img" aria-labelledby="title description">
+<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="1120" viewBox="0 0 1600 1120" role="img" aria-labelledby="title description">
   <title id="title">The Villa system architecture — Render deployment</title>
-  <desc id="description">Architecture diagram showing guests, administrators, and staff using The Villa frontend and FastAPI backend hosted together in one Render Docker web service, connected to Supabase and external providers.</desc>
+  <desc id="description">Render-hosted single Docker web service with React frontend and FastAPI backend, connected to Supabase, PayMongo, email and SMS providers, Google Identity, map services and optional Gemini recommendations.</desc>
   <defs>
-    <linearGradient id="renderBg" x1="0" x2="0" y1="0" y2="1">
-      <stop offset="0" stop-color="#f8fbff"/>
-      <stop offset="1" stop-color="#eaf3ff"/>
-    </linearGradient>
-    <linearGradient id="frontBg" x1="0" x2="0" y1="0" y2="1">
-      <stop offset="0" stop-color="#f3fff5"/>
-      <stop offset="1" stop-color="#e6f8e9"/>
-    </linearGradient>
-    <linearGradient id="backBg" x1="0" x2="0" y1="0" y2="1">
-      <stop offset="0" stop-color="#f3f9ff"/>
-      <stop offset="1" stop-color="#e4f1ff"/>
-    </linearGradient>
-    <linearGradient id="dataBg" x1="0" x2="0" y1="0" y2="1">
-      <stop offset="0" stop-color="#fcf6ff"/>
-      <stop offset="1" stop-color="#f2eaff"/>
-    </linearGradient>
-    <linearGradient id="externalBg" x1="0" x2="0" y1="0" y2="1">
-      <stop offset="0" stop-color="#fffaf3"/>
-      <stop offset="1" stop-color="#fff0dc"/>
-    </linearGradient>
-    <marker id="arrow" markerWidth="10" markerHeight="10" refX="8" refY="5" orient="auto" markerUnits="strokeWidth">
-      <path d="M0,0 L10,5 L0,10 z" fill="#334155"/>
+    <marker id="arrow" markerWidth="9" markerHeight="9" refX="8" refY="4.5" orient="auto" markerUnits="strokeWidth">
+      <path d="M0,0 L9,4.5 L0,9 z" fill="#334155"/>
     </marker>
-    <marker id="arrowSmall" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto" markerUnits="strokeWidth">
-      <path d="M0,0 L8,4 L0,8 z" fill="#334155"/>
+    <marker id="arrowStart" markerWidth="9" markerHeight="9" refX="1" refY="4.5" orient="auto" markerUnits="strokeWidth">
+      <path d="M9,0 L0,4.5 L9,9 z" fill="#334155"/>
     </marker>
     <style>
-      text { font-family: Arial, Helvetica, sans-serif; fill: #17324d; }
-      .layer-title { font-size: 23px; font-weight: 700; }
-      .layer-subtitle { font-size: 14px; font-weight: 600; fill: #42566b; }
-      .card-title { font-size: 15px; font-weight: 700; }
-      .card-copy { font-size: 13px; fill: #34495e; }
-      .role-title { font-size: 17px; font-weight: 700; fill: #fff; }
-      .role-copy { font-size: 13px; fill: #e8f1ff; }
-      .tech { font-size: 15px; font-weight: 700; fill: #fff; }
-      .small { font-size: 12px; fill: #475569; }
-      .line { fill: none; stroke: #334155; stroke-width: 2; marker-end: url(#arrow); }
-      .bi-line { fill: none; stroke: #334155; stroke-width: 2; marker-start: url(#arrowSmall); marker-end: url(#arrowSmall); }
+      text { font-family: Arial, Helvetica, sans-serif; fill: #18324a; }
+      .title { font-size: 25px; font-weight: 700; letter-spacing: .5px; }
+      .subtitle { font-size: 12px; fill: #526579; }
+      .layer { font-size: 19px; font-weight: 700; }
+      .layer-sub { font-size: 12px; font-weight: 600; fill: #46596c; }
+      .role { font-size: 15px; font-weight: 700; fill: #fff; }
+      .role-sub { font-size: 11px; fill: #edf4fa; }
+      .card-title { font-size: 13px; font-weight: 700; }
+      .copy { font-size: 11px; fill: #35495e; }
+      .small { font-size: 10px; fill: #526579; }
+      .stack { font-size: 12px; font-weight: 700; fill: #fff; }
+      .card { fill: #fff; stroke: #cbd9e6; stroke-width: 1.4; }
+      .arrow { fill: none; stroke: #334155; stroke-width: 1.8; marker-end: url(#arrow); }
+      .both { fill: none; stroke: #334155; stroke-width: 1.8; marker-start: url(#arrowStart); marker-end: url(#arrow); }
     </style>
   </defs>
 
-  <rect width="1600" height="1230" fill="#fff"/>
-  <text x="800" y="34" text-anchor="middle" font-size="25" font-weight="700">THE VILLA — SYSTEM ARCHITECTURE (RENDER)</text>
-  <text x="800" y="56" text-anchor="middle" font-size="13" fill="#64748b">Current deployment view • one Render Docker web service • Supabase and provider services remain external</text>
+  <rect width="1600" height="1120" fill="#fff"/>
+  <text x="800" y="34" text-anchor="middle" class="title">THE VILLA · SYSTEM ARCHITECTURE</text>
+  <text x="800" y="54" text-anchor="middle" class="subtitle">Render deployment · repository-based application view · external integrations depend on provider configuration</text>
 
   <g>
-    <rect x="22" y="76" width="500" height="68" rx="13" fill="#124b91"/>
-    <circle cx="62" cy="110" r="20" fill="#fff"/>
-    <circle cx="62" cy="104" r="7" fill="#124b91"/>
-    <path d="M48 124c1-8 7-12 14-12s13 4 14 12" fill="#124b91"/>
-    <text x="94" y="104" class="role-title">ADMINISTRATOR / FRONT DESK</text>
-    <text x="94" y="125" class="role-copy">Owner, manager and front-desk operations</text>
+    <rect x="22" y="70" width="500" height="62" rx="12" fill="#124b91"/>
+    <circle cx="60" cy="101" r="20" fill="#fff"/>
+    <circle cx="60" cy="95" r="6" fill="#124b91"/>
+    <path d="M47 114c1-8 6-12 13-12s12 4 13 12" fill="#124b91"/>
+    <text x="92" y="96" class="role" fill="#fff">ADMINISTRATOR / FRONT DESK</text>
+    <text x="92" y="115" class="role-sub" fill="#edf4fa">Bookings, payments and front-desk operations</text>
 
-    <rect x="550" y="76" width="500" height="68" rx="13" fill="#198b43"/>
-    <circle cx="590" cy="110" r="20" fill="#fff"/>
-    <circle cx="590" cy="104" r="7" fill="#198b43"/>
-    <path d="M576 124c1-8 7-12 14-12s13 4 14 12" fill="#198b43"/>
-    <text x="622" y="104" class="role-title">GUEST / CUSTOMER</text>
-    <text x="622" y="125" class="role-copy">Visitor, account holder and booking guest</text>
+    <rect x="550" y="70" width="500" height="62" rx="12" fill="#198b43"/>
+    <circle cx="588" cy="101" r="20" fill="#fff"/>
+    <circle cx="588" cy="95" r="6" fill="#198b43"/>
+    <path d="M575 114c1-8 6-12 13-12s12 4 13 12" fill="#198b43"/>
+    <text x="620" y="96" class="role" fill="#fff">GUEST / CUSTOMER</text>
+    <text x="620" y="115" class="role-sub" fill="#edf4fa">Browse villas, book stays and share feedback</text>
 
-    <rect x="1078" y="76" width="500" height="68" rx="13" fill="#e87500"/>
-    <circle cx="1118" cy="110" r="20" fill="#fff"/>
-    <circle cx="1118" cy="104" r="7" fill="#e87500"/>
-    <path d="M1104 124c1-8 7-12 14-12s13 4 14 12" fill="#e87500"/>
-    <text x="1150" y="104" class="role-title">STAFF</text>
-    <text x="1150" y="125" class="role-copy">Operations and assigned personnel</text>
+    <rect x="1078" y="70" width="500" height="62" rx="12" fill="#e87500"/>
+    <circle cx="1116" cy="101" r="20" fill="#fff"/>
+    <circle cx="1116" cy="95" r="6" fill="#e87500"/>
+    <path d="M1103 114c1-8 6-12 13-12s12 4 13 12" fill="#e87500"/>
+    <text x="1148" y="96" class="role" fill="#fff">STAFF / MAINTENANCE</text>
+    <text x="1148" y="115" class="role-sub" fill="#edf4fa">Assigned work, schedules and task updates</text>
   </g>
+  <path d="M272 132v18" class="arrow"/>
+  <path d="M800 132v18" class="arrow"/>
+  <path d="M1328 132v18" class="arrow"/>
 
-  <path d="M272 144v20" class="line"/>
-  <path d="M800 144v20" class="line"/>
-  <path d="M1328 144v20" class="line"/>
+  <rect x="20" y="151" width="1560" height="263" rx="16" fill="#f3f8ff" stroke="#4b9cff" stroke-width="2"/>
+  <rect x="480" y="138" width="640" height="28" rx="14" fill="#1555a5"/>
+  <text x="800" y="157" text-anchor="middle" font-size="14" font-weight="700" fill="#fff">RENDER · ONE DOCKER WEB SERVICE · SAME-ORIGIN HTTPS</text>
+  <text x="800" y="184" text-anchor="middle" class="small">Docker builds the Vite app and packages its static files with FastAPI; the app runs one Uvicorn worker.</text>
 
-  <rect x="20" y="165" width="1560" height="645" rx="18" fill="#f3f8ff" stroke="#4b9cff" stroke-width="2.5"/>
-  <rect x="475" y="151" width="650" height="38" rx="19" fill="#1555a5"/>
-  <text x="800" y="176" text-anchor="middle" font-size="17" font-weight="700" fill="#fff">RENDER • ONE DOCKER WEB SERVICE • SAME-ORIGIN HTTPS</text>
-  <text x="800" y="208" text-anchor="middle" class="small">GitHub repository → Docker build → single Render service (frontend assets + API in the same container)</text>
-
-  <rect x="34" y="222" width="1532" height="244" rx="14" fill="#effbf1" stroke="#36b864" stroke-width="2"/>
-  <text x="800" y="253" text-anchor="middle" class="layer-title" fill="#13753a">FRONTEND / PRESENTATION LAYER</text>
-  <text x="800" y="275" text-anchor="middle" class="layer-subtitle">Responsive React application • served by the FastAPI app from the same Render origin</text>
-
+  <rect x="34" y="196" width="1532" height="168" rx="12" fill="#effbf1" stroke="#36b864" stroke-width="1.8"/>
+  <text x="800" y="220" text-anchor="middle" class="layer" fill="#13753a">FRONTEND / PRESENTATION LAYER</text>
+  <text x="800" y="238" text-anchor="middle" class="layer-sub">Responsive React application · served by FastAPI from the Render service</text>
   <g>
-    <rect x="48" y="292" width="288" height="136" rx="12" fill="#fff" stroke="#bce8c8" stroke-width="1.5"/>
-    <text x="192" y="321" text-anchor="middle" class="card-title" fill="#124b91">PUBLIC LANDING &amp; VILLAS</text>
-    <text x="66" y="350" class="card-copy">• Resort information and amenities</text>
-    <text x="66" y="374" class="card-copy">• Villa catalog, gallery and map</text>
-    <text x="66" y="398" class="card-copy">• Policies and guest reviews</text>
+    <rect x="48" y="250" width="288" height="94" rx="9" class="card"/>
+    <text x="192" y="275" text-anchor="middle" class="card-title" fill="#124b91">PUBLIC LANDING &amp; VILLAS</text>
+    <text x="64" y="299" class="copy">• Villa catalog, galleries and details</text>
+    <text x="64" y="318" class="copy">• Policies, maps and guest reviews</text>
+    <text x="64" y="337" class="copy">• Booking form and feedback</text>
 
-    <rect x="350" y="292" width="288" height="136" rx="12" fill="#fff" stroke="#bce8c8" stroke-width="1.5"/>
-    <text x="494" y="321" text-anchor="middle" class="card-title" fill="#124b91">BOOKING &amp; CUSTOMER</text>
-    <text x="368" y="350" class="card-copy">• Availability and reservations</text>
-    <text x="368" y="374" class="card-copy">• Secure checkout and payment status</text>
-    <text x="368" y="398" class="card-copy">• Account, profile and booking history</text>
+    <rect x="350" y="250" width="288" height="94" rx="9" class="card"/>
+    <text x="494" y="275" text-anchor="middle" class="card-title" fill="#124b91">BOOKING &amp; CUSTOMER</text>
+    <text x="366" y="299" class="copy">• Availability and reservations</text>
+    <text x="366" y="318" class="copy">• Checkout and payment status</text>
+    <text x="366" y="337" class="copy">• Customer account and profile</text>
 
-    <rect x="652" y="292" width="288" height="136" rx="12" fill="#fff" stroke="#bce8c8" stroke-width="1.5"/>
-    <text x="796" y="321" text-anchor="middle" class="card-title" fill="#124b91">ADMIN DASHBOARD</text>
-    <text x="670" y="350" class="card-copy">• Villas, staff and manual bookings</text>
-    <text x="670" y="374" class="card-copy">• Payments, check-in/out and tasks</text>
-    <text x="670" y="398" class="card-copy">• Reports, feedback and settings</text>
+    <rect x="652" y="250" width="288" height="94" rx="9" class="card"/>
+    <text x="796" y="275" text-anchor="middle" class="card-title" fill="#124b91">ADMIN &amp; FRONT DESK</text>
+    <text x="668" y="299" class="copy">• Reservations, payments and villas</text>
+    <text x="668" y="318" class="copy">• Walk-ins and stay lifecycle</text>
+    <text x="668" y="337" class="copy">• Staff, reports and feedback</text>
 
-    <rect x="954" y="292" width="288" height="136" rx="12" fill="#fff" stroke="#bce8c8" stroke-width="1.5"/>
-    <text x="1098" y="321" text-anchor="middle" class="card-title" fill="#124b91">STAFF PORTAL</text>
-    <text x="972" y="350" class="card-copy">• Assigned tasks and schedules</text>
-    <text x="972" y="374" class="card-copy">• Checklists, progress and evidence</text>
-    <text x="972" y="398" class="card-copy">• Messages, alerts and profile</text>
+    <rect x="954" y="250" width="288" height="94" rx="9" class="card"/>
+    <text x="1098" y="275" text-anchor="middle" class="card-title" fill="#124b91">STAFF &amp; MAINTENANCE</text>
+    <text x="970" y="299" class="copy">• Tasks, assignments and schedules</text>
+    <text x="970" y="318" class="copy">• Checklists, messages and alerts</text>
+    <text x="970" y="337" class="copy">• Work-hours records and profile</text>
 
-    <rect x="1256" y="292" width="296" height="136" rx="12" fill="#fff" stroke="#bce8c8" stroke-width="1.5"/>
-    <text x="1404" y="321" text-anchor="middle" class="card-title" fill="#124b91">FEEDBACK MANAGEMENT</text>
-    <text x="1274" y="350" class="card-copy">• Secure post-stay feedback form</text>
-    <text x="1274" y="374" class="card-copy">• Sentiment, complaints and trends</text>
-    <text x="1274" y="398" class="card-copy">• Recommendation review and approval</text>
+    <rect x="1256" y="250" width="296" height="94" rx="9" class="card"/>
+    <text x="1404" y="275" text-anchor="middle" class="card-title" fill="#124b91">CLIENT BEHAVIOR</text>
+    <text x="1272" y="299" class="copy">• Role-protected portal routes</text>
+    <text x="1272" y="318" class="copy">• API requests and form validation</text>
+    <text x="1272" y="337" class="copy">• SSE invalidations then data re-fetch</text>
   </g>
-  <rect x="48" y="438" width="1504" height="20" rx="10" fill="#087532"/>
-  <text x="800" y="453" text-anchor="middle" class="tech">React 19 • Vite • React Router • Bootstrap 5 • CSS • Recharts • Leaflet</text>
+  <rect x="48" y="353" width="1504" height="20" rx="10" fill="#087532"/>
+  <text x="800" y="367" text-anchor="middle" class="stack" fill="#fff">React 19 · Vite · React Router · Bootstrap 5 · CSS · Recharts · Leaflet</text>
 
-  <path d="M800 467v25" class="bi-line"/>
-  <rect x="585" y="478" width="430" height="28" rx="14" fill="#1555a5"/>
-  <text x="800" y="497" text-anchor="middle" font-size="13" font-weight="700" fill="#fff">HTTPS / JSON REST API • SAME RENDER ORIGIN</text>
+  <path d="M800 414v27" class="both"/>
+  <rect x="590" y="427" width="420" height="25" rx="12" fill="#1555a5"/>
+  <text x="800" y="444" text-anchor="middle" font-size="12" font-weight="700" fill="#fff">HTTPS · JSON REST API · PUBLIC / ROLE-AUTHENTICATED SSE</text>
 
-  <rect x="34" y="512" width="1532" height="280" rx="14" fill="#eef6ff" stroke="#4b9cff" stroke-width="2"/>
-  <text x="800" y="543" text-anchor="middle" class="layer-title" fill="#1555a5">BACKEND / BUSINESS LOGIC LAYER</text>
-  <text x="800" y="565" text-anchor="middle" class="layer-subtitle">FastAPI application • protected role-based routes • workers and webhook handlers</text>
-
+  <rect x="20" y="458" width="1560" height="262" rx="16" fill="#eef6ff" stroke="#4b9cff" stroke-width="2"/>
+  <text x="800" y="486" text-anchor="middle" class="layer" fill="#1555a5">BACKEND / BUSINESS LOGIC LAYER</text>
+  <text x="800" y="505" text-anchor="middle" class="layer-sub">FastAPI · protected role-based routes · webhook handlers · in-process background workers</text>
   <g>
-    <rect x="48" y="581" width="235" height="148" rx="12" fill="#fff" stroke="#b9d9ff" stroke-width="1.5"/>
-    <text x="165" y="610" text-anchor="middle" class="card-title" fill="#1555a5">AUTH &amp; PROFILES</text>
-    <text x="64" y="640" class="card-copy">• Email/phone auth</text>
-    <text x="64" y="663" class="card-copy">• OTP and sessions</text>
-    <text x="64" y="686" class="card-copy">• Profiles and account lifecycle</text>
+    <rect x="34" y="518" width="244" height="146" rx="10" class="card"/>
+    <text x="156" y="544" text-anchor="middle" class="card-title" fill="#1555a5">1 · AUTH &amp; PROFILES</text>
+    <text x="50" y="570" class="copy">• Customer login and sessions</text>
+    <text x="50" y="591" class="copy">• Role checks for staff portals</text>
+    <text x="50" y="612" class="copy">• Profile and account lifecycle</text>
+    <text x="50" y="642" class="small">Google / phone options as configured</text>
 
-    <rect x="299" y="581" width="235" height="148" rx="12" fill="#fff" stroke="#b9d9ff" stroke-width="1.5"/>
-    <text x="416" y="610" text-anchor="middle" class="card-title" fill="#1555a5">VILLAS &amp; BOOKINGS</text>
-    <text x="315" y="640" class="card-copy">• Availability and reservations</text>
-    <text x="315" y="663" class="card-copy">• Public/customer bookings</text>
-    <text x="315" y="686" class="card-copy">• Manual bookings and cancellation</text>
+    <rect x="290" y="518" width="244" height="146" rx="10" class="card"/>
+    <text x="412" y="544" text-anchor="middle" class="card-title" fill="#1555a5">2 · VILLAS &amp; BOOKINGS</text>
+    <text x="306" y="570" class="copy">• Catalog and availability</text>
+    <text x="306" y="591" class="copy">• Guest and manual reservations</text>
+    <text x="306" y="612" class="copy">• Cancellation and checkout</text>
+    <text x="306" y="642" class="small">Booking preparation assignments</text>
 
-    <rect x="550" y="581" width="235" height="148" rx="12" fill="#fff" stroke="#b9d9ff" stroke-width="1.5"/>
-    <text x="667" y="610" text-anchor="middle" class="card-title" fill="#1555a5">PAYMENTS &amp; STAY</text>
-    <text x="566" y="640" class="card-copy">• PayMongo checkout/webhooks</text>
-    <text x="566" y="663" class="card-copy">• Front-desk payments</text>
-    <text x="566" y="686" class="card-copy">• Reconciliation and checkout</text>
+    <rect x="546" y="518" width="244" height="146" rx="10" class="card"/>
+    <text x="668" y="544" text-anchor="middle" class="card-title" fill="#1555a5">3 · PAYMENTS &amp; STAY</text>
+    <text x="562" y="570" class="copy">• PayMongo checkout / intents</text>
+    <text x="562" y="591" class="copy">• Signed payment webhooks</text>
+    <text x="562" y="612" class="copy">• Front-desk settlement</text>
+    <text x="562" y="642" class="small">Reconciliation and check-in / out</text>
 
-    <rect x="801" y="581" width="235" height="148" rx="12" fill="#fff" stroke="#b9d9ff" stroke-width="1.5"/>
-    <text x="918" y="610" text-anchor="middle" class="card-title" fill="#1555a5">ADMIN &amp; STAFF</text>
-    <text x="817" y="640" class="card-copy">• Accounts, tasks and schedules</text>
-    <text x="817" y="663" class="card-copy">• Progress, evidence and messages</text>
-    <text x="817" y="686" class="card-copy">• Settings and operations</text>
+    <rect x="802" y="518" width="244" height="146" rx="10" class="card"/>
+    <text x="924" y="544" text-anchor="middle" class="card-title" fill="#1555a5">4 · ADMIN &amp; STAFF OPS</text>
+    <text x="818" y="570" class="copy">• Staff accounts and work hours</text>
+    <text x="818" y="591" class="copy">• Tasks and maintenance workflow</text>
+    <text x="818" y="612" class="copy">• Messages and notifications</text>
+    <text x="818" y="642" class="small">Schedules, evidence and approvals</text>
 
-    <rect x="1052" y="581" width="235" height="148" rx="12" fill="#fff" stroke="#b9d9ff" stroke-width="1.5"/>
-    <text x="1169" y="610" text-anchor="middle" class="card-title" fill="#1555a5">NOTIFICATIONS</text>
-    <text x="1068" y="640" class="card-copy">• Booking confirmations</text>
-    <text x="1068" y="663" class="card-copy">• Email, SMS and feedback invites</text>
-    <text x="1068" y="686" class="card-copy">• Background delivery workers</text>
+    <rect x="1058" y="518" width="244" height="146" rx="10" class="card"/>
+    <text x="1180" y="544" text-anchor="middle" class="card-title" fill="#1555a5">5 · DELIVERY WORKERS</text>
+    <text x="1074" y="570" class="copy">• Booking / staff assignment</text>
+    <text x="1074" y="591" class="copy">• Payment reconciliation</text>
+    <text x="1074" y="612" class="copy">• Maintenance on-call</text>
+    <text x="1074" y="642" class="small">Email, invitation and cleanup jobs</text>
 
-    <rect x="1303" y="581" width="249" height="148" rx="12" fill="#fff" stroke="#b9d9ff" stroke-width="1.5"/>
-    <text x="1427" y="610" text-anchor="middle" class="card-title" fill="#1555a5">FEEDBACK &amp; AI</text>
-    <text x="1319" y="640" class="card-copy">• Sentiment and complaint trends</text>
-    <text x="1319" y="663" class="card-copy">• Recommendation drafts</text>
-    <text x="1319" y="686" class="card-copy">• Admin review and approval</text>
+    <rect x="1314" y="518" width="252" height="146" rx="10" class="card"/>
+    <text x="1440" y="544" text-anchor="middle" class="card-title" fill="#1555a5">6 · FEEDBACK REVIEW</text>
+    <text x="1330" y="570" class="copy">• Local pilot Naive Bayes analysis</text>
+    <text x="1330" y="591" class="copy">• Complaint and rating reports</text>
+    <text x="1330" y="612" class="copy">• Optional Gemini draft suggestions</text>
+    <text x="1330" y="642" class="small">Administrator review required</text>
   </g>
-  <rect x="48" y="742" width="1504" height="28" rx="12" fill="#1555a5"/>
-  <text x="800" y="761" text-anchor="middle" class="tech">Docker • Python • FastAPI • Pydantic • Supabase Python Client • Uvicorn (1 worker) • Background workers • Signed webhooks</text>
+  <rect x="34" y="679" width="1532" height="25" rx="12" fill="#1555a5"/>
+  <text x="800" y="696" text-anchor="middle" class="stack" fill="#fff">Python · FastAPI · Pydantic · Supabase Python Client · Uvicorn (1 worker) · background workers · signed webhooks</text>
 
-  <path d="M410 792v48" class="bi-line"/>
-  <path d="M1200 792v48" class="bi-line"/>
-  <path d="M800 810v288" class="bi-line"/>
+  <path d="M420 720v34" class="both"/>
+  <path d="M1180 720v34" class="both"/>
 
-  <rect x="20" y="840" width="780" height="238" rx="18" fill="#faf5ff" stroke="#bd83ff" stroke-width="2"/>
-  <text x="410" y="874" text-anchor="middle" class="layer-title" fill="#6b21a8">SUPABASE DATA PLATFORM</text>
+  <rect x="20" y="758" width="780" height="208" rx="16" fill="#faf5ff" stroke="#bd83ff" stroke-width="2"/>
+  <text x="410" y="786" text-anchor="middle" class="layer" fill="#6b21a8">SUPABASE DATA PLATFORM</text>
   <g>
-    <rect x="38" y="892" width="176" height="144" rx="12" fill="#fff" stroke="#dcc4ff" stroke-width="1.5"/>
-    <text x="126" y="922" text-anchor="middle" class="card-title" fill="#6b21a8">SUPABASE AUTH</text>
-    <text x="54" y="954" class="card-copy">Customer and staff</text>
-    <text x="54" y="977" class="card-copy">authentication</text>
-    <text x="54" y="1000" class="card-copy">and sessions</text>
+    <rect x="36" y="802" width="174" height="127" rx="9" class="card"/>
+    <text x="123" y="828" text-anchor="middle" class="card-title" fill="#6b21a8">SUPABASE AUTH</text>
+    <text x="50" y="854" class="copy">Guest identity and</text>
+    <text x="50" y="873" class="copy">authentication sessions</text>
+    <text x="50" y="901" class="small">Portal tokens validated server-side</text>
 
-    <rect x="226" y="892" width="176" height="144" rx="12" fill="#fff" stroke="#dcc4ff" stroke-width="1.5"/>
-    <text x="314" y="922" text-anchor="middle" class="card-title" fill="#6b21a8">POSTGRESQL</text>
-    <text x="242" y="954" class="card-copy">Profiles, villas,</text>
-    <text x="242" y="977" class="card-copy">bookings, payments,</text>
-    <text x="242" y="1000" class="card-copy">tasks and feedback</text>
+    <rect x="222" y="802" width="174" height="127" rx="9" class="card"/>
+    <text x="309" y="828" text-anchor="middle" class="card-title" fill="#6b21a8">POSTGRESQL</text>
+    <text x="236" y="854" class="copy">Bookings, payments,</text>
+    <text x="236" y="873" class="copy">tasks and staff records</text>
+    <text x="236" y="901" class="small">Feedback, profiles and settings</text>
 
-    <rect x="414" y="892" width="176" height="144" rx="12" fill="#fff" stroke="#dcc4ff" stroke-width="1.5"/>
-    <text x="502" y="922" text-anchor="middle" class="card-title" fill="#6b21a8">SUPABASE STORAGE</text>
-    <text x="430" y="954" class="card-copy">Profile photos</text>
-    <text x="430" y="977" class="card-copy">and villa catalog</text>
-    <text x="430" y="1000" class="card-copy">images</text>
+    <rect x="408" y="802" width="174" height="127" rx="9" class="card"/>
+    <text x="495" y="828" text-anchor="middle" class="card-title" fill="#6b21a8">SUPABASE STORAGE</text>
+    <text x="422" y="854" class="copy">Profile photos in the</text>
+    <text x="422" y="873" class="copy">profile-photos bucket</text>
+    <text x="422" y="901" class="small">Used for uploaded profile images</text>
 
-    <rect x="602" y="892" width="180" height="144" rx="12" fill="#fff" stroke="#dcc4ff" stroke-width="1.5"/>
-    <text x="692" y="922" text-anchor="middle" class="card-title" fill="#6b21a8">SECURE DATA OPS</text>
-    <text x="618" y="954" class="card-copy">RPC transactions</text>
-    <text x="618" y="977" class="card-copy">and row-level</text>
-    <text x="618" y="1000" class="card-copy">policies</text>
+    <rect x="594" y="802" width="190" height="127" rx="9" class="card"/>
+    <text x="689" y="828" text-anchor="middle" class="card-title" fill="#6b21a8">SUPABASE REALTIME</text>
+    <text x="608" y="854" class="copy">Server-side Postgres</text>
+    <text x="608" y="873" class="copy">change subscription</text>
+    <text x="608" y="901" class="small">Signals backend LiveHub / SSE</text>
   </g>
+  <text x="410" y="951" text-anchor="middle" class="small">SSE sends role-scoped change domains, not database rows; browser re-fetches through authorized APIs.</text>
 
-  <rect x="820" y="840" width="760" height="238" rx="18" fill="#fff8ef" stroke="#ffb24d" stroke-width="2"/>
-  <text x="1200" y="874" text-anchor="middle" class="layer-title" fill="#d35400">EXTERNAL INTEGRATION LAYER</text>
+  <rect x="820" y="758" width="760" height="208" rx="16" fill="#fff8ef" stroke="#ffb24d" stroke-width="2"/>
+  <text x="1200" y="786" text-anchor="middle" class="layer" fill="#d35400">EXTERNAL INTEGRATION LAYER</text>
   <g>
-    <rect x="838" y="892" width="174" height="144" rx="12" fill="#fff" stroke="#ffd19b" stroke-width="1.5"/>
-    <text x="925" y="922" text-anchor="middle" class="card-title" fill="#d35400">PAYMONGO</text>
-    <text x="854" y="954" class="card-copy">Checkout, payment</text>
-    <text x="854" y="977" class="card-copy">verification and</text>
-    <text x="854" y="1000" class="card-copy">webhooks</text>
+    <rect x="836" y="802" width="174" height="127" rx="9" class="card"/>
+    <text x="923" y="828" text-anchor="middle" class="card-title" fill="#d35400">PAYMONGO</text>
+    <text x="850" y="854" class="copy">Checkout / payment API</text>
+    <text x="850" y="873" class="copy">Signed webhook callbacks</text>
+    <text x="850" y="901" class="small">When payment integration is enabled</text>
 
-    <rect x="1022" y="892" width="174" height="144" rx="12" fill="#fff" stroke="#ffd19b" stroke-width="1.5"/>
-    <text x="1109" y="922" text-anchor="middle" class="card-title" fill="#d35400">EMAIL SERVICE</text>
-    <text x="1038" y="954" class="card-copy">SMTP and Resend</text>
-    <text x="1038" y="977" class="card-copy">booking, staff and</text>
-    <text x="1038" y="1000" class="card-copy">feedback messages</text>
+    <rect x="1022" y="802" width="174" height="127" rx="9" class="card"/>
+    <text x="1109" y="828" text-anchor="middle" class="card-title" fill="#d35400">EMAIL</text>
+    <text x="1036" y="854" class="copy">Resend HTTPS and/or SMTP</text>
+    <text x="1036" y="873" class="copy">Confirmations and notices</text>
+    <text x="1036" y="901" class="small">Flow support varies by message</text>
 
-    <rect x="1206" y="892" width="174" height="144" rx="12" fill="#fff" stroke="#ffd19b" stroke-width="1.5"/>
-    <text x="1293" y="922" text-anchor="middle" class="card-title" fill="#d35400">HTTPSMS</text>
-    <text x="1222" y="954" class="card-copy">OTP and booking</text>
-    <text x="1222" y="977" class="card-copy">confirmation SMS</text>
-    <text x="1222" y="1000" class="card-copy">provider</text>
+    <rect x="1208" y="802" width="174" height="127" rx="9" class="card"/>
+    <text x="1295" y="828" text-anchor="middle" class="card-title" fill="#d35400">SMS DELIVERY</text>
+    <text x="1222" y="854" class="copy">Supabase signed SMS hook</text>
+    <text x="1222" y="873" class="copy">Backend → HTTPSMS gateway</text>
+    <text x="1222" y="901" class="small">Requires provider configuration</text>
 
-    <rect x="1390" y="892" width="172" height="144" rx="12" fill="#fff" stroke="#ffd19b" stroke-width="1.5"/>
-    <text x="1476" y="922" text-anchor="middle" class="card-title" fill="#d35400">MAPS &amp; AI</text>
-    <text x="1406" y="954" class="card-copy">Map tiles / routing</text>
-    <text x="1406" y="977" class="card-copy">Gemini Flash API</text>
-    <text x="1406" y="1000" class="card-copy">recommendations</text>
+    <rect x="1394" y="802" width="170" height="127" rx="9" class="card"/>
+    <text x="1479" y="828" text-anchor="middle" class="card-title" fill="#d35400">PUBLIC SERVICES</text>
+    <text x="1408" y="854" class="copy">Google Identity credential</text>
+    <text x="1408" y="873" class="copy">OSM map tiles · OSRM routes</text>
+    <text x="1408" y="901" class="small">Gemini drafts are optional</text>
   </g>
+  <text x="1200" y="951" text-anchor="middle" class="small">Browser loads Google Identity / map services; server calls payment, email, SMS and optional Gemini APIs.</text>
 
-  <path d="M800 1078v22" class="bi-line"/>
-  <rect x="180" y="1098" width="1240" height="96" rx="16" fill="#eef6ff" stroke="#4b9cff" stroke-width="2"/>
-  <text x="800" y="1128" text-anchor="middle" class="layer-title" fill="#1555a5">ACCESS LAYER (DEVICES &amp; PLATFORM)</text>
-  <text x="800" y="1154" text-anchor="middle" class="card-copy">Web browser (desktop) • Mobile browser (phone / tablet) • HTTPS access for guest, staff and admin roles</text>
-  <text x="800" y="1178" text-anchor="middle" class="small">Render Free services can sleep after inactivity; background work pauses while the service is asleep.</text>
+  <path d="M800 966v25" class="both"/>
+  <rect x="176" y="992" width="1248" height="100" rx="14" fill="#eef6ff" stroke="#4b9cff" stroke-width="1.8"/>
+  <text x="800" y="1018" text-anchor="middle" class="layer" fill="#1555a5">ACCESS LAYER · DEVICES &amp; PLATFORM</text>
+  <rect x="202" y="1030" width="582" height="48" rx="9" class="card"/>
+  <text x="493" y="1050" text-anchor="middle" class="card-title" fill="#1555a5">WEB BROWSER · DESKTOP</text>
+  <text x="493" y="1067" text-anchor="middle" class="copy">Guest booking · Admin · Front Desk · Staff / Maintenance portals</text>
+  <rect x="816" y="1030" width="582" height="48" rx="9" class="card"/>
+  <text x="1107" y="1050" text-anchor="middle" class="card-title" fill="#1555a5">MOBILE BROWSER · PHONE / TABLET</text>
+  <text x="1107" y="1067" text-anchor="middle" class="copy">Responsive guest and role-protected operations interfaces</text>
 
-  <text x="800" y="1212" text-anchor="middle" class="small">Application hosting is Render; persistent database, authentication and storage are Supabase. Keep secrets in service environment settings, not in the frontend.</text>
+  <text x="800" y="1110" text-anchor="middle" class="small">Render hosts the web app and API; Supabase and configured providers remain separate services. Keep server secrets out of the browser and repository.</text>
 </svg>

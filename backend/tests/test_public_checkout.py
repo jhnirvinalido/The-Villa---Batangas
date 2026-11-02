@@ -289,6 +289,15 @@ class PublicCheckoutTests(unittest.TestCase):
         self.assertEqual(assigned_booking['amount_paid'], 500)
         self.assertIs(assigned_client, self.client)
 
+    def test_verified_payment_finalization_failure_does_not_request_another_payment(self):
+        self.env['_session_payment_state'] = lambda _: {'paid': True, 'payment': self.payment}
+        self.client.rpc.return_value.execute.side_effect = RuntimeError('database constraint')
+        result = self.env['_sync_public_checkout_draft'](self.client, self.draft)
+        self.assertEqual(result['state'], 'payment_received')
+        self.assertIn('do not pay again', result['message'])
+        self.assertEqual(result['booking'], self.booking)
+        self.env['_send_booking_confirmation_email'].assert_not_called()
+
     def test_wrong_currency_amount_session_never_promotes(self):
         self.env['_session_payment_state'] = lambda _: {'paid':True,'payment':self.payment}
         for field, bad in [('amount',1),('currency','USD')]:

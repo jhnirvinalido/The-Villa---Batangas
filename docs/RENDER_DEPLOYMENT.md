@@ -4,8 +4,9 @@ The root Dockerfile builds React and runs FastAPI with the resulting static
 files. Both use one HTTPS origin; Supabase remains the database/auth/storage
 provider. Local development is unchanged when FRONTEND_DIST is unset.
 
-See [the Render system architecture](./the-villa-render-architecture.svg) for
-the current deployment and integration overview.
+See the [system architecture](./SYSTEM_ARCHITECTURE.md) and its
+[architecture diagram](./the-villa-render-architecture.svg) for the application
+and deployment-profile overview.
 
 ## Create the service
 
@@ -20,15 +21,30 @@ the current deployment and integration overview.
    `SUPABASE_URL`, `SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY`.
 5. Set `FRONTEND_URL` and `BACKEND_PUBLIC_URL` to the assigned Render HTTPS
    origin, e.g. `https://the-villa-xxxx.onrender.com`, without a trailing slash.
-   Set `MAINTENANCE_FRONTEND_URL` to the same origin if used. If you only learn
-   the URL after creation, update the settings and redeploy before testing.
-6. Copy the integration settings you actually use into Render's environment:
+   The feedback invitation's private form URL is built from `FRONTEND_URL`, so
+   do not leave it as localhost. If the assigned URL was not available at
+   service creation, update the setting and redeploy. Set
+   `MAINTENANCE_FRONTEND_URL` to the same origin if used.
+6. Configure HTTPS email for post-stay feedback invitations by setting
+   `RESEND_API_KEY` and `RESEND_FROM` in Render. The sender must be verified in
+   Resend; the sandbox sender only delivers to the account owner's address
+   until a domain is verified. Set a stable `FEEDBACK_TOKEN_SECRET` with at
+   least 32 random bytes; do not rotate it while invitations are pending.
+   Never commit these values or put them in frontend/Vite variables.
+7. Copy the other integration settings you actually use into Render's environment:
    `PAYMONGO_SECRET_KEY`, `PAYMONGO_WEBHOOK_SECRET`, SMS provider settings, and
    any additional settings from your local backend environment. Keep all secret
    keys out of Vite variables, the repository, and screenshots.
 
 The frontend API URL is built as same-origin. Do not set VITE_API_URL to localhost.
 Keep one process/instance: this app runs background workers inside FastAPI.
+`PUBLIC_BOOKING_ALLOW_PAST_DATES=true` is enabled for testing. It permits
+past check-in dates on the public booking form while still enforcing valid
+dates, availability, and the check-out-after-check-in rule. Set it to `false`
+after testing to restore the future-date restriction; restart or redeploy the
+backend after changing it. Local development defaults to the same test setting.
+This setting does not change PayMongo mode or prevent paid reservations; use
+PayMongo test credentials while testing.
 
 ## External services
 
@@ -46,16 +62,14 @@ Keep one process/instance: this app runs background workers inside FastAPI.
 - Render sleeps after 15 minutes without inbound traffic. Waking takes time;
   background email/assignment/cleanup workers stop while the service is asleep.
 - Outbound SMTP ports 25, 465, and 587 are blocked on Free web services. The
-  existing Gmail SMTP implementation will not send booking confirmations,
-  feedback invitations, or staff notifications from this deployment. This needs
-  an HTTPS email API or hosting that supports SMTP; do not assume setting SMTP
-  credentials fixes it. Guest booking confirmations now support Resend: set
-  `RESEND_API_KEY` and `RESEND_FROM` (a verified sender, e.g.
-  `The Villa <bookings@YOUR-VERIFIED-DOMAIN>`). Resend's sandbox sender can only
-  deliver to the account owner's address until a domain is verified. Staff and
-  feedback flows that use SMTP directly are not migrated by this setting.
-  SMTP attempts are skipped on Render unless `SMTP_ALLOW_ON_RENDER=true`;
-  enable that override only after moving to a plan that allows SMTP.
+  post-stay feedback invitation worker now uses Resend's HTTPS API when
+  `RESEND_API_KEY` and `RESEND_FROM` are configured. Booking confirmations also
+  support Resend. The sender must be verified in Resend (the sandbox only
+  delivers to the account owner until a domain is verified). Other staff
+  notification flows that still use SMTP need an HTTPS provider migration or
+  hosting that allows SMTP. Do not assume SMTP credentials work on Free.
+  `SMTP_ALLOW_ON_RENDER=true` only bypasses the app guard; it does not unblock
+  Render's network and must not be used on Free.
 - Local files are ephemeral. Store persistent application data in Supabase.
 - Free compute has limited memory. Verify runtime memory and deployment logs;
   this configuration is not evidence that the whole app fits its allocation.
@@ -67,7 +81,10 @@ Open `/health`, `/`, `/book`, `/admin-login`, and a refreshed dashboard URL.
 Confirm API requests go to the Render origin, never localhost. Test sign-in,
 availability, a test booking/checkout, signed payment webhook handling, and
 guest/admin/staff status updates. Check a missing API URL and asset remain 404.
-Email-dependent flows require resolving the SMTP limitation above.
+Check the Render logs and Resend delivery dashboard, then complete a real
+post-stay invitation test to a guest address you control. A green app health
+check does not verify sender-domain, email delivery, database migration, or
+inbox-link behavior.
 
 ## Checkout return troubleshooting
 
@@ -81,10 +98,3 @@ in a query string or disable token verification to recover an old checkout.
 
 The repository is prepared locally; creating the Render service and supplying
 credentials in your own account are still required.
-`PUBLIC_BOOKING_ALLOW_PAST_DATES=true` is enabled for testing. It permits
-past check-in dates on the public booking form while still enforcing valid
-dates, availability, and the check-out-after-check-in rule. Set it to `false`
-after testing to restore the future-date restriction; restart or redeploy the
-backend after changing it. Local development defaults to the same test setting.
-This setting does not change PayMongo mode or prevent paid reservations; use
-PayMongo test credentials while testing.

@@ -8,6 +8,10 @@ separate business statistic; they are never sentiment labels or inference input.
 Existing booking eligibility, signed links, duplicate prevention, identity hiding,
 and private-note exclusions remain enforced.
 
+See [`docs/AI_FEEDBACK_ANALYSIS_PIPELINE.md`](../../docs/AI_FEEDBACK_ANALYSIS_PIPELINE.md)
+for the complete stage-by-stage workflow, data boundaries, persistence behavior,
+and administrator review process.
+
 ## Datasets and model development
 
 - A/B: `datasets/sentiment_phrases.csv`: 73 verbatim spans from 26 original Airbnb

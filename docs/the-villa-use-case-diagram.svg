@@ -1,0 +1,153 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="1220" viewBox="0 0 1600 1220" role="img" aria-labelledby="title description">
+  <title id="title">The Villa use-case diagram</title>
+  <desc id="description">UML-style use-case diagram for The Villa with Guest, Administrator, Front Desk, Staff and Maintenance actors and the PayMongo payment provider. Use cases reflect current public and role-protected portals.</desc>
+  <defs>
+    <style>
+      text { font-family: Arial, Helvetica, sans-serif; fill: #24364a; }
+      .title { font-size: 26px; font-weight: 700; letter-spacing: .4px; }
+      .subtitle { font-size: 12px; fill: #627184; }
+      .boundary-title { font-size: 17px; font-weight: 700; fill: #fff; }
+      .group-title { font-size: 12px; font-weight: 700; letter-spacing: .5px; }
+      .actor-label { font-size: 12px; font-weight: 700; }
+      .actor-note { font-size: 10px; fill: #637083; }
+      .usecase { fill: #fff; stroke: #8da3b8; stroke-width: 1.5; }
+      .case-label { font-size: 11px; font-weight: 600; }
+      .association { fill: none; stroke: #74879b; stroke-width: 1.25; opacity: .7; }
+      .actor-line { fill: none; stroke: #35485d; stroke-width: 2; stroke-linecap: round; }
+    </style>
+  </defs>
+
+  <rect width="1600" height="1220" fill="#f7f9fc"/>
+  <text x="800" y="38" text-anchor="middle" class="title">THE VILLA · USE-CASE DIAGRAM</text>
+  <text x="800" y="59" text-anchor="middle" class="subtitle">User goals supported by the current public, Admin, Front Desk, Staff and Maintenance portals</text>
+
+  <rect x="270" y="92" width="1050" height="1080" rx="18" fill="#fff" stroke="#1c5794" stroke-width="2"/>
+  <path d="M288 92h1014a18 18 0 0 1 18 18v38H270v-38a18 18 0 0 1 18-18z" fill="#1555a5"/>
+  <text x="795" y="123" text-anchor="middle" class="boundary-title" fill="#fff">THE VILLA WEB SYSTEM</text>
+
+  <rect x="286" y="156" width="1018" height="184" rx="10" fill="#f0faf2"/>
+  <rect x="286" y="348" width="1018" height="184" rx="10" fill="#f1f6fc"/>
+  <rect x="286" y="540" width="1018" height="184" rx="10" fill="#f2f7fd"/>
+  <rect x="286" y="732" width="1018" height="184" rx="10" fill="#fff8ed"/>
+  <rect x="286" y="924" width="1018" height="232" rx="10" fill="#fff5ec"/>
+
+  <text x="306" y="177" class="group-title" fill="#287341">GUEST</text>
+  <text x="306" y="369" class="group-title" fill="#315c88">ADMINISTRATOR</text>
+  <text x="306" y="561" class="group-title" fill="#315c88">FRONT DESK</text>
+  <text x="306" y="753" class="group-title" fill="#94601d">STAFF</text>
+  <text x="306" y="945" class="group-title" fill="#a45b25">MAINTENANCE</text>
+
+  <g class="association">
+    <path d="M184 252L330 220M184 252L665 220M184 252L1000 220"/>
+    <path d="M184 252L330 294M184 252L665 294M184 252L1000 294"/>
+    <path d="M184 444L330 412M184 444L665 412M184 444L1000 412"/>
+    <path d="M184 444L307.5 486M184 444L567.5 486M184 444L827.5 486M184 444L1087.5 486"/>
+    <path d="M184 636L330 604M184 636L665 604M184 636L1000 604"/>
+    <path d="M184 636L330 678M184 636L665 678M184 636L1000 678"/>
+    <path d="M184 828L330 796M184 828L665 796M184 828L1000 796"/>
+    <path d="M184 828L330 870M184 828L665 870M184 828L1000 870"/>
+    <path d="M184 1040L330 1008M184 1040L665 1008"/>
+    <path d="M184 1040L330 1090M184 1040L665 1090"/>
+    <path d="M1270 294H1390"/>
+  </g>
+
+  <g>
+    <ellipse cx="465" cy="220" rx="135" ry="27" class="usecase"/>
+    <text x="465" y="224" text-anchor="middle" class="case-label">Browse villas and guest information</text>
+    <ellipse cx="800" cy="220" rx="135" ry="27" class="usecase"/>
+    <text x="800" y="224" text-anchor="middle" class="case-label">Check villa availability</text>
+    <ellipse cx="1135" cy="220" rx="135" ry="27" class="usecase"/>
+    <text x="1135" y="224" text-anchor="middle" class="case-label">Create a reservation</text>
+    <ellipse cx="465" cy="294" rx="135" ry="27" class="usecase"/>
+    <text x="465" y="298" text-anchor="middle" class="case-label">Submit stay feedback</text>
+    <ellipse cx="800" cy="294" rx="135" ry="27" class="usecase"/>
+    <text x="800" y="298" text-anchor="middle" class="case-label">View booking and payment status</text>
+    <ellipse cx="1135" cy="294" rx="135" ry="27" class="usecase"/>
+    <text x="1135" y="298" text-anchor="middle" class="case-label">Pay online</text>
+
+    <ellipse cx="465" cy="412" rx="135" ry="27" class="usecase"/>
+    <text x="465" y="416" text-anchor="middle" class="case-label">View dashboard and reports</text>
+    <ellipse cx="800" cy="412" rx="135" ry="27" class="usecase"/>
+    <text x="800" y="416" text-anchor="middle" class="case-label">Manage guest reservations</text>
+    <ellipse cx="1135" cy="412" rx="135" ry="27" class="usecase"/>
+    <text x="1135" y="416" text-anchor="middle" class="case-label">Record external bookings</text>
+    <ellipse cx="420" cy="486" rx="112.5" ry="27" class="usecase"/>
+    <text x="420" y="490" text-anchor="middle" class="case-label">Manage villas and pricing</text>
+    <ellipse cx="680" cy="486" rx="112.5" ry="27" class="usecase"/>
+    <text x="680" y="490" text-anchor="middle" class="case-label">Manage staff and assignments</text>
+    <ellipse cx="940" cy="486" rx="112.5" ry="27" class="usecase"/>
+    <text x="940" y="490" text-anchor="middle" class="case-label">Review staff work hours</text>
+    <ellipse cx="1200" cy="486" rx="112.5" ry="27" class="usecase"/>
+    <text x="1200" y="490" text-anchor="middle" class="case-label">Review guest feedback</text>
+
+    <ellipse cx="465" cy="604" rx="135" ry="27" class="usecase"/>
+    <text x="465" y="608" text-anchor="middle" class="case-label">View arrivals and booking details</text>
+    <ellipse cx="800" cy="604" rx="135" ry="27" class="usecase"/>
+    <text x="800" y="608" text-anchor="middle" class="case-label">Record a walk-in booking</text>
+    <ellipse cx="1135" cy="604" rx="135" ry="27" class="usecase"/>
+    <text x="1135" y="608" text-anchor="middle" class="case-label">Check guests in and out</text>
+    <ellipse cx="465" cy="678" rx="135" ry="27" class="usecase"/>
+    <text x="465" y="682" text-anchor="middle" class="case-label">Collect cash or QR Ph settlement</text>
+    <ellipse cx="800" cy="678" rx="135" ry="27" class="usecase"/>
+    <text x="800" y="682" text-anchor="middle" class="case-label">Review payment history</text>
+    <ellipse cx="1135" cy="678" rx="135" ry="27" class="usecase"/>
+    <text x="1135" y="682" text-anchor="middle" class="case-label">Monitor staff and villa readiness</text>
+
+    <ellipse cx="465" cy="796" rx="135" ry="27" class="usecase"/>
+    <text x="465" y="800" text-anchor="middle" class="case-label">View workspace and schedule</text>
+    <ellipse cx="800" cy="796" rx="135" ry="27" class="usecase"/>
+    <text x="800" y="800" text-anchor="middle" class="case-label">View assigned work</text>
+    <ellipse cx="1135" cy="796" rx="135" ry="27" class="usecase"/>
+    <text x="1135" y="800" text-anchor="middle" class="case-label">Update task and checklist</text>
+    <ellipse cx="465" cy="870" rx="135" ry="27" class="usecase"/>
+    <text x="465" y="874" text-anchor="middle" class="case-label">Submit completed work for review</text>
+    <ellipse cx="800" cy="870" rx="135" ry="27" class="usecase"/>
+    <text x="800" y="874" text-anchor="middle" class="case-label">Send messages and read notifications</text>
+    <ellipse cx="1135" cy="870" rx="135" ry="27" class="usecase"/>
+    <text x="1135" y="874" text-anchor="middle" class="case-label">Clock in and clock out</text>
+
+    <ellipse cx="465" cy="1008" rx="135" ry="27" class="usecase"/>
+    <text x="465" y="1012" text-anchor="middle" class="case-label">Submit a maintenance request</text>
+    <ellipse cx="800" cy="1008" rx="135" ry="27" class="usecase"/>
+    <text x="800" y="1012" text-anchor="middle" class="case-label">View assigned maintenance work</text>
+    <ellipse cx="465" cy="1090" rx="135" ry="27" class="usecase"/>
+    <text x="465" y="1094" text-anchor="middle" class="case-label">Update maintenance task progress</text>
+    <ellipse cx="800" cy="1090" rx="135" ry="27" class="usecase"/>
+    <text x="800" y="1094" text-anchor="middle" class="case-label">Clock in and clock out</text>
+  </g>
+
+  <g aria-label="Guest actor">
+    <circle cx="150" cy="223" r="13" fill="none" stroke="#287341" stroke-width="2.5"/>
+    <path d="M150 236v38M130 248h40M150 274l-17 22M150 274l17 22" class="actor-line" stroke="#287341"/>
+    <text x="150" y="315" text-anchor="middle" class="actor-label" fill="#287341">Guest</text>
+  </g>
+  <g aria-label="Administrator actor">
+    <circle cx="150" cy="415" r="13" fill="none" stroke="#315c88" stroke-width="2.5"/>
+    <path d="M150 428v38M130 440h40M150 466l-17 22M150 466l17 22" class="actor-line" stroke="#315c88"/>
+    <text x="150" y="507" text-anchor="middle" class="actor-label" fill="#315c88">Administrator</text>
+  </g>
+  <g aria-label="Front desk actor">
+    <circle cx="150" cy="607" r="13" fill="none" stroke="#315c88" stroke-width="2.5"/>
+    <path d="M150 620v38M130 632h40M150 658l-17 22M150 658l17 22" class="actor-line" stroke="#315c88"/>
+    <text x="150" y="699" text-anchor="middle" class="actor-label" fill="#315c88">Front Desk</text>
+  </g>
+  <g aria-label="Staff actor">
+    <circle cx="150" cy="799" r="13" fill="none" stroke="#94601d" stroke-width="2.5"/>
+    <path d="M150 812v38M130 824h40M150 850l-17 22M150 850l17 22" class="actor-line" stroke="#94601d"/>
+    <text x="150" y="891" text-anchor="middle" class="actor-label" fill="#94601d">Staff</text>
+  </g>
+  <g aria-label="Maintenance actor">
+    <circle cx="150" cy="1011" r="13" fill="none" stroke="#a45b25" stroke-width="2.5"/>
+    <path d="M150 1024v38M130 1036h40M150 1062l-17 22M150 1062l17 22" class="actor-line" stroke="#a45b25"/>
+    <text x="150" y="1103" text-anchor="middle" class="actor-label" fill="#a45b25">Maintenance</text>
+  </g>
+  <g aria-label="PayMongo external payment system">
+    <rect x="1390" y="258" width="168" height="66" rx="10" fill="#fff3e6" stroke="#d97706" stroke-width="2"/>
+    <rect x="1404" y="278" width="30" height="22" rx="4" fill="none" stroke="#b35b11" stroke-width="2"/>
+    <path d="M1405 285h28" stroke="#b35b11" stroke-width="2"/>
+    <text x="1490" y="284" text-anchor="middle" class="actor-label" fill="#9a4c0c">PayMongo</text>
+    <text x="1490" y="303" text-anchor="middle" class="actor-note">External payment system</text>
+  </g>
+
+  <text x="800" y="1196" text-anchor="middle" class="subtitle">Associations indicate who can initiate each use case. Provider-specific options depend on configuration and availability.</text>
+</svg>

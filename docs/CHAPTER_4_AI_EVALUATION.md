@@ -1,5 +1,10 @@
 # Chapter 4: AI-Based Feedback Analysis Results
 
+For the implemented system workflow from verified feedback submission through
+sentiment analysis, rule-based complaint categories, optional Gemini drafts,
+and administrator approval, see
+[`AI_FEEDBACK_ANALYSIS_PIPELINE.md`](./AI_FEEDBACK_ANALYSIS_PIPELINE.md).
+
 ## 4.1 Sentiment-classification dataset
 
 The evaluation used 232 human-approved feedback excerpts from 66 review groups:
