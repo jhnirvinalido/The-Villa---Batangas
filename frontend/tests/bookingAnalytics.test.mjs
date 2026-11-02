@@ -69,23 +69,53 @@ test('Airbnb bookings reserve occupancy but never appear as unpaid or Villa reve
     {id:'airbnb-cash',bookingId:'airbnb',amount:200,processedAt:'2026-10-04',status:'Completed'},
   ]);
   assert.equal(data.bookingStatus.Confirmed,1);
-  assert.deepEqual(data.paymentStatus,{Paid:0,Partial:0,Unpaid:0});
+  assert.deepEqual(data.paymentStatus,{Paid:0,Partial:0});
   assert.equal(data.totalRevenue,0);
   assert.equal(data.monthlyBookings[9],1);
   assert.equal(data.villaChart.find(v=>v.name==='Villa 1').value,1);
 });
 
-test('booking total is defined and cancelled bookings do not inflate pending payments',()=>{
+test('graphs omit unpaid bookings while pending-payment summary remains accurate',()=>{
   const data=bookingAnalytics([
     reservation,
     {...reservation,id:'cancelled',bookingStatus:'Cancelled',amountPaid:0},
     {...reservation,id:'pending',bookingStatus:'Pending Payment',amountPaid:0},
+    {...reservation,id:'unpaid-confirmed',checkIn:'2026-11-01',checkOut:'2026-11-06',amountPaid:0},
   ],villas,2026);
-  assert.equal(data.totalBookings,2);
-  assert.deepEqual(data.bookingStatus,{Pending:1,Confirmed:1,'Checked In':0,Completed:0});
-  assert.deepEqual(data.paymentStatus,{Paid:0,Partial:1,Unpaid:1});
-  assert.equal(data.pendingPaymentCount,2);
+  assert.equal(data.totalBookings,1);
+  assert.deepEqual(data.bookingStatus,{Pending:0,Confirmed:1,'Checked In':0,Completed:0});
+  assert.deepEqual(data.paymentStatus,{Paid:0,Partial:1});
+  assert.equal(data.pendingPaymentCount,3);
   assert.equal(data.monthlyBookings[9],1);
+  assert.equal(data.occupancyRate,0);
+});
+
+test('bookings explicitly marked unpaid are omitted even if stored amounts conflict',()=>{
+  const data=bookingAnalytics([
+    {...reservation,paymentStatus:'Unpaid'},
+    {...reservation,id:'fully-paid',paymentStatus:'Paid',amountPaid:1000,totalAmount:1000},
+  ],villas,2026);
+  assert.equal(data.totalBookings,1);
+  assert.deepEqual(data.paymentStatus,{Paid:1,Partial:0});
+  assert.equal(data.monthlyBookings[9],1);
+});
+
+test('weekly and monthly graph periods bucket paid bookings by stay date',()=>{
+  const bookings=[
+    {...reservation,id:'monday',checkIn:'2026-03-02',checkOut:'2026-03-03'},
+    {...reservation,id:'friday',checkIn:'2026-03-06',checkOut:'2026-03-07'},
+    {...reservation,id:'next-week',checkIn:'2026-03-09',checkOut:'2026-03-10'},
+    {...reservation,id:'unpaid',checkIn:'2026-03-04',checkOut:'2026-03-05',amountPaid:0},
+  ];
+  const week=bookingAnalytics(bookings,villas,2026,[],{}, {unit:'week',date:'2026-03-04'});
+  assert.equal(week.months.length,7);
+  assert.equal(week.monthlyBookings.reduce((sum,count)=>sum+count,0),2);
+  assert.equal(week.monthlyBookings[0],1);
+  assert.equal(week.monthlyBookings[4],1);
+  const month=bookingAnalytics(bookings,villas,2026,[],{}, {unit:'month',date:'2026-03-04'});
+  assert.equal(month.months.length,31);
+  assert.equal(month.monthlyBookings.reduce((sum,count)=>sum+count,0),3);
+  assert.equal(month.monthlyBookings[1],1);
 });
 
 test('pending payment counts outstanding balances and channel totals exclude cancelled bookings',()=>{
@@ -97,10 +127,10 @@ test('pending payment counts outstanding balances and channel totals exclude can
     {...reservation,id:'unpaid',bookingStatus:'Pending Payment',amountPaid:0,balanceAmount:1000},
     {...reservation,id:'expired',bookingStatus:'Expired',amountPaid:0},
   ],villas,2026,[],{pending:2,inProgress:1,review:1,overdue:1,completed:3});
-  assert.equal(data.totalBookings,4);
-  assert.deepEqual(data.bookingChannel,{Airbnb:1,'Manual Booking (Messenger)':0,'The Villa':3});
+  assert.equal(data.totalBookings,3);
+  assert.deepEqual(data.bookingChannel,{Airbnb:1,'Manual Booking (Messenger)':0,'The Villa':2});
   assert.equal(data.pendingPaymentCount,2);
-  assert.deepEqual(data.paymentStatus,{Paid:1,Partial:1,Unpaid:1});
+  assert.deepEqual(data.paymentStatus,{Paid:1,Partial:1});
   assert.deepEqual(data.assignmentProgress,{
     Pending:2,'In Progress':1,'Pending Review':1,Overdue:1,Completed:3,
   });

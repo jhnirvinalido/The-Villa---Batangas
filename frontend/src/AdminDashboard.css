@@ -16449,6 +16449,34 @@
   min-width: 0;
 }
 
+.admin-dashboard-shell .analytics-controls {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: end;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.admin-dashboard-shell .analytics-controls label {
+  display: grid;
+  gap: 6px;
+  color: #6f6258;
+  font-size: 12px;
+  font-weight: 650;
+}
+
+.admin-dashboard-shell .analytics-controls select,
+.admin-dashboard-shell .analytics-controls input {
+  min-width: 170px;
+  min-height: 40px;
+  padding: 8px 11px;
+  border: 1px solid #e3d8ce;
+  border-radius: 9px;
+  background: #fff;
+  color: #392b22;
+  font: inherit;
+}
+
 .admin-dashboard-shell .analytics-grid {
   width: 100%;
   min-width: 0;
@@ -16616,6 +16644,16 @@
 }
 
 @media (max-width: 680px) {
+  .admin-dashboard-shell .analytics-controls {
+    align-items: stretch;
+  }
+
+  .admin-dashboard-shell .analytics-controls label,
+  .admin-dashboard-shell .analytics-controls select,
+  .admin-dashboard-shell .analytics-controls input {
+    width: 100%;
+  }
+
   .admin-dashboard-shell .analytics-grid {
     grid-template-columns: minmax(0, 1fr);
   }

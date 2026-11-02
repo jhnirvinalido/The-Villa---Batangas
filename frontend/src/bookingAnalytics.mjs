@@ -15,10 +15,52 @@ const dayNumber = value => {
 const isSuccessfulPayment = value =>
   ['paid','completed','succeeded','success','settled'].includes(String(value || '').trim().toLowerCase());
 
-export function bookingAnalytics(bookings, villas, year, frontDeskPayments = [], assignmentSummary = {}) {
-  const monthlyBookings = Array(12).fill(0), monthlyRevenue = Array(12).fill(0);
+function analyticsPeriod(year, period) {
+  const unit = ['week', 'month'].includes(period?.unit) ? period.unit : 'year';
+  const selectedDay = dayNumber(period?.date || `${year}-01-01`);
+  const date = Number.isFinite(selectedDay) ? selectedDay : Date.UTC(year, 0, 1) / 86400000;
+  let start, end, labels;
+
+  if (unit === 'week') {
+    const weekday = new Date(date * 86400000).getUTCDay();
+    start = date - ((weekday + 6) % 7);
+    end = start + 7;
+    labels = Array.from({length: 7}, (_, index) => {
+      const current = new Date((start + index) * 86400000);
+      return new Intl.DateTimeFormat('en', {weekday: 'short', day: 'numeric', timeZone: 'UTC'}).format(current);
+    });
+  } else if (unit === 'month') {
+    const current = new Date(date * 86400000);
+    const year = current.getUTCFullYear();
+    const month = current.getUTCMonth();
+    start = Date.UTC(year, month, 1) / 86400000;
+    end = Date.UTC(year, month + 1, 1) / 86400000;
+    labels = Array.from({length: end - start}, (_, index) => String(index + 1));
+  } else {
+    const selectedYear = new Date(date * 86400000).getUTCFullYear();
+    start = Date.UTC(selectedYear, 0, 1) / 86400000;
+    end = Date.UTC(selectedYear + 1, 0, 1) / 86400000;
+    labels = MONTHS;
+  }
+
+  return {
+    unit,
+    start,
+    end,
+    labels,
+    bucketIndex(day) {
+      return unit === 'year'
+        ? new Date(day * 86400000).getUTCMonth()
+        : day - start;
+    },
+  };
+}
+
+export function bookingAnalytics(bookings, villas, year, frontDeskPayments = [], assignmentSummary = {}, period = {}) {
+  const range = analyticsPeriod(year, period);
+  const monthlyBookings = Array(range.labels.length).fill(0), monthlyRevenue = Array(range.labels.length).fill(0);
   const bookingStatus = {Pending:0, Confirmed:0, 'Checked In':0, Completed:0};
-  const paymentStatus = {Paid:0, Partial:0, Unpaid:0};
+  const paymentStatus = {Paid:0, Partial:0};
   const bookingChannel = {Airbnb:0, 'Manual Booking (Messenger)':0, 'The Villa':0};
   const assignmentProgress = {
     Pending: Number(assignmentSummary.pending) || 0,
@@ -30,7 +72,7 @@ export function bookingAnalytics(bookings, villas, year, frontDeskPayments = [],
   let pendingPaymentCount = 0, totalOutstandingBalance = 0;
   const performance = new Map(villas.map(v => [v.id, {name:v.title || v.name, value:0, revenue:0}]));
   const guests = new Map(), nights = new Set(), seenPayments = new Set();
-  const start = Date.UTC(year,0,1)/86400000, end = Date.UTC(year+1,0,1)/86400000;
+  const {start, end} = range;
   const recordPayment = (payment, key, villaIds = []) => {
     if (seenPayments.has(key)) return;
     seenPayments.add(key);
@@ -38,7 +80,7 @@ export function bookingAnalytics(bookings, villas, year, frontDeskPayments = [],
     const amount = Number(payment.amount);
     const paidDay = dayNumber(payment.processedAt ?? payment.processed_at ?? payment.created_at);
     if (!(Number.isFinite(amount) && amount > 0 && paidDay >= start && paidDay < end)) return;
-    monthlyRevenue[new Date(paidDay*86400000).getUTCMonth()] += amount;
+    monthlyRevenue[range.bucketIndex(paidDay)] += amount;
     const ids = [...new Set(villaIds)];
     for (const id of ids) {
       const villa = performance.get(id);
@@ -68,16 +110,31 @@ export function bookingAnalytics(bookings, villas, year, frontDeskPayments = [],
       'manual booking (messenger)',
     ].includes(channel) || channel.includes('manual') || channel.includes('messenger');
     bookingDetails.set(String(b.id), {ids, cancelled, external});
+    const paid = Number(b.amountPaid ?? b.amount_paid) || 0;
+    const total = Number(b.totalAmount ?? b.total_amount) || 0;
+    const storedBalance = Number(b.balanceAmount ?? b.balance_amount);
+    const balance = Math.max(
+      Number.isFinite(storedBalance) ? storedBalance : 0,
+      total - paid,
+      0,
+    );
+    const checkInInPeriod = checkIn >= start && checkIn < end;
+    const markedUnpaid = String(b.paymentStatus || '').trim().toLowerCase() === 'unpaid';
+    const graphEligible = external || (!markedUnpaid && paid > 0);
+    if (!cancelled && checkInInPeriod && !external && balance > 0) {
+      pendingPaymentCount++;
+      totalOutstandingBalance += balance;
+    }
     // Payments are dated by receipt, not by the reservation's future stay date.
     for (const p of b.paymentHistory || []) {
       if (!cancelled && !external) recordPayment(p, `booking:${b.id}:${p.id}`, ids);
     }
+    if (cancelled || !checkInInPeriod || !graphEligible) continue;
     if (confirmed && Number.isFinite(checkIn) && Number.isFinite(checkOut)) {
       for (let day=Math.max(start,checkIn); day<Math.min(end,checkOut); day++) {
         for (const id of ids) if (performance.has(id)) nights.add(`${id}:${day}`);
       }
     }
-    if (cancelled || !(checkIn >= start && checkIn < end)) continue;
     const bucket = /checked.?in/.test(status) ? 'Checked In'
       : /complet|checked.?out/.test(status) ? 'Completed' : confirmed ? 'Confirmed' : 'Pending';
     bookingStatus[bucket]++;
@@ -87,22 +144,10 @@ export function bookingAnalytics(bookings, villas, year, frontDeskPayments = [],
       bookingChannel['Manual Booking (Messenger)']++;
     } else {
       bookingChannel['The Villa']++;
-      const paid = Number(b.amountPaid ?? b.amount_paid) || 0;
-      const total = Number(b.totalAmount ?? b.total_amount) || 0;
-      const storedBalance = Number(b.balanceAmount ?? b.balance_amount);
-      const balance = Math.max(
-        Number.isFinite(storedBalance) ? storedBalance : 0,
-        total - paid,
-        0,
-      );
-      paymentStatus[balance <= 0 && paid > 0 ? 'Paid' : paid > 0 ? 'Partial' : 'Unpaid']++;
-      if (balance > 0) {
-        pendingPaymentCount++;
-        totalOutstandingBalance += balance;
-      }
+      paymentStatus[balance <= 0 ? 'Paid' : 'Partial']++;
     }
     if (!confirmed) continue;
-    monthlyBookings[new Date(checkIn*86400000).getUTCMonth()]++;
+    monthlyBookings[range.bucketIndex(checkIn)]++;
     for (const id of ids) {
       if (!performance.has(id)) performance.set(id,{name:b.villaName || id,value:0,revenue:0});
       performance.get(id).value++;
@@ -122,7 +167,7 @@ export function bookingAnalytics(bookings, villas, year, frontDeskPayments = [],
     }
   }
   const villaChart=[...performance.values()].sort((a,b)=>b.value-a.value);
-  return {year, months:MONTHS, monthlyBookings, monthlyRevenue, totalRevenue:monthlyRevenue.reduce((total, amount)=>total+amount,0),
+  return {year, months:range.labels, monthlyBookings, monthlyRevenue, totalRevenue:monthlyRevenue.reduce((total, amount)=>total+amount,0),
     totalBookings:Object.values(bookingStatus).reduce((total, count)=>total+count,0), villaChart, bookingStatus, paymentStatus,
     bookingChannel, assignmentProgress, pendingPaymentCount, totalOutstandingBalance,
     totalGuests:guests.size, repeatGuests:[...guests.values()].filter(n=>n>1).length,

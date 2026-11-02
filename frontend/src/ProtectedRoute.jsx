@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { Link, Navigate, useLocation } from "react-router-dom";
 import { LoadingScreen } from "./SystemFeedback";
-import { LEGACY_FRONT_DESK_SESSION_KEY, normalizePortalRole, portalHome, sessionWithCurrentRole } from "./portalRouting.mjs";
+import { clearPortalSession, LEGACY_FRONT_DESK_SESSION_KEY, normalizePortalRole, portalHome, sessionWithCurrentRole } from "./portalRouting.mjs";
 import "./ProtectedRoute.css";
 
 const PORTAL_AUTH_KEY = "theVillaPortalAuth";
@@ -127,6 +127,23 @@ function ProtectedRoute({ children, allowedRoles = [] }) {
   const location = useLocation();
   const sessionKey = PORTAL_AUTH_KEY;
   const session = readPortalSession(sessionKey);
+  const hasSession = Boolean(session);
+  useEffect(() => {
+    if (!hasSession) return undefined;
+    const expireSession = () => {
+      clearPortalSession([sessionStorage, localStorage]);
+      window.location.replace("/login");
+    };
+    const expireOnBfcacheRestore = (event) => {
+      if (event.persisted) expireSession();
+    };
+    window.addEventListener("popstate", expireSession);
+    window.addEventListener("pageshow", expireOnBfcacheRestore);
+    return () => {
+      window.removeEventListener("popstate", expireSession);
+      window.removeEventListener("pageshow", expireOnBfcacheRestore);
+    };
+  }, [hasSession]);
   const normalizedRoles = allowedRoles
     .map(normalizePortalRole)
     .filter(Boolean);

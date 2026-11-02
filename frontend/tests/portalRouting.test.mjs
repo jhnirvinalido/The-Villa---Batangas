@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { portalHome, portalLoginDestination, sessionWithCurrentRole, frontDeskSection } from '../src/portalRouting.mjs';
+import { clearPortalSession, portalHome, portalLoginDestination, sessionWithCurrentRole, frontDeskSection } from '../src/portalRouting.mjs';
 
 test('each account signs in to its own workspace', () => {
   for (const [role, path] of [['admin', '/admin-dashboard'], ['front_desk', '/front-desk'], ['staff', '/staff'], ['maintenance', '/maintenance']]) {
@@ -45,4 +45,22 @@ test('refresh and browser history retain a valid Front Desk section', () => {
   assert.equal(frontDeskSection({ pathname: '/front-desk/receipts', search: '' }), 'receipts');
   assert.equal(frontDeskSection({ pathname: '/front-desk', search: '?section=receipts' }), 'receipts');
   assert.equal(frontDeskSection({ pathname: '/front-desk', search: '?section=unknown' }), 'bookings');
+});
+
+test('history-navigation sign-out removes current and legacy portal credentials from every storage', () => {
+  const keys = ['theVillaPortalAuth', 'theVillaFrontDeskAuth', 'theVillaAdminAuth', 'theVillaStaffAuth', 'theVillaAuthToken', 'theVillaApiToken', 'theVillaRefreshToken'];
+  const createStorage = () => {
+    const values = new Map([...keys, 'remembered-email'].map(key => [key, 'value']));
+    return {
+      values,
+      removeItem(key) { values.delete(key); },
+    };
+  };
+  const sessionStorage = createStorage();
+  const localStorage = createStorage();
+  clearPortalSession([sessionStorage, localStorage]);
+  for (const storage of [sessionStorage, localStorage]) {
+    for (const key of keys) assert.equal(storage.values.has(key), false);
+    assert.equal(storage.values.get('remembered-email'), 'value');
+  }
 });

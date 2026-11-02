@@ -1997,7 +1997,36 @@ function createChartRiseAnimation(reducedMotion, stagger = 45) {
   };
 }
 
-function VillaAnalyticsCharts({ analytics }) {
+function VillaAnalyticsCharts({ bookings, villas, payments, assignmentSummary, today }) {
+  const [period, setPeriod] = React.useState({unit: "year", date: today});
+  const chartAnalytics = React.useMemo(() => bookingAnalytics(
+    bookings,
+    villas,
+    Number(period.date.slice(0, 4)),
+    payments,
+    assignmentSummary,
+    period,
+  ), [bookings, villas, payments, assignmentSummary, period]);
+  const periodLabel = period.unit === "week"
+    ? "week of " + new Intl.DateTimeFormat("en", {month: "short", day: "numeric", year: "numeric"}).format(
+      new Date(`${period.date}T00:00:00`)
+    )
+    : period.unit === "month"
+      ? new Intl.DateTimeFormat("en", {month: "long", year: "numeric"}).format(
+        new Date(`${period.date.slice(0, 7)}-01T00:00:00`)
+      )
+      : period.date.slice(0, 4);
+  const dateInputValue = period.unit === "month"
+    ? period.date.slice(0, 7)
+    : period.unit === "year"
+      ? period.date.slice(0, 4)
+      : period.date;
+  const handlePeriodDateChange = (value) => {
+    const date = period.unit === "year" ? `${value}-01-01`
+      : period.unit === "month" ? `${value}-01`
+        : value;
+    if (date) setPeriod(current => ({...current, date}));
+  };
   const canvasRefs = React.useRef([]);
   React.useEffect(() => {
     const reducedMotion = window.matchMedia?.("(prefers-reduced-motion: reduce)")?.matches ?? false;
@@ -2007,45 +2036,73 @@ function VillaAnalyticsCharts({ analytics }) {
       animation: createChartEntranceAnimation(reducedMotion, 35),
     };
     const charts = [
-      new Chart(canvasRefs.current[0], {type:'line', data:{labels:analytics.months, datasets:[
-        {label:'Confirmed reservations', data:analytics.monthlyBookings, borderColor:'#7b5037', tension:0, fill:false}
+      new Chart(canvasRefs.current[0], {type:'line', data:{labels:chartAnalytics.months, datasets:[
+        {label:'Confirmed paid or external stays', data:chartAnalytics.monthlyBookings, borderColor:'#7b5037', tension:0, fill:false}
       ]}, options:{...options, ...createChartRiseAnimation(reducedMotion), scales:{y:{beginAtZero:true,ticks:{precision:0}}}}}),
-      new Chart(canvasRefs.current[1], {type:'bar', data:{labels:analytics.villaChart.map(v=>v.name), datasets:[
-        {label:'Confirmed villa reservations', data:analytics.villaChart.map(v=>v.value), backgroundColor:'#7b5037'}
+      new Chart(canvasRefs.current[1], {type:'bar', data:{labels:chartAnalytics.villaChart.map(v=>v.name), datasets:[
+        {label:'Confirmed paid or external stays', data:chartAnalytics.villaChart.map(v=>v.value), backgroundColor:'#7b5037'}
       ]}, options:{...options, ...createChartRiseAnimation(reducedMotion), scales:{y:{beginAtZero:true,ticks:{precision:0}}}}}),
-      new Chart(canvasRefs.current[2], {type:'doughnut', data:{labels:Object.keys(analytics.bookingStatus), datasets:[
-        {data:Object.values(analytics.bookingStatus),backgroundColor:['#d7a64b','#5b9c77','#5c88b0','#8067a5']}
+      new Chart(canvasRefs.current[2], {type:'doughnut', data:{labels:Object.keys(chartAnalytics.bookingStatus), datasets:[
+        {data:Object.values(chartAnalytics.bookingStatus),backgroundColor:['#d7a64b','#5b9c77','#5c88b0','#8067a5']}
       ]}, options}),
-      new Chart(canvasRefs.current[3], {type:'polarArea', data:{labels:Object.keys(analytics.paymentStatus), datasets:[
-        {data:Object.values(analytics.paymentStatus),backgroundColor:['#5b9c77','#d6a45d','#c66c62']}
+      new Chart(canvasRefs.current[3], {type:'polarArea', data:{labels:Object.keys(chartAnalytics.paymentStatus), datasets:[
+        {data:Object.values(chartAnalytics.paymentStatus),backgroundColor:['#5b9c77','#d6a45d']}
       ]}, options:{...options, scales:{r:{beginAtZero:true,ticks:{precision:0}}}}}),
-      new Chart(canvasRefs.current[4], {type:'doughnut', data:{labels:Object.keys(analytics.bookingChannel), datasets:[
-        {data:Object.values(analytics.bookingChannel),backgroundColor:['#e17b52','#d7a64b','#4b8f82']}
+      new Chart(canvasRefs.current[4], {type:'doughnut', data:{labels:Object.keys(chartAnalytics.bookingChannel), datasets:[
+        {data:Object.values(chartAnalytics.bookingChannel),backgroundColor:['#e17b52','#d7a64b','#4b8f82']}
       ]}, options}),
-      new Chart(canvasRefs.current[5], {type:'bar', data:{labels:Object.keys(analytics.assignmentProgress), datasets:[
-        {label:'Staff assignments',data:Object.values(analytics.assignmentProgress),backgroundColor:['#d7a64b','#4b8f82','#5c88b0','#c66c62','#8067a5']}
+      new Chart(canvasRefs.current[5], {type:'bar', data:{labels:Object.keys(chartAnalytics.assignmentProgress), datasets:[
+        {label:'Staff assignments',data:Object.values(chartAnalytics.assignmentProgress),backgroundColor:['#d7a64b','#4b8f82','#5c88b0','#c66c62','#8067a5']}
       ]}, options:{...options,indexAxis:'y',scales:{x:{beginAtZero:true,ticks:{precision:0}},y:{grid:{display:false}}},plugins:{legend:{display:false}}}}),
-      new Chart(canvasRefs.current[6], {type:'line', data:{labels:analytics.months, datasets:[
-        {label:'Collected revenue',data:analytics.monthlyRevenue,borderColor:'#4b8f82',backgroundColor:'rgba(75,143,130,.12)',tension:0,fill:true}
+      new Chart(canvasRefs.current[6], {type:'line', data:{labels:chartAnalytics.months, datasets:[
+        {label:'Collected revenue',data:chartAnalytics.monthlyRevenue,borderColor:'#4b8f82',backgroundColor:'rgba(75,143,130,.12)',tension:0,fill:true}
       ]}, options:{...options,scales:{y:{beginAtZero:true,ticks:{callback:value=>`PHP ${Number(value).toLocaleString()}`}}},plugins:{tooltip:{callbacks:{label:context=>`Collected: ${formatPeso(context.parsed.y)}`}}}}}),
-      new Chart(canvasRefs.current[7], {type:'bar', data:{labels:[...analytics.villaChart].sort((a,b)=>b.revenue-a.revenue).map(v=>v.name), datasets:[
-        {label:'Collected revenue',data:[...analytics.villaChart].sort((a,b)=>b.revenue-a.revenue).map(v=>v.revenue),backgroundColor:'#4b8f82'}
+      new Chart(canvasRefs.current[7], {type:'bar', data:{labels:[...chartAnalytics.villaChart].sort((a,b)=>b.revenue-a.revenue).map(v=>v.name), datasets:[
+        {label:'Collected revenue',data:[...chartAnalytics.villaChart].sort((a,b)=>b.revenue-a.revenue).map(v=>v.revenue),backgroundColor:'#4b8f82'}
       ]}, options:{...options,indexAxis:'y',scales:{x:{beginAtZero:true,ticks:{callback:value=>`PHP ${Number(value).toLocaleString()}`}},y:{grid:{display:false}}},plugins:{legend:{display:false},tooltip:{callbacks:{label:context=>`Collected: ${formatPeso(context.parsed.x)}`}}}}}),
     ];
     return () => charts.forEach(chart=>chart.destroy());
-  }, [analytics]);
-  return <div className="analytics-grid">{[
-    ['Monthly Booking Trend', `Confirmed stays by check-in month · ${analytics.year}`],
-    ['Villa Performance', `Confirmed reservations per villa · ${analytics.year}`],
-    ['Reservation Status', `Non-cancelled reservations by check-in year · ${analytics.year}`],
-    ['Payment Status', `Paid, partial and unpaid The Villa bookings · ${analytics.year}; Airbnb excluded`],
-    ['Booking Channel', `Airbnb vs. The Villa bookings by check-in year · ${analytics.year}`],
+  }, [chartAnalytics]);
+  const chartDescriptions = [
+    ['Booking Trend', `Confirmed paid or externally managed stays · ${periodLabel}`],
+    ['Villa Performance', `Confirmed paid or externally managed stays · ${periodLabel}`],
+    ['Reservation Status', `Paid or externally managed reservations · ${periodLabel}`],
+    ['Payment Status', `Paid and partially paid The Villa bookings · ${periodLabel}; unpaid bookings excluded`],
+    ['Booking Channel', `Paid or externally managed reservations · ${periodLabel}`],
     ['Staff Assignment Progress', 'Current assignment status, including overdue tasks'],
-    ['Monthly Revenue', `Recorded successful payments by receipt month · ${analytics.year}`],
-    ['Revenue by Villa', 'Recorded successful The Villa payments · Airbnb excluded'],
-  ].map(([title,description],index)=><div className="chart-card" key={title}>
+    ['Revenue Trend', `Recorded successful payments by receipt date · ${periodLabel}`],
+    ['Revenue by Villa', `Recorded successful The Villa payments · ${periodLabel}; Airbnb excluded`],
+  ];
+  return <>
+    <div className="analytics-controls">
+      <label>
+        <span>Graph period</span>
+        <select
+          aria-label="Graph period"
+          value={period.unit}
+          onChange={event => setPeriod(current => ({...current, unit: event.target.value}))}
+        >
+          <option value="week">Weekly</option>
+          <option value="month">Monthly</option>
+          <option value="year">Yearly</option>
+        </select>
+      </label>
+      <label>
+        <span>{period.unit === "week" ? "Choose a date in the week" : period.unit === "month" ? "Choose month" : "Choose year"}</span>
+        <input
+          aria-label={period.unit === "week" ? "Date in selected week" : period.unit === "month" ? "Selected month" : "Selected year"}
+          type={period.unit === "week" ? "date" : period.unit === "month" ? "month" : "number"}
+          min={period.unit === "year" ? "2000" : undefined}
+          max={period.unit === "year" ? "2100" : undefined}
+          value={dateInputValue}
+          onChange={event => handlePeriodDateChange(event.target.value)}
+        />
+      </label>
+    </div>
+    <div className="analytics-grid">{chartDescriptions.map(([title,description],index)=><div className="chart-card" key={title}>
     <h3>{title}</h3><p>{description}</p><div className="chart-wrapper"><canvas ref={(node) => { canvasRefs.current[index] = node; }}/></div>
-  </div>)}</div>;
+  </div>)}</div>
+  </>;
 }
 
 function SentimentAnalyticsDashboard({ apiRequest, onOpenReviews }) {
@@ -4958,7 +5015,11 @@ Villas Under Maintenance
 <section className="admin-dashboard-grid">
 
 <VillaAnalyticsCharts
-    analytics={analytics}
+    bookings={normalizedBookings}
+    villas={villaCatalog}
+    payments={paymentTransactions}
+    assignmentSummary={assignmentStats}
+    today={today}
 />
 
 </section>

@@ -1,6 +1,21 @@
 const roles = new Set(['admin', 'staff', 'front_desk', 'maintenance']);
 export const PORTAL_SESSION_KEY = 'theVillaPortalAuth';
 export const LEGACY_FRONT_DESK_SESSION_KEY = 'theVillaFrontDeskAuth';
+const PORTAL_SESSION_KEYS = [
+  PORTAL_SESSION_KEY,
+  LEGACY_FRONT_DESK_SESSION_KEY,
+  'theVillaAdminAuth',
+  'theVillaStaffAuth',
+  'theVillaAuthToken',
+  'theVillaApiToken',
+  'theVillaRefreshToken',
+];
+
+export function clearPortalSession(storages) {
+  for (const storage of storages) {
+    for (const key of PORTAL_SESSION_KEYS) storage.removeItem(key);
+  }
+}
 
 export function normalizePortalRole(value) {
   const role = String(value || '').trim().toLowerCase();
