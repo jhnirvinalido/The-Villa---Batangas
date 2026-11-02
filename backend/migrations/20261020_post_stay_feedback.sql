@@ -60,6 +60,7 @@ create table if not exists public.feedback_invitation_outbox (
     id uuid primary key default gen_random_uuid(),
     booking_id uuid not null unique references public.bookings(id) on delete cascade,
     token_nonce text not null,
+    expires_at timestamptz not null default (now() + interval '30 days'),
     message_id text not null unique,
     status text not null default 'pending'
         check (status in ('pending', 'sending', 'accepted', 'retry', 'uncertain', 'suppressed')),
