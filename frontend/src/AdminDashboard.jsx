@@ -3947,9 +3947,11 @@ async function handleNotificationClick(notification) {
           ]);
         }
 
-        lifecycleNotice = checkoutPayload?.turnoverTask
-          ? " Guest checkout completed and turnover was assigned."
-          : " Guest checkout completed.";
+        lifecycleNotice = checkoutPayload?.message
+          ? ` ${checkoutPayload.message}${checkoutPayload.turnoverTask ? " Turnover was assigned." : ""}`
+          : checkoutPayload?.turnoverTask
+            ? " Guest checkout completed and turnover was assigned."
+            : " Guest checkout completed.";
       }
     } catch (lifecycleError) {
       lifecycleNotice = ` Payment succeeded, but the stay status needs attention: ${
@@ -4545,9 +4547,10 @@ async function resetStaffPassword(staffId) {
         ]);
       }
       showToast(
-        payload?.turnoverTask
-          ? "Checkout completed and a turnover task was created."
-          : "Guest checkout completed."
+        payload?.message ||
+          (payload?.turnoverTask
+            ? "Checkout completed and a turnover task was created."
+            : "Guest checkout completed.")
       );
       loadAdminData({ silent: true });
     } catch (error) {

@@ -48,19 +48,30 @@ def booking_eligible(client, record):
 
 def queue_feedback_invitation(record, client=None):
     """Best effort only; the worker reconciles missed checkout/payment hooks."""
+    booking_reference = str(record.get('booking_code') or record.get('id') or 'unknown')
     try:
         import booking
         client = client or booking._service()
         if not booking_eligible(client,record):
+            logger.info(
+                'Feedback invitation not queued because booking %s is not eligible.',
+                booking_reference,
+            )
             return False
         validate_email(str(record.get('customer_email') or ''),check_deliverability=False)
         nonce = secrets.token_urlsafe(32)
         token = token_for(str(record['id']),nonce)
         client.rpc('queue_guest_feedback_invitation',{'p_booking_id':str(record['id']),'p_nonce':nonce,'p_token_hash':hashlib.sha256(token.encode()).hexdigest()}).execute()
+        from live_updates import hub
+        hub.wake({'feedback'})
         return True
-    except Exception:
-        # Do not log the email address, raw feedback, token, or SMTP error response.
-        logger.warning('Feedback invitation was not queued; reconciliation will retry.')
+    except Exception as error:
+        # Do not log the email address, raw feedback, token, or provider response.
+        logger.warning(
+            'Feedback invitation could not be queued for booking %s; reconciliation will retry. Error type: %s.',
+            booking_reference,
+            type(error).__name__,
+        )
         return False
 
 def _message(record, token, message_id):

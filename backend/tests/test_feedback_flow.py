@@ -1,5 +1,6 @@
 """Real backend functions with mocked Supabase/SMTP; no network or live mail."""
 import hashlib
+import os
 import sys
 import smtplib
 import unittest
@@ -58,12 +59,14 @@ class BackendFlowTests(unittest.TestCase):
             self.assertFalse(service.queue_feedback_invitation(record,self.client))
         self.client.rpc.assert_not_called()
     def test_checkout_and_late_payment_both_use_idempotent_queue_rpc(self):
-        with patch.object(service,'settled_total',return_value=1000),patch.object(booking,'SUPABASE_SERVICE_ROLE_KEY','test-secret'):
+        with patch.object(service,'settled_total',return_value=1000),patch.object(booking,'SUPABASE_SERVICE_ROLE_KEY','test-secret'),patch('live_updates.hub.wake') as wake:
             self.assertTrue(service.queue_feedback_invitation(self.record,self.client))
             self.assertTrue(service.queue_feedback_invitation(self.record,self.client))
         for call in self.client.rpc.call_args_list:
             self.assertEqual(call.args[0],'queue_guest_feedback_invitation')
             self.assertEqual(call.args[1]['p_booking_id'],self.id)
+        self.assertEqual(wake.call_count,2)
+        wake.assert_called_with({'feedback'})
     def test_payment_evidence_combines_deposit_and_room_balance_not_service_charges(self):
         def table(name):
             query=MagicMock()
@@ -85,7 +88,7 @@ class BackendFlowTests(unittest.TestCase):
         self.assertFalse(service.booking_eligible(self.client,self.record))
 
     def test_booking_confirmation_has_no_feedback_link(self):
-        with patch.object(booking,'_smtp_configured',return_value=True),patch.object(booking,'_booking_email_logo',return_value=('',None)),patch.object(booking.smtplib,'SMTP') as smtp:
+        with patch.dict(os.environ,{'RESEND_API_KEY':'','RESEND_FROM':''}),patch.object(booking,'_smtp_configured',return_value=True),patch.object(booking,'_booking_email_logo',return_value=('',None)),patch.object(booking.smtplib,'SMTP') as smtp:
             self.assertTrue(booking._send_booking_confirmation_email(self.record))
             message=smtp.return_value.__enter__.return_value.send_message.call_args.args[0]
             self.assertNotIn('/feedback',message.as_string())
@@ -184,7 +187,8 @@ class BackendFlowTests(unittest.TestCase):
         with patch.object(admin,'fetch_booking',return_value=checked_in),patch.object(admin,'enforce_booking_lifecycle_date'),patch.object(admin,'pending_front_desk_intents',return_value=[]),patch.object(admin,'update_booking_lifecycle',return_value=self.record),patch.object(admin,'sync_booking_tasks_after_lifecycle'),patch.object(admin,'create_checkout_turnover_task',return_value=None),patch.object(admin,'record_booking_event'),patch.object(admin,'attach_payment_timing',side_effect=lambda record:record),patch.object(booking,'_service',side_effect=RuntimeError('Outbox unavailable')):
             result=admin.checkout_booking(self.id,SimpleNamespace(notes=None),{'account':{'id':'admin-1','full_name':'Administrator'}})
         self.assertEqual(result['data']['booking_status'],'Completed')
-        self.assertEqual(result['message'],'Guest checkout completed.')
+        self.assertFalse(result['feedback_invitation_queued'])
+        self.assertIn('could not be queued',result['message'])
 
     def test_retry_token_is_stable_and_booking_bound(self):
         with patch.object(booking,'SUPABASE_SERVICE_ROLE_KEY','test-secret'):

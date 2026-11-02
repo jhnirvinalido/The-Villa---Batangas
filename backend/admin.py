@@ -4534,9 +4534,14 @@ def checkout_booking(
 
     if current_stay_state == "Checked Out" or current_booking_status == "Completed":
         from feedback_service import queue_feedback_invitation
-        queue_feedback_invitation(booking)
+        invitation_queued = queue_feedback_invitation(booking)
         return {
-            "message": "The booking is already checked out.",
+            "message": (
+                "The booking is already checked out. Its feedback invitation is queued or has already been processed."
+                if invitation_queued
+                else "The booking is already checked out, but its feedback invitation could not be queued. Check backend logs and feedback eligibility."
+            ),
+            "feedback_invitation_queued": invitation_queued,
             "data": attach_payment_timing(booking),
         }
 
@@ -4584,7 +4589,7 @@ def checkout_booking(
     )
 
     from feedback_service import queue_feedback_invitation
-    queue_feedback_invitation(updated)
+    invitation_queued = queue_feedback_invitation(updated)
 
     turnover_task = create_checkout_turnover_task(
         booking_id=booking_id_value,
@@ -4609,7 +4614,12 @@ def checkout_booking(
     )
 
     return {
-        "message": "Guest checkout completed.",
+        "message": (
+            "Guest checkout completed. The feedback invitation is queued or has already been processed."
+            if invitation_queued
+            else "Guest checkout completed, but the feedback invitation could not be queued. Check backend logs and feedback eligibility."
+        ),
+        "feedback_invitation_queued": invitation_queued,
         "data": attach_payment_timing(updated),
         "turnoverTask": turnover_task,
     }
