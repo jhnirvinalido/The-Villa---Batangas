@@ -3,6 +3,7 @@ import unittest
 from email.message import EmailMessage
 from unittest.mock import Mock, patch
 
+import booking
 from email_transport import EmailProviderError, send_resend
 
 
@@ -49,3 +50,25 @@ class EmailTransportTests(unittest.TestCase):
         message.set_content("Test")
         with self.assertRaises(EmailProviderError):
             send_resend(message)
+
+    @patch.dict(os.environ, {"RESEND_API_KEY": "test-only", "RESEND_FROM": "bookings@example.com"})
+    @patch("email_transport.requests.post")
+    @patch("booking.smtplib.SMTP")
+    def test_resend_is_used_even_when_caller_supplies_smtp_settings(self, smtp, post):
+        post.return_value = Mock(ok=True, json=lambda: {"id": "email-2"})
+        message = EmailMessage()
+        message["To"] = "staff@example.com"
+        message["Subject"] = "Assignment"
+        message.set_content("Review your assignment")
+
+        booking._send_email_message(
+            message,
+            host="smtp.example.com",
+            port=587,
+            username="smtp-user",
+            password="smtp-password",
+        )
+
+        post.assert_called_once()
+        smtp.assert_not_called()
+        self.assertEqual(post.call_args.kwargs["json"]["from"], "bookings@example.com")

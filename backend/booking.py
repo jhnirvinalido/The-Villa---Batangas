@@ -12,6 +12,7 @@ import uuid
 from datetime import date, datetime, timedelta, timezone
 from decimal import Decimal, ROUND_HALF_UP
 from email.message import EmailMessage
+from email.utils import parseaddr
 from html import escape
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Literal
@@ -76,7 +77,7 @@ SMTP_PASSWORD = os.getenv(
 SMTP_FROM = os.getenv(
     "SMTP_FROM",
     "",
-).strip()
+).strip() or parseaddr(os.getenv("RESEND_FROM", "").strip())[1]
 SMTP_FROM_NAME = os.getenv(
     "SMTP_FROM_NAME",
     "The Villa",
@@ -140,8 +141,8 @@ def _send_email_message(
     on_sending=None,
     on_accepted=None,
 ):
-    """Use HTTPS email when configured; retain SMTP for local/existing hosts."""
-    if os.getenv("RESEND_API_KEY", "").strip() and not any((host, port, username, password)):
+    """Prefer the configured HTTPS provider; retain SMTP as a fallback."""
+    if os.getenv("RESEND_API_KEY", "").strip():
         from email_transport import send_resend
         return send_resend(message, on_sending=on_sending, on_accepted=on_accepted)
     if os.getenv("RENDER", "").lower() == "true" and (port or SMTP_PORT) in {25, 465, 587} and os.getenv("RENDER_SERVICE_TYPE", "web") == "web" and os.getenv("SMTP_ALLOW_ON_RENDER", "false").lower() != "true":
@@ -239,7 +240,7 @@ def _send_booking_confirmation_email(
 
     if not _smtp_configured():
         logger.warning(
-            "SMTP is not configured. Booking confirmation email skipped for booking %s.",
+            "No supported email provider is configured. Booking confirmation email skipped for booking %s.",
             booking.get("booking_code") or booking.get("id"),
         )
         return False
@@ -5050,7 +5051,7 @@ def _prepare_public_booking(data: PublicBookingCreateRequest, *, draft_only: boo
             if email_sent
             else (
                 "Booking saved, but the confirmation email could not "
-                "be sent. Check the backend SMTP configuration."
+                "be sent. Check the configured email provider."
             )
         ),
     }

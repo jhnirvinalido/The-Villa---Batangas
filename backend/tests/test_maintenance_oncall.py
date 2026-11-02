@@ -137,9 +137,9 @@ class OnCallTests(MaintenanceTests):
     def test_configuration_and_transport_outcomes(self):
         import booking
         self.create(); row = self.raw()
-        with patch.dict('os.environ', {'MAINTENANCE_FRONTEND_URL': 'http://localhost:5173'}), patch.object(booking, '_smtp_configured', return_value=True), patch.object(oncall.smtplib, 'SMTP') as send:
+        with patch.dict('os.environ', {'MAINTENANCE_FRONTEND_URL': 'http://localhost:5173'}), patch.object(booking, '_smtp_configured', return_value=True), patch.object(booking, '_send_email_message') as send:
             self.assertEqual(oncall.send_notice(row, self.person)[0], 'blocked'); send.assert_not_called()
-        with patch.dict('os.environ', {'MAINTENANCE_FRONTEND_URL': 'https://villa.example', 'HTTPSMS_API_KEY': 'test-key', 'HTTPSMS_FROM': '+639171234568'}), patch.object(booking, '_smtp_configured', return_value=False), patch.object(oncall.smtplib, 'SMTP') as send:
+        with patch.dict('os.environ', {'MAINTENANCE_FRONTEND_URL': 'https://villa.example', 'HTTPSMS_API_KEY': 'test-key', 'HTTPSMS_FROM': '+639171234568'}), patch.object(booking, '_smtp_configured', return_value=False), patch.object(booking, '_send_email_message') as send:
             self.assertEqual(oncall.send_notice(row, self.person)[0], 'blocked'); send.assert_not_called()
 
     def test_main_registers_admin_link_and_private_public_response_routes(self):
@@ -153,16 +153,21 @@ class OnCallTests(MaintenanceTests):
         self.assertEqual(response.headers['Cache-Control'], 'no-store')
         self.assertEqual(response.headers['Referrer-Policy'], 'no-referrer')
 
-    def test_smtp_quit_failure_after_acceptance_does_not_cause_resend(self):
+    def test_transport_error_after_acceptance_does_not_cause_resend(self):
         import booking
         self.create()
-        with patch.dict('os.environ', {'MAINTENANCE_FRONTEND_URL': 'https://villa.example', 'HTTPSMS_API_KEY': 'test-key', 'HTTPSMS_FROM': '+639171234568'}), patch.object(booking, '_smtp_configured', return_value=True), patch.object(booking, 'SMTP_FROM', 'villa@example.com'), patch.object(oncall.smtplib, 'SMTP') as smtp:
-            smtp_instance = smtp.return_value.__enter__.return_value
-            smtp_instance.send_message.return_value = {}
-            smtp.return_value.__exit__.side_effect = OSError('QUIT failed')
+        sent = []
+
+        def accepted_then_disconnected(message, **callbacks):
+            callbacks['on_sending']()
+            sent.append(message)
+            callbacks['on_accepted']({})
+            raise OSError('connection closed after acceptance')
+
+        with patch.dict('os.environ', {'MAINTENANCE_FRONTEND_URL': 'https://villa.example', 'HTTPSMS_API_KEY': 'test-key', 'HTTPSMS_FROM': '+639171234568'}), patch.object(booking, '_smtp_configured', return_value=True), patch.object(booking, 'SMTP_FROM', 'villa@example.com'), patch.object(booking, '_send_email_message', side_effect=accepted_then_disconnected):
             result = oncall.send_notice(self.raw(), {**self.person, 'personal_email': 'technician@example.com'})
         self.assertEqual(result[:2], ('accepted', 'Email'))
-        self.assertEqual(smtp_instance.send_message.call_args.args[0]['To'], 'technician@example.com')
+        self.assertEqual(sent[0]['To'], 'technician@example.com')
 
     def test_staff_start_requires_acceptance_and_ignores_fixed_shift_for_confirmed_work(self):
         import staff

@@ -25,12 +25,15 @@ and deployment-profile overview.
    do not leave it as localhost. If the assigned URL was not available at
    service creation, update the setting and redeploy. Set
    `MAINTENANCE_FRONTEND_URL` to the same origin if used.
-6. Configure HTTPS email for post-stay feedback invitations by setting
+6. Configure HTTPS email delivery by setting
    `RESEND_API_KEY` and `RESEND_FROM` in Render. The sender must be verified in
    Resend; the sandbox sender only delivers to the account owner's address
-   until a domain is verified. Set a stable `FEEDBACK_TOKEN_SECRET` with at
-   least 32 random bytes; do not rotate it while invitations are pending.
-   Never commit these values or put them in frontend/Vite variables.
+   until a domain is verified. This provider sends booking/payment emails,
+   feedback invitations, staff assignments, and maintenance on-call emails.
+   Local development can continue to use the existing SMTP settings. Set a
+   stable `FEEDBACK_TOKEN_SECRET` with at least 32 random bytes; do not rotate
+   it while invitations are pending. Never commit these values or put them in
+   frontend/Vite variables.
 7. Copy the other integration settings you actually use into Render's environment:
    `PAYMONGO_SECRET_KEY`, `PAYMONGO_WEBHOOK_SECRET`, SMS provider settings, and
    any additional settings from your local backend environment. Keep all secret
@@ -62,14 +65,13 @@ PayMongo test credentials while testing.
 - Render sleeps after 15 minutes without inbound traffic. Waking takes time;
   background email/assignment/cleanup workers stop while the service is asleep.
 - Outbound SMTP ports 25, 465, and 587 are blocked on Free web services. The
-  post-stay feedback invitation worker now uses Resend's HTTPS API when
-  `RESEND_API_KEY` and `RESEND_FROM` are configured. Booking confirmations also
-  support Resend. The sender must be verified in Resend (the sandbox only
-  delivers to the account owner until a domain is verified). Other staff
-  notification flows that still use SMTP need an HTTPS provider migration or
-  hosting that allows SMTP. Do not assume SMTP credentials work on Free.
-  `SMTP_ALLOW_ON_RENDER=true` only bypasses the app guard; it does not unblock
-  Render's network and must not be used on Free.
+  all application email flows use Resend's HTTPS API when
+  `RESEND_API_KEY` and `RESEND_FROM` are configured. The sender must be verified
+  in Resend (the sandbox only delivers to the account owner until a domain is
+  verified). SMTP remains the local-development fallback; SMTP credentials
+  alone do not enable email on Render Free. `SMTP_ALLOW_ON_RENDER=true` only
+  bypasses the app guard; it does not unblock Render's network and must not be
+  used on Free.
 - Local files are ephemeral. Store persistent application data in Supabase.
 - Free compute has limited memory. Verify runtime memory and deployment logs;
   this configuration is not evidence that the whole app fits its allocation.

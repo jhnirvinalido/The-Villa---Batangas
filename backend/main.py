@@ -5022,7 +5022,7 @@ async def staff_assignment_email_worker():
             raise
         except Exception:
             logging.getLogger("thevilla.staff_assignment_email").warning(
-                "Staff assignment email processing unavailable; check the 20261025_staff_assignment_emails migration and SMTP configuration."
+                "Staff assignment email processing unavailable; check the 20261025_staff_assignment_emails migration and email provider configuration."
             )
         await live_hub.wait("emails", 30)
 
@@ -5189,7 +5189,7 @@ async def feedback_invitation_worker():
         except asyncio.CancelledError:
             raise
         except Exception:
-            logger.warning("Feedback outbox processing unavailable; check migration and SMTP configuration.")
+            logger.warning("Feedback outbox processing unavailable; check migration and email provider configuration.")
         await live_hub.wait("feedback", 60)
 
 @app.on_event("startup")

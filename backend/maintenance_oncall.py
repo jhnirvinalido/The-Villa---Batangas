@@ -11,8 +11,6 @@ import ipaddress
 import logging
 import os
 import secrets
-import smtplib
-import ssl
 import time as clock_time
 import threading
 from copy import deepcopy
@@ -434,13 +432,24 @@ def send_notice(row, staff):
     message.set_content(text + '\n\nThis is a request for availability. Reply using the link; no staff login is needed.')
     sending = False
     accepted = False
-    try:
-        with smtplib.SMTP(booking.SMTP_HOST, booking.SMTP_PORT, timeout=20) as smtp:
-            smtp.ehlo(); smtp.starttls(context=ssl.create_default_context()); smtp.ehlo()
-            smtp.login(booking.SMTP_USER, booking.SMTP_PASSWORD); sending = True
-            refused = smtp.send_message(message)
-            if refused: return 'failed', 'Email', 'The email recipient was rejected.'
+
+    def mark_sending():
+        nonlocal sending
+        sending = True
+
+    def mark_accepted(refused):
+        nonlocal accepted
+        if not refused:
             accepted = True
+
+    try:
+        refused = booking._send_email_message(
+            message,
+            on_sending=mark_sending,
+            on_accepted=mark_accepted,
+        )
+        if refused:
+            return 'failed', 'Email', 'The email recipient was rejected.'
         return 'accepted', 'Email', ''
     except Exception:
         if accepted: return 'accepted', 'Email', ''
