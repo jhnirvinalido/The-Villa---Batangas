@@ -917,53 +917,7 @@ function inferAdminAlertType(message) {
   return "error";
 }
 
-function getBookingLifecycleDateRestriction(booking, action) {
-  if (!booking || action === "check_out") return "";
-
-  const today = todayStr();
-  const checkInDate = String(
-    booking.checkIn ||
-      booking.check_in_date ||
-      booking.checkInDate ||
-      ""
-  ).slice(0, 10);
-  const checkOutDate = String(
-    booking.checkOut ||
-      booking.check_out_date ||
-      booking.checkOutDate ||
-      ""
-  ).slice(0, 10);
-
-  const getExactDateMessage = (label, bookedDate) => {
-    const formatted = formatDate(bookedDate, true);
-
-    if (today < bookedDate) {
-      return `${label} is not available yet. This booking is scheduled for ${formatted}.`;
-    }
-
-    return `${label} is no longer available for today. This booking was scheduled for ${formatted}.`;
-  };
-
-  if (action === "check_in") {
-    if (!checkInDate) {
-      return "Check-in is blocked because this booking has no valid check-in date.";
-    }
-
-    if (today !== checkInDate) {
-      return getExactDateMessage("Check-in", checkInDate);
-    }
-  }
-
-  if (action === "check_out") {
-    if (!checkOutDate) {
-      return "Check-out is blocked because this booking has no valid check-out date.";
-    }
-
-    if (today !== checkOutDate) {
-      return getExactDateMessage("Check-out", checkOutDate);
-    }
-  }
-
+function getBookingLifecycleDateRestriction() {
   return "";
 }
 

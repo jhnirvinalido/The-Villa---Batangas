@@ -2852,23 +2852,12 @@ def enforce_booking_lifecycle_date(
     booking: dict[str, Any],
     action: Literal["check_in", "check_out"],
 ) -> None:
-    """Keep the arrival-date rule; allow checkout testing on any date.
+    """Allow lifecycle actions independently of the stay's scheduled dates.
 
-    Checkout and checkout-balance collection still validate checked-in state,
-    verified payments, the remaining balance, and pending QRPh settlements.
+    Check-in/out endpoints continue to enforce role access, lifecycle state,
+    payment settlement, balances, and pending payment-intent checks.
     """
-    if action == "check_out":
-        return
-
-    today = villa_business_today()
-    booked_date = booking_lifecycle_date(booking, "check_in_date")
-    if today != booked_date:
-        detail = (
-            f"Check-in is not available yet. This booking is scheduled for {booked_date.isoformat()}."
-            if today < booked_date
-            else f"Check-in is not allowed today. This booking was scheduled for {booked_date.isoformat()}."
-        )
-        raise HTTPException(status_code=409, detail=detail)
+    return
 
 
 PAYMENT_TIMING_LABELS = {
