@@ -1,75 +1,335 @@
 .villa-login-page,
 .villa-login-page * { box-sizing: border-box; }
 .villa-login-page {
-  --login-ink: #302b27;
-  --login-muted: #746d65;
-  --login-line: #ddd6ce;
-  --login-accent: #805638;
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(420px, 1fr);
+  --login-ink: #33251e;
+  --login-muted: #756961;
+  --login-brown: #805638;
+  position: relative;
   min-height: 100vh;
-  min-height: 100dvh;
-  padding: 0;
-  background: #fbfaf7;
+  min-height: 100svh;
+  padding: 48px 0;
+  overflow: hidden;
+  isolation: isolate;
   color: var(--login-ink);
-  font-family: 'Avenir Next', 'Segoe UI', system-ui, sans-serif;
+  background:
+    linear-gradient(120deg, rgb(47 30 21 / 78%), rgb(71 45 31 / 64%)),
+    url("/image2.jpg") center / cover no-repeat;
+  font-family: "Avenir Next", "Segoe UI", system-ui, sans-serif;
 }
-.villa-login-brand-panel { position: relative; display: flex; min-width: 0; overflow: hidden; background: #353a30; }
-.villa-login-property-image { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; object-position: center; }
-.villa-login-brand-panel::after { content: ''; position: absolute; inset: 0; background: linear-gradient(180deg, #15201540, transparent 35%, #172018c9); }
-.villa-login-brand-content { position: relative; z-index: 1; display: flex; flex-direction: column; justify-content: space-between; width: 100%; min-height: 680px; padding: clamp(32px, 4vw, 64px); }
-.villa-login-brand { display: inline-flex; align-items: center; align-self: flex-start; gap: 14px; color: #fff; text-decoration: none; }
-.villa-login-brand:hover { color: #fff; }
-.villa-login-brand img,
-.villa-login-mobile-brand img { width: 44px; height: 44px; padding: 3px; background: #fff; border-radius: 8px; object-fit: contain; }
-.villa-login-brand strong { font: 500 29px/1 Georgia, serif; }
-.villa-login-brand-copy { max-width: 450px; }
-.villa-login-brand-copy > span { color: #ece5da; font-size: 11px; letter-spacing: .16em; }
-.villa-login-brand-copy h2 { margin: 20px 0 16px; color: #fff; font: 400 clamp(38px, 3.8vw, 58px)/1.08 Georgia, serif; letter-spacing: -.025em; }
-.villa-login-brand-copy p { max-width: 320px; margin: 0; color: #e4e7df; font-size: 14px; line-height: 1.7; }
-.villa-login-panel { display: flex; align-items: center; justify-content: center; min-width: 0; padding: 56px clamp(28px, 6vw, 100px); }
-.villa-login-content { width: 100%; max-width: 392px; }
-.villa-login-back { display: inline-block; margin-bottom: 62px; padding: 6px 0; color: var(--login-muted); text-decoration: none; font-size: 13px; }
-.villa-login-back:hover { color: var(--login-accent); }
-.villa-login-mobile-brand { display: none; }
-.villa-login-heading { margin-bottom: 30px; }
-.villa-login-kicker { display: block; margin-bottom: 16px; color: var(--login-accent); font-size: 10px; font-weight: 650; letter-spacing: .13em; }
-.villa-login-heading h1 { margin: 0; font-size: clamp(27px, 2.4vw, 34px); line-height: 1.2; letter-spacing: -.035em; font-weight: 600; color: var(--login-ink); }
-.villa-login-heading p { margin: 12px 0 0; max-width: 340px; color: var(--login-muted); font-size: 14px; line-height: 1.7; }
-.villa-login-form { display: grid; gap: 22px; }
-.villa-login-field { display: grid; gap: 9px; min-width: 0; }
-.villa-login-field > span { font-size: 13px; font-weight: 600; }
-.villa-login-input { display: flex; align-items: center; min-width: 0; height: 50px; gap: 11px; padding: 0 12px; border: 1px solid var(--login-line); border-radius: 6px; background: #fff; transition: border-color .15s, box-shadow .15s; }
-.villa-login-input:focus-within { border-color: var(--login-accent); box-shadow: 0 0 0 3px #80563814; }
-.villa-login-input-icon { display: flex; flex: 0 0 auto; color: #8b8074; }
-.villa-login-input input { width: 100%; min-width: 0; height: 100%; border: 0; background: transparent; outline: 0; color: var(--login-ink); font: inherit; font-size: 15px; }
-.villa-login-input input::placeholder { color: #978e84; }
-.villa-password-toggle { display: grid; flex: 0 0 36px; place-items: center; width: 36px; height: 36px; padding: 0; border: 0; border-radius: 4px; background: transparent; color: #766b60; }
-.villa-password-toggle:hover { background: #f2eee7; }
-.villa-login-options { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px; }
-.villa-remember-option { display: inline-flex; align-items: center; gap: 8px; margin: 0; color: #61594f; font-size: 12px; }
-.villa-remember-option input { width: 16px; height: 16px; margin: 0; accent-color: var(--login-accent); }
-.villa-forgot-password { min-height: 36px; padding: 4px 0; border: 0; background: transparent; color: var(--login-accent); font-size: 12px; text-decoration: underline; text-underline-offset: 4px; }
-.villa-login-submit { display: flex; align-items: center; justify-content: center; gap: 10px; min-height: 50px; margin-top: 2px; padding: 12px 20px; border: 1px solid var(--login-accent); border-radius: 6px; background: var(--login-accent); color: #fff; font: inherit; font-size: 14px; font-weight: 600; }
-.villa-login-submit:hover:not(:disabled) { background: #66422c; border-color: #66422c; }
+.villa-login-page::before {
+  position: fixed;
+  z-index: -1;
+  inset: 0;
+  background: linear-gradient(90deg, rgb(35 25 19 / 16%), rgb(39 28 20 / 44%));
+  content: "";
+}
+.villa-login-form-section {
+  display: grid;
+  grid-template-columns: minmax(0, 56fr) minmax(0, 44fr);
+  align-items: center;
+  gap: 0;
+  width: 100%;
+  min-height: calc(100svh - 96px);
+}
+.villa-login-welcome {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  width: min(100%, 680px);
+  min-height: min(700px, calc(100svh - 96px));
+  justify-self: center;
+  padding: 27px clamp(32px, 4vw, 80px);
+  color: #fffaf3;
+}
+.villa-login-welcome-brand {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+.villa-login-welcome-brand img {
+  width: 56px;
+  height: 56px;
+  padding: 5px;
+  border: 1px solid rgb(255 250 243 / 30%);
+  border-radius: 15px;
+  background: #fffdfa;
+  object-fit: contain;
+}
+.villa-login-welcome-brand div { display: grid; gap: 5px; }
+.villa-login-welcome-brand strong { font: 600 26px/1 Georgia, serif; }
+.villa-login-welcome-brand span {
+  color: rgb(255 250 243 / 78%);
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: .11em;
+  text-transform: uppercase;
+}
+.villa-login-welcome-copy { max-width: 530px; margin: 0 0 10px; }
+.villa-login-welcome-eyebrow {
+  display: inline-block;
+  margin-bottom: 22px;
+  color: #e4c7a7;
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: .18em;
+}
+.villa-login-welcome-copy h2 {
+  margin: 0;
+  color: #fffaf3;
+  font: 600 clamp(42px, 5.1vw, 67px)/1.08 Georgia, serif;
+  letter-spacing: -.035em;
+}
+.villa-login-welcome-copy p {
+  max-width: 430px;
+  margin: 21px 0 0;
+  color: rgb(255 250 243 / 84%);
+  font-size: 15px;
+  line-height: 1.8;
+}
+.villa-login-welcome-footer {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  color: rgb(255 250 243 / 78%);
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: .16em;
+}
+.villa-login-welcome-rule { width: 42px; height: 1px; background: #d8b897; }
+.villa-login-card {
+  position: relative;
+  width: min(456px, calc(100% - 64px));
+  justify-self: center;
+  padding: 42px 38px 28px;
+  border: 1px solid rgb(255 255 255 / 84%);
+  border-radius: 22px;
+  background: #fffdfa;
+  box-shadow: 0 24px 70px rgb(30 20 13 / 32%), 0 3px 10px rgb(30 20 13 / 12%);
+}
+.villa-login-card-accent {
+  position: absolute;
+  top: 0;
+  left: 50%;
+  width: 150px;
+  height: 4px;
+  border-radius: 0 0 999px 999px;
+  background: linear-gradient(90deg, transparent, #ad7552, transparent);
+  transform: translateX(-50%);
+}
+.villa-login-heading { margin-bottom: 24px; text-align: center; }
+.villa-login-portal-label {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 7px 12px;
+  border: 1px solid rgb(173 117 82 / 22%);
+  border-radius: 999px;
+  background: #faf0e7;
+  color: #76503a;
+  font-size: 10px;
+  font-weight: 750;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+}
+.villa-login-heading h1 {
+  margin: 16px 0 0;
+  color: #3a271d;
+  font: 600 clamp(30px, 3vw, 38px)/1.12 Georgia, serif;
+  letter-spacing: -.035em;
+}
+.villa-login-heading p {
+  max-width: 360px;
+  margin: 11px auto 0;
+  color: var(--login-muted);
+  font-size: 12px;
+  line-height: 1.65;
+}
+.villa-login-form { display: grid; gap: 17px; }
+.villa-login-field { display: grid; gap: 8px; min-width: 0; }
+.villa-login-field > span { color: #4b3d35; font-size: 12px; font-weight: 700; }
+.villa-login-input {
+  display: flex;
+  align-items: center;
+  width: 100%;
+  min-width: 0;
+  height: 52px;
+  gap: 10px;
+  padding: 0 12px;
+  border: 1px solid rgb(102 72 54 / 22%);
+  border-radius: 12px;
+  background: #fff;
+  color: #956347;
+  transition: border-color .18s ease, box-shadow .18s ease;
+}
+.villa-login-input:hover { border-color: rgb(173 117 82 / 46%); }
+.villa-login-input:focus-within {
+  border-color: #ad7552;
+  box-shadow: 0 0 0 3px rgb(173 117 82 / 13%);
+}
+.villa-login-input-icon {
+  display: grid;
+  flex: 0 0 32px;
+  width: 32px;
+  height: 32px;
+  place-items: center;
+  border-radius: 9px;
+  background: #f6ebe2;
+  color: #956347;
+}
+.villa-login-input input {
+  width: 100%;
+  min-width: 0;
+  height: 100%;
+  border: 0;
+  outline: 0;
+  background: transparent;
+  color: var(--login-ink);
+  font: inherit;
+  font-size: 14px;
+}
+.villa-login-input input::placeholder { color: #a79b94; }
+.villa-password-toggle {
+  display: grid;
+  flex: 0 0 36px;
+  width: 36px;
+  height: 36px;
+  place-items: center;
+  border: 0;
+  border-radius: 9px;
+  background: transparent;
+  color: #7c7069;
+}
+.villa-password-toggle:hover:not(:disabled) { background: #f6ebe2; color: #805638; }
+.villa-login-options {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+.villa-remember-option { display: inline-flex; align-items: center; gap: 8px; color: #5f524b; font-size: 11px; }
+.villa-remember-option input { width: 15px; height: 15px; margin: 0; accent-color: #805638; }
+.villa-forgot-password {
+  min-height: 38px;
+  padding: 4px 0;
+  border: 0;
+  background: transparent;
+  color: #805638;
+  font-size: 11px;
+  font-weight: 700;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+.villa-login-submit {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  min-height: 50px;
+  margin-top: 2px;
+  padding: 12px 20px;
+  border: 1px solid #805638;
+  border-radius: 10px;
+  background: #805638;
+  color: #fff;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 700;
+}
+.villa-login-submit:hover:not(:disabled) { border-color: #66422c; background: #66422c; }
 .villa-login-page button:disabled { opacity: .6; cursor: wait; }
-.villa-login-help { margin: 28px 0 0; padding-top: 22px; border-top: 1px solid var(--login-line); color: var(--login-muted); font-size: 12px; line-height: 1.6; }
+.villa-login-security {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  margin-top: 22px;
+  padding: 12px;
+  border: 1px solid rgb(118 80 58 / 10%);
+  border-radius: 11px;
+  background: #faf5ef;
+}
+.villa-login-security > span {
+  display: grid;
+  flex: 0 0 34px;
+  width: 34px;
+  height: 34px;
+  place-items: center;
+  border-radius: 9px;
+  background: #f1e4d8;
+  color: #805638;
+}
+.villa-login-security p { margin: 0; color: #76675e; font-size: 10px; line-height: 1.5; }
+.villa-login-security p strong { color: #4b3d35; font-size: 11px; }
+.villa-login-card-footer {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 19px;
+  color: #9a8b7e;
+}
+.villa-login-card-footer span { height: 1px; flex: 1; background: #e9e1d8; }
+.villa-login-card-footer p { margin: 0; font-size: 8px; font-weight: 700; letter-spacing: .1em; white-space: nowrap; }
 .villa-login-spinner { width: 16px; height: 16px; border: 2px solid #ffffff55; border-top-color: #fff; border-radius: 50%; animation: villaLoginSpin .8s linear infinite; }
-.villa-login-page :is(a, button, input):focus-visible { outline: 2px solid var(--login-accent); outline-offset: 4px; }
+.villa-login-page :is(a, button, input):focus-visible { outline: 2px solid #ad7552; outline-offset: 3px; }
 .villa-login-input input:focus-visible { outline: 0; }
 @keyframes villaLoginSpin { to { transform: rotate(360deg); } }
-@media (max-width: 800px) {
-  .villa-login-page { grid-template-columns: minmax(0, 1fr); }
-  .villa-login-brand-panel { display: none; }
-  .villa-login-panel { padding: 28px 24px 48px; }
-  .villa-login-content { max-width: 420px; }
-  .villa-login-back { margin-bottom: 38px; }
-  .villa-login-mobile-brand { display: flex; align-items: center; gap: 12px; margin-bottom: 36px; }
-  .villa-login-mobile-brand strong { font: 500 25px/1 Georgia, serif; }
+@media (max-width: 980px) and (min-width: 801px) {
+  .villa-login-welcome { padding-inline: 32px; }
+  .villa-login-card { padding-inline: 30px; }
 }
-@media (max-height: 740px) and (min-width: 801px) {
-  .villa-login-panel { padding-block: 30px; }
-  .villa-login-brand-content { min-height: 600px; }
-  .villa-login-back { margin-bottom: 32px; }
+@media (max-width: 800px) {
+  .villa-login-page {
+    display: flex;
+    align-items: center;
+    padding: 30px 20px;
+    background:
+      linear-gradient(180deg, rgb(36 27 21 / 76%), rgb(52 37 28 / 62%) 330px, #f5f1ea 510px),
+      url("/image2.jpg") center top / auto 360px no-repeat,
+      #f5f1ea;
+  }
+  .villa-login-page::before { display: none; }
+  .villa-login-form-section {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    width: min(540px, 100%);
+    min-height: calc(100svh - 60px);
+    gap: 25px;
+    margin: 0 auto;
+  }
+  .villa-login-welcome { width: 100%; min-height: 0; padding: 4px 2px 0; gap: 28px; }
+  .villa-login-welcome-copy { margin: 0; }
+  .villa-login-welcome-copy h2 { font-size: clamp(36px, 8vw, 50px); }
+  .villa-login-welcome-copy p { margin-top: 12px; font-size: 13px; line-height: 1.6; }
+  .villa-login-welcome-footer { display: none; }
+  .villa-login-card { width: 100%; padding: 36px 30px 25px; }
+}
+@media (max-width: 560px) {
+  .villa-login-page { padding: 21px 16px; }
+  .villa-login-page::after {
+    position: fixed;
+    z-index: -1;
+    inset: 0;
+    background: linear-gradient(180deg, transparent 0 275px, rgb(245 241 234 / 96%) 350px);
+    content: "";
+  }
+  .villa-login-form-section { min-height: calc(100svh - 42px); gap: 21px; }
+  .villa-login-welcome { gap: 22px; }
+  .villa-login-welcome-brand img { width: 46px; height: 46px; }
+  .villa-login-welcome-brand strong { font-size: 22px; }
+  .villa-login-welcome-copy h2 { font-size: 35px; }
+  .villa-login-welcome-copy p { max-width: 390px; font-size: 12px; }
+  .villa-login-card { padding: 32px 22px 23px; border-radius: 17px; }
+  .villa-login-heading h1 { font-size: 31px; }
+  .villa-login-options { gap: 6px; }
+  .villa-remember-option, .villa-forgot-password { font-size: 10px; }
+  .villa-login-input input { font-size: 16px; }
+  .villa-password-toggle, .villa-forgot-password { min-height: 44px; }
+}
+@media (max-width: 370px) {
+  .villa-login-page { padding-inline: 12px; }
+  .villa-login-card { padding-inline: 17px; }
+  .villa-login-options { align-items: flex-start; flex-direction: column; }
 }
 @media (prefers-reduced-motion: reduce) { .villa-login-spinner { animation: none; } }
