@@ -227,7 +227,9 @@ function parseIsoDate(value) {
   }
 
   const parsed = new Date(`${value}T00:00:00`);
-  return Number.isNaN(parsed.getTime()) ? null : parsed;
+  return Number.isNaN(parsed.getTime()) || toIsoDate(parsed) !== value
+    ? null
+    : parsed;
 }
 
 function todayValue() {
@@ -422,8 +424,7 @@ function readInitialBookingSelection() {
   ).trim();
 
   const validDate =
-    /^\d{4}-\d{2}-\d{2}$/.test(requestedDate) &&
-    requestedDate >= todayValue()
+    parseIsoDate(requestedDate)
       ? requestedDate
       : "";
 
@@ -491,6 +492,7 @@ function AvailabilityCalendar({
   selectedDate,
   preferredVillaId,
   onSelectDate,
+  onPastDatesAllowed,
 }) {
   const initialMonth = useMemo(() => {
     const parsed = parseIsoDate(selectedDate);
@@ -501,6 +503,7 @@ function AvailabilityCalendar({
   useLiveUpdates({ audience: "public", domains: ["availability", "catalog"], onChange: () => setCalendarRevision(value => value + 1) });
   const [activeMonth, setActiveMonth] = useState(initialMonth);
   const [days, setDays] = useState({});
+  const [pastDatesAllowed, setPastDatesAllowed] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
@@ -540,6 +543,9 @@ function AvailabilityCalendar({
         }
 
         setDays(payload?.days || {});
+        const allowPastDates = payload?.allow_past_dates === true;
+        setPastDatesAllowed(allowPastDates);
+        onPastDatesAllowed(allowPastDates);
       } catch (requestError) {
         if (requestError?.name === "AbortError" || !active) {
           return;
@@ -581,7 +587,7 @@ function AvailabilityCalendar({
   today.setHours(0, 0, 0, 0);
 
   const currentMonth = startOfMonth(today);
-  const previousDisabled = activeMonth <= currentMonth;
+  const previousDisabled = !pastDatesAllowed && activeMonth <= currentMonth;
 
   return (
     <div className="booking-calendar">
@@ -652,7 +658,9 @@ function AvailabilityCalendar({
         ) : (
           <>
             <FaCheckCircle />
-            Please select date you preferred.
+            {pastDatesAllowed
+              ? "Past dates are enabled for testing. Select your preferred available date."
+              : "Please select your preferred date."}
           </>
         )}
       </div>
@@ -668,7 +676,7 @@ function AvailabilityCalendar({
           const key = toIsoDate(cellDate);
           const inMonth =
             cellDate.getMonth() === activeMonth.getMonth();
-          const isPast = cellDate < today;
+          const isPast = !pastDatesAllowed && cellDate < today;
           const dayState = days[key];
 
           const preferredAvailable =
@@ -1020,6 +1028,7 @@ export default function BookForm() {
   const [availability, setAvailability] = useState(null);
   const [availabilityLoading, setAvailabilityLoading] =
     useState(false);
+  const [allowPastBookingDates, setAllowPastBookingDates] = useState(null);
 
   const [paymentChoice, setPaymentChoice] = useState("half");
   const [paymentMethod, setPaymentMethod] = useState("gcash");
@@ -1072,6 +1081,16 @@ export default function BookForm() {
     checkInTime: CHECK_IN_TIME,
     notes: "",
   });
+
+  useEffect(() => {
+    if (
+      allowPastBookingDates === false &&
+      form.checkInDate &&
+      form.checkInDate < todayValue()
+    ) {
+      setForm((current) => ({ ...current, checkInDate: "" }));
+    }
+  }, [allowPastBookingDates, form.checkInDate]);
 
   const preferredVilla = useMemo(
     () =>
@@ -1623,6 +1642,14 @@ export default function BookForm() {
       return;
     }
 
+    if (
+      form.checkInDate < todayValue() &&
+      allowPastBookingDates !== true
+    ) {
+      setMessage("Past check-in dates are not available.");
+      return;
+    }
+
     await runStepTransition(
       2,
       "Checking your date and available villas…",
@@ -2038,6 +2065,7 @@ export default function BookForm() {
                     date
                   )
                 }
+                onPastDatesAllowed={setAllowPastBookingDates}
               />
 
             </section>

@@ -95,6 +95,10 @@ PAYMONGO_PAYMENT_INTENTS_URL = (
 # Set to a publicly reachable HTTPS API URL in production, e.g. https://api.example.com
 # When unset, admin requests use their FastAPI request origin for checkout callbacks.
 BACKEND_PUBLIC_URL = os.getenv("BACKEND_PUBLIC_URL", "").strip().rstrip("/")
+PUBLIC_BOOKING_ALLOW_PAST_DATES = os.getenv(
+    "PUBLIC_BOOKING_ALLOW_PAST_DATES",
+    "true",
+).strip().lower() in {"1", "true", "yes", "on"}
 
 
 logger = logging.getLogger("thevilla.booking")
@@ -103,6 +107,14 @@ PHILIPPINE_TIMEZONE = ZoneInfo("Asia/Manila")
 
 def _philippine_today() -> date:
     return datetime.now(PHILIPPINE_TIMEZONE).date()
+
+
+def _validate_public_booking_check_in_date(check_in_date: date) -> None:
+    if not PUBLIC_BOOKING_ALLOW_PAST_DATES and check_in_date < _philippine_today():
+        raise HTTPException(
+            status_code=422,
+            detail="Choose today or a future booking date.",
+        )
 
 
 def _smtp_configured() -> bool:
@@ -2782,11 +2794,7 @@ def booking_availability(
 ):
     _auth(request)
 
-    if check_in_date < _philippine_today():
-        raise HTTPException(
-            status_code=422,
-            detail="Choose today or a future date.",
-        )
+    _validate_public_booking_check_in_date(check_in_date)
 
     if guest_count < 1 or guest_count > MAX_GUEST_COUNT:
         raise HTTPException(
@@ -3213,11 +3221,7 @@ def create_booking(
             detail="The selected villa does not exist.",
         )
 
-    if data.check_in_date < _philippine_today():
-        raise HTTPException(
-            status_code=422,
-            detail="Choose today or a future booking date.",
-        )
+    _validate_public_booking_check_in_date(data.check_in_date)
 
     if data.check_in_time not in ALLOWED_CHECK_IN_TIMES:
         raise HTTPException(
@@ -4541,11 +4545,7 @@ def public_booking_availability(
     check_in_date: date,
     guest_count: int = 1,
 ):
-    if check_in_date < _philippine_today():
-        raise HTTPException(
-            status_code=422,
-            detail="Choose today or a future booking date.",
-        )
+    _validate_public_booking_check_in_date(check_in_date)
 
     if guest_count < 1 or guest_count > MAX_GUEST_COUNT:
         raise HTTPException(
@@ -4778,6 +4778,7 @@ def public_booking_calendar_availability(
         "end_date": end_date.isoformat(),
         "guest_count": guest_count,
         "days": days,
+        "allow_past_dates": PUBLIC_BOOKING_ALLOW_PAST_DATES,
         "updated_at": datetime.now(timezone.utc).isoformat(),
     }
 
@@ -4817,11 +4818,7 @@ def _prepare_public_booking(data: PublicBookingCreateRequest, *, draft_only: boo
             detail="The selected villa does not exist.",
         )
 
-    if data.check_in_date < _philippine_today():
-        raise HTTPException(
-            status_code=422,
-            detail="Choose today or a future booking date.",
-        )
+    _validate_public_booking_check_in_date(data.check_in_date)
 
     if data.check_in_time not in ALLOWED_CHECK_IN_TIMES:
         raise HTTPException(

@@ -81,3 +81,10 @@ in a query string or disable token verification to recover an old checkout.
 
 The repository is prepared locally; creating the Render service and supplying
 credentials in your own account are still required.
+`PUBLIC_BOOKING_ALLOW_PAST_DATES=true` is enabled for testing. It permits
+past check-in dates on the public booking form while still enforcing valid
+dates, availability, and the check-out-after-check-in rule. Set it to `false`
+after testing to restore the future-date restriction; restart or redeploy the
+backend after changing it. Local development defaults to the same test setting.
+This setting does not change PayMongo mode or prevent paid reservations; use
+PayMongo test credentials while testing.

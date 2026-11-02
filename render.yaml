@@ -13,6 +13,8 @@ services:
         sync: false
       - key: FRONTEND_URL
         sync: false
+      - key: PUBLIC_BOOKING_ALLOW_PAST_DATES
+        value: "true"
       - key: BACKEND_PUBLIC_URL
         sync: false
       - key: FEEDBACK_TOKEN_SECRET

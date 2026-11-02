@@ -3,6 +3,7 @@ import re
 import unittest
 from datetime import date, timedelta
 from pathlib import Path
+from fastapi import HTTPException
 
 
 class PublicBookingValidationTests(unittest.TestCase):
@@ -18,6 +19,7 @@ class PublicBookingValidationTests(unittest.TestCase):
                 "_normalized_status",
                 "_availability_blocks_booking",
                 "_villa_date_conflict",
+                "_validate_public_booking_check_in_date",
             }
         ]
         module = ast.Module(
@@ -35,6 +37,9 @@ class PublicBookingValidationTests(unittest.TestCase):
             "re": re,
             "date": date,
             "timedelta": timedelta,
+            "HTTPException": HTTPException,
+            "PUBLIC_BOOKING_ALLOW_PAST_DATES": True,
+            "_philippine_today": lambda: date(2026, 11, 2),
             "AVAILABILITY_RELEASE_STATUSES": {
                 "cancelled",
                 "completed",
@@ -81,6 +86,16 @@ class PublicBookingValidationTests(unittest.TestCase):
                 date(2026, 11, 2),
             )
         )
+
+    def test_past_public_check_in_dates_follow_the_test_setting(self):
+        validate_date = self.env["_validate_public_booking_check_in_date"]
+        validate_date(date(2026, 11, 1))
+
+        self.env["PUBLIC_BOOKING_ALLOW_PAST_DATES"] = False
+        with self.assertRaises(HTTPException) as caught:
+            validate_date(date(2026, 11, 1))
+        self.assertEqual(caught.exception.status_code, 422)
+        validate_date(date(2026, 11, 2))
 
 if __name__ == "__main__":
     unittest.main()
