@@ -116,7 +116,7 @@ class BackendFlowTests(unittest.TestCase):
         self.assertTrue(result['submitted'])
         params=self.client.rpc.call_args.args[1]
         self.assertNotIn('token',params['p_feedback']);self.assertTrue(params['p_feedback']['hide_identity'])
-    def run_worker(self, smtp_error=None, eligible=True):
+    def run_worker(self, smtp_error=None, eligible=True, resend=False):
         record=self.token_booking();nonce='stable-random-nonce'
         with patch.object(booking,'SUPABASE_SERVICE_ROLE_KEY','test-secret'):
             record['feedback_token_hash']=hashlib.sha256(service.token_for(self.id,nonce).encode()).hexdigest()
@@ -126,16 +126,39 @@ class BackendFlowTests(unittest.TestCase):
             data=next(claims) if name=='claim_guest_feedback_invitation' else [] if name=='guest_feedback_invitation_candidates' else eligible if name=='feedback_booking_eligible' else True
             return SimpleNamespace(execute=lambda:SimpleNamespace(data=data))
         self.client.rpc.side_effect=rpc
-        with patch.object(booking,'_service',return_value=self.client),patch.object(booking,'SUPABASE_SERVICE_ROLE_KEY','test-secret'),patch.object(booking,'_smtp_configured',return_value=True),patch.object(booking,'_booking_email_logo',return_value=('',None)),patch.object(service.smtplib,'SMTP') as smtp:
-            smtp.return_value.__enter__.return_value.send_message.return_value={}
-            if smtp_error:smtp.return_value.__enter__.return_value.send_message.side_effect=smtp_error
-            service.process_feedback_outbox()
-            calls=smtp.return_value.__enter__.return_value.send_message.call_args_list
+        email_env={
+            'RESEND_API_KEY':'test-resend-key' if resend else '',
+            'RESEND_FROM':'The Villa <feedback@example.com>' if resend else '',
+        }
+        with patch.dict('os.environ',{**email_env,'RENDER':''}),patch.object(booking,'_service',return_value=self.client),patch.object(booking,'SUPABASE_SERVICE_ROLE_KEY','test-secret'),patch.object(booking,'FRONTEND_URL','https://villa.example'),patch.object(booking,'_smtp_configured',return_value=True),patch.object(booking,'_booking_email_logo',return_value=('',None)):
+            if resend:
+                from email_transport import EmailProviderError
+                response=SimpleNamespace(ok=not isinstance(smtp_error,EmailProviderError),status_code=429 if isinstance(smtp_error,EmailProviderError) else 200,json=lambda:{'id':'email-id'} if not isinstance(smtp_error,EmailProviderError) else {})
+                with patch('email_transport.requests.post',return_value=response) as send:
+                    service.process_feedback_outbox()
+                    calls=send.call_args_list
+            else:
+                with patch.object(service.smtplib,'SMTP') as smtp:
+                    smtp.return_value.__enter__.return_value.send_message.return_value={}
+                    if smtp_error:smtp.return_value.__enter__.return_value.send_message.side_effect=smtp_error
+                    service.process_feedback_outbox()
+                    calls=smtp.return_value.__enter__.return_value.send_message.call_args_list
         finishes=[call.args[1] for call in self.client.rpc.call_args_list if call.args[0]=='finish_guest_feedback_invitation']
         return finishes[-1]['p_status'],calls
     def test_smtp_acceptance_recorded_with_stable_fragment_link(self):
         state,calls=self.run_worker();self.assertEqual(state,'accepted')
         self.assertIn('#token=',calls[0].args[0].get_body(preferencelist=('plain',)).get_content())
+    def test_resend_acceptance_uses_online_feedback_url_and_secret_header(self):
+        state,calls=self.run_worker(resend=True);self.assertEqual(state,'accepted')
+        request=calls[0]
+        self.assertTrue(request.kwargs['headers']['Authorization'].startswith('Bearer '))
+        self.assertIn('https://villa.example/feedback?booking=',request.kwargs['json']['text'])
+        self.assertIn('#token=',request.kwargs['json']['text'])
+        self.assertIn('feedback@example.com',request.kwargs['json']['from'])
+    def test_resend_rejection_is_retryable(self):
+        from email_transport import EmailProviderError
+        state,_=self.run_worker(smtp_error=EmailProviderError(429),resend=True)
+        self.assertEqual(state,'retry')
     def test_definite_smtp_rejection_is_retryable_without_undoing_checkout(self):
         state,_=self.run_worker(smtplib.SMTPDataError(451,b'temporary failure'))
         self.assertEqual(state,'retry');self.assertEqual(self.record['booking_status'],'Completed')

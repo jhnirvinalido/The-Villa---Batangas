@@ -15,3 +15,9 @@ services:
         sync: false
       - key: BACKEND_PUBLIC_URL
         sync: false
+      - key: FEEDBACK_TOKEN_SECRET
+        sync: false
+      - key: RESEND_API_KEY
+        sync: false
+      - key: RESEND_FROM
+        sync: false

@@ -1,4 +1,4 @@
-"""Persistent post-stay invitation worker; reuses booking.py SMTP and Supabase clients."""
+"""Persistent post-stay invitation worker; reuses booking.py email and Supabase clients."""
 import hashlib
 import hmac
 import logging
@@ -11,6 +11,7 @@ from email_validator import validate_email, EmailNotValidError
 from html import escape
 from urllib.parse import urlencode
 
+from email_transport import EmailProviderError
 from feedback_policy import eligible_stay
 
 logger = logging.getLogger('thevilla.feedback')
@@ -162,18 +163,29 @@ def process_feedback_outbox():
                 status = 'uncertain'
                 raise RuntimeError('Token key changed.')
             if not booking._smtp_configured():
-                raise RuntimeError('SMTP is not configured.')
+                raise RuntimeError('Email delivery is not configured.')
             message = _message(record,token,claim['message_id'])
-            with smtplib.SMTP(booking.SMTP_HOST,booking.SMTP_PORT,timeout=20) as smtp:
-                smtp.ehlo(); smtp.starttls(); smtp.ehlo()
-                smtp.login(booking.SMTP_USER,booking.SMTP_PASSWORD)
+
+            def mark_sending():
+                nonlocal sending
                 sending = True
-                refused = smtp.send_message(message)
-                if refused:
-                    raise smtplib.SMTPRecipientsRefused(refused)
+
+            def mark_accepted(_result):
+                nonlocal status
                 status = 'accepted'
+
+            refused = booking._send_email_message(
+                message,
+                on_sending=mark_sending,
+                on_accepted=mark_accepted,
+            )
+            if refused:
+                raise smtplib.SMTPRecipientsRefused(refused)
+            status = 'accepted'
         except (smtplib.SMTPRecipientsRefused,smtplib.SMTPDataError):
             status,reason = 'retry','smtp_rejected'
+        except EmailProviderError:
+            status,reason = 'retry','email_provider_rejected'
         except EmailNotValidError:
             status,reason = 'suppressed','invalid_email'
         except Exception:
