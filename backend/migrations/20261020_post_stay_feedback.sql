@@ -201,12 +201,8 @@ begin
         return true;
     end if;
 
-    if b.feedback_token_expires_at > now()
-        and b.feedback_token_revoked_at is null
-    then
-        raise exception 'An active feedback token already exists; reconcile it before reissuing';
-    end if;
-
+    -- Older invitations have no outbox nonce to reconstruct their link.
+    -- Rotate any untracked token so the replacement email has a usable URL.
     update public.bookings
     set feedback_token_hash = p_token_hash,
         feedback_token_expires_at = now() + interval '30 days',

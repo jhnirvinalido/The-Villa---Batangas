@@ -9,7 +9,7 @@ from datetime import datetime, timedelta, timezone
 from email.message import EmailMessage
 from email_validator import validate_email, EmailNotValidError
 from html import escape
-from urllib.parse import urlencode
+from urllib.parse import urlencode, urlsplit
 
 from email_transport import EmailProviderError
 from feedback_policy import eligible_stay
@@ -65,7 +65,15 @@ def queue_feedback_invitation(record, client=None):
 
 def _message(record, token, message_id):
     import booking
-    link = f'{booking.FRONTEND_URL}/feedback?{urlencode({"booking":str(record["id"])})}#token={token}'
+    booking_id = str(record.get('id') or '').strip()
+    frontend_url = booking.FRONTEND_URL.strip().rstrip('/')
+    if not booking_id or not token or len(token) < 20:
+        raise ValueError('Cannot create a feedback invitation without a booking and capability token.')
+    if urlsplit(frontend_url).scheme not in {'http', 'https'} or not urlsplit(frontend_url).netloc:
+        raise ValueError('Configure FRONTEND_URL with a complete public website origin.')
+    if os.getenv('RENDER', '').lower() == 'true' and urlsplit(frontend_url).scheme != 'https':
+        raise ValueError('FRONTEND_URL must use HTTPS on Render.')
+    link = f'{frontend_url}/feedback?{urlencode({"booking":booking_id})}#token={token}'
     name = str(record.get('customer_name') or 'Guest')
     reference = str(record.get('booking_code') or 'Your stay')
     villa = str(record.get('villa_name') or 'The Villa')

@@ -6,6 +6,7 @@ import unittest
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from types import SimpleNamespace
+from urllib.parse import parse_qs, urlsplit
 from unittest.mock import MagicMock, patch
 sys.path.insert(0,str(Path(__file__).parents[1]))
 from feedback_policy import eligible_stay, meaningful_comments, admin_feedback_projection, analysis_input
@@ -152,9 +153,18 @@ class BackendFlowTests(unittest.TestCase):
         state,calls=self.run_worker(resend=True);self.assertEqual(state,'accepted')
         request=calls[0]
         self.assertTrue(request.kwargs['headers']['Authorization'].startswith('Bearer '))
-        self.assertIn('https://villa.example/feedback?booking=',request.kwargs['json']['text'])
-        self.assertIn('#token=',request.kwargs['json']['text'])
+        invitation_url=next(line for line in request.kwargs['json']['text'].splitlines() if '/feedback?' in line)
+        parsed=urlsplit(invitation_url)
+        self.assertEqual(parsed.scheme,'https')
+        self.assertEqual(parsed.netloc,'villa.example')
+        self.assertEqual(parse_qs(parsed.query).get('booking'),[self.id])
+        self.assertTrue(parse_qs(parsed.fragment).get('token',[None])[0])
         self.assertIn('feedback@example.com',request.kwargs['json']['from'])
+    def test_feedback_email_refuses_missing_booking_or_token(self):
+        with patch.object(booking,'FRONTEND_URL','https://villa.example'):
+            for record,token in [({**self.record,'id':''},'a'*40),(self.record,'')]:
+                with self.subTest(record_id=record.get('id'),token_present=bool(token)),self.assertRaises(ValueError):
+                    service._message(record,token,'<message@example.com>')
     def test_resend_rejection_is_retryable(self):
         from email_transport import EmailProviderError
         state,_=self.run_worker(smtp_error=EmailProviderError(429),resend=True)
