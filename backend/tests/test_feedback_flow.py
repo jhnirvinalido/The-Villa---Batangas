@@ -145,7 +145,7 @@ class BackendFlowTests(unittest.TestCase):
         self.assertTrue(result['submitted'])
         params=self.client.rpc.call_args.args[1]
         self.assertNotIn('token',params['p_feedback']);self.assertTrue(params['p_feedback']['hide_identity'])
-    def run_worker(self, smtp_error=None, eligible=True, resend=False):
+    def run_worker(self, smtp_error=None, eligible=True, resend=False, email_configured=True):
         record=self.token_booking();nonce='stable-random-nonce'
         with patch.object(booking,'SUPABASE_SERVICE_ROLE_KEY','test-secret'):
             record['feedback_token_hash']=hashlib.sha256(service.token_for(self.id,nonce).encode()).hexdigest()
@@ -159,7 +159,7 @@ class BackendFlowTests(unittest.TestCase):
             'RESEND_API_KEY':'test-resend-key' if resend else '',
             'RESEND_FROM':'The Villa <feedback@example.com>' if resend else '',
         }
-        with patch.dict('os.environ',{**email_env,'RENDER':''}),patch.object(booking,'_service',return_value=self.client),patch.object(booking,'SUPABASE_SERVICE_ROLE_KEY','test-secret'),patch.object(booking,'FRONTEND_URL','https://villa.example'),patch.object(booking,'_smtp_configured',return_value=True),patch.object(booking,'_booking_email_logo',return_value=('',None)):
+        with patch.dict('os.environ',{**email_env,'RENDER':''}),patch.object(booking,'_service',return_value=self.client),patch.object(booking,'SUPABASE_SERVICE_ROLE_KEY','test-secret'),patch.object(booking,'FRONTEND_URL','https://villa.example'),patch.object(booking,'_smtp_configured',return_value=email_configured),patch.object(booking,'_booking_email_logo',return_value=('',None)):
             if resend:
                 from email_transport import EmailProviderError
                 response=SimpleNamespace(ok=not isinstance(smtp_error,EmailProviderError),status_code=429 if isinstance(smtp_error,EmailProviderError) else 200,json=lambda:{'id':'email-id'} if not isinstance(smtp_error,EmailProviderError) else {})
@@ -173,6 +173,7 @@ class BackendFlowTests(unittest.TestCase):
                     service.process_feedback_outbox()
                     calls=smtp.return_value.__enter__.return_value.send_message.call_args_list
         finishes=[call.args[1] for call in self.client.rpc.call_args_list if call.args[0]=='finish_guest_feedback_invitation']
+        self.finish_params=finishes[-1]
         return finishes[-1]['p_status'],calls
     def test_smtp_acceptance_recorded_with_stable_fragment_link(self):
         state,calls=self.run_worker();self.assertEqual(state,'accepted')
@@ -197,6 +198,11 @@ class BackendFlowTests(unittest.TestCase):
         from email_transport import EmailProviderError
         state,_=self.run_worker(smtp_error=EmailProviderError(429),resend=True)
         self.assertEqual(state,'retry')
+    def test_missing_email_configuration_is_reported_without_claiming_smtp_failure(self):
+        state,calls=self.run_worker(email_configured=False)
+        self.assertEqual(state,'retry')
+        self.assertEqual(self.finish_params['p_error'],'email_not_configured')
+        self.assertEqual(calls,[])
     def test_definite_smtp_rejection_is_retryable_without_undoing_checkout(self):
         state,_=self.run_worker(smtplib.SMTPDataError(451,b'temporary failure'))
         self.assertEqual(state,'retry');self.assertEqual(self.record['booking_status'],'Completed')

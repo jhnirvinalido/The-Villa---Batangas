@@ -206,17 +206,23 @@ def process_feedback_outbox():
         status = 'retry'
         reason = None
         sending = False
+        step = 'check_booking_eligibility'
         try:
             if not _feedback_rpc(client,'feedback_booking_eligible',{'p_booking_id':str(record['id'])}).data:
                 _feedback_rpc(client,'finish_guest_feedback_invitation',{'p_booking_id':str(record['id']),'p_claim':claim['claim_id'],'p_status':'suppressed','p_error':'no_longer_eligible'})
                 continue
+            step = 'validate_guest_email'
             validate_email(str(record.get('customer_email') or ''),check_deliverability=False)
+            step = 'validate_invitation_token'
             token = token_for(str(record['id']),claim['token_nonce'])
             if not hmac.compare_digest(hashlib.sha256(token.encode()).hexdigest(),str(record.get('feedback_token_hash') or '')):
                 status = 'uncertain'
                 raise RuntimeError('Token key changed.')
+            step = 'check_email_configuration'
             if not booking._smtp_configured():
+                reason = 'email_not_configured'
                 raise RuntimeError('Email delivery is not configured.')
+            step = 'build_email_message'
             message = _message(record,token,claim['message_id'])
 
             def mark_sending():
@@ -227,6 +233,7 @@ def process_feedback_outbox():
                 nonlocal status
                 status = 'accepted'
 
+            step = 'send_email'
             refused = booking._send_email_message(
                 message,
                 on_sending=mark_sending,
@@ -241,10 +248,24 @@ def process_feedback_outbox():
             status,reason = 'retry','email_provider_rejected'
         except EmailNotValidError:
             status,reason = 'suppressed','invalid_email'
-        except Exception:
+        except Exception as error:
             if sending:
                 status = 'uncertain'
-            reason = 'delivery_uncertain' if status=='uncertain' else 'smtp_unavailable'
+                reason = 'delivery_uncertain'
+            elif reason is None:
+                reason = {
+                    'build_email_message': 'message_build_failed',
+                    'send_email': 'smtp_unavailable',
+                }.get(step, 'email_preparation_failed')
+            logger.warning(
+                'Feedback email failed for booking %s at step %s. Error type: %s. Resend key configured: %s; sender configured: %s; outcome: %s.',
+                record.get('booking_code') or record.get('id') or 'unknown',
+                step,
+                type(error).__name__,
+                bool(os.getenv('RESEND_API_KEY', '').strip()),
+                bool(os.getenv('RESEND_FROM', '').strip()),
+                reason,
+            )
         # If completion fails after SMTP acceptance, do NOT resend. The lease
         # becomes uncertain and requires reconciliation by an operator.
         _feedback_rpc(client,'finish_guest_feedback_invitation',{'p_booking_id':str(record['id']),'p_claim':claim['claim_id'],'p_status':status,'p_error':reason})
