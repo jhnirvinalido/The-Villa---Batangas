@@ -1959,7 +1959,22 @@ function EmptyState({
   );
 }
 
-function VillaAnalyticsCharts({ bookings, villas, payments, assignmentSummary, today }) {
+function createChartEntranceAnimation(reducedMotion, stagger = 75) {
+  const duration = reducedMotion ? 0 : 420;
+  const delay = context =>
+    reducedMotion || context.type !== "data"
+      ? 0
+      : context.dataIndex * stagger + context.datasetIndex * 45;
+  return {
+    duration,
+    easing: "easeOutCubic",
+    delay,
+    animateRotate: !reducedMotion,
+    animateScale: !reducedMotion,
+  };
+}
+
+function VillaAnalyticsCharts({ bookings, villas, payments, assignmentSummary, today, initialDataLoaded }) {
   const [period, setPeriod] = React.useState({unit: "year", date: today});
   const chartAnalytics = React.useMemo(() => bookingAnalytics(
     bookings,
@@ -1990,11 +2005,15 @@ function VillaAnalyticsCharts({ bookings, villas, payments, assignmentSummary, t
     if (date) setPeriod(current => ({...current, date}));
   };
   const canvasRefs = React.useRef([]);
+  const hasAnimatedRef = React.useRef(false);
   React.useEffect(() => {
+    const shouldAnimate = initialDataLoaded && !hasAnimatedRef.current;
+    if (shouldAnimate) hasAnimatedRef.current = true;
+    const reducedMotion = window.matchMedia?.("(prefers-reduced-motion: reduce)")?.matches ?? false;
     const options = {
       responsive: true,
       maintainAspectRatio: false,
-      animation: false,
+      animation: shouldAnimate ? createChartEntranceAnimation(reducedMotion, 35) : false,
     };
     const charts = [
       new Chart(canvasRefs.current[0], {type:'line', data:{labels:chartAnalytics.months, datasets:[
@@ -2023,7 +2042,7 @@ function VillaAnalyticsCharts({ bookings, villas, payments, assignmentSummary, t
       ]}, options:{...options,indexAxis:'y',scales:{x:{beginAtZero:true,ticks:{callback:value=>`PHP ${Number(value).toLocaleString()}`}},y:{grid:{display:false}}},plugins:{legend:{display:false},tooltip:{callbacks:{label:context=>`Collected: ${formatPeso(context.parsed.x)}`}}}}}),
     ];
     return () => charts.forEach(chart=>chart.destroy());
-  }, [chartAnalytics]);
+  }, [chartAnalytics, initialDataLoaded]);
   const chartDescriptions = [
     ['Booking Trend', `Confirmed paid or externally managed stays · ${periodLabel}`],
     ['Villa Performance', `Confirmed paid or externally managed stays · ${periodLabel}`],
@@ -2071,6 +2090,7 @@ function SentimentAnalyticsDashboard({ apiRequest, onOpenReviews }) {
   const [error, setError] = React.useState("");
   const [loading, setLoading] = React.useState(true);
   const canvasRefs = React.useRef([]);
+  const hasAnimatedChartsRef = React.useRef(false);
   const load = React.useCallback(async (signal) => {
     try {
       const payload = await apiRequest("/admin/guest-feedback/analysis", {
@@ -2105,6 +2125,12 @@ function SentimentAnalyticsDashboard({ apiRequest, onOpenReviews }) {
     const summary = report?.summary;
     if (!summary) return undefined;
 
+    const shouldAnimate = !hasAnimatedChartsRef.current;
+    if (shouldAnimate) hasAnimatedChartsRef.current = true;
+    const reducedMotion = window.matchMedia?.("(prefers-reduced-motion: reduce)")?.matches ?? false;
+    const animation = shouldAnimate
+      ? createChartEntranceAnimation(reducedMotion, 35)
+      : false;
     const sentimentLabels = ["Positive", "Neutral", "Negative", "Unclassified"];
     const sentimentKeys = ["positive", "neutral", "negative", "unclassified"];
     const sentimentCounts = sentimentKeys.map((key) => Number(summary.phrase_sentiments?.[key] || 0));
@@ -2126,7 +2152,7 @@ function SentimentAnalyticsDashboard({ apiRequest, onOpenReviews }) {
         options: {
           responsive: true,
           maintainAspectRatio: false,
-          animation: false,
+          animation,
           plugins: { legend: { position: "bottom" } },
         },
       }));
@@ -2147,7 +2173,7 @@ function SentimentAnalyticsDashboard({ apiRequest, onOpenReviews }) {
           responsive: true,
           maintainAspectRatio: false,
           indexAxis: "y",
-          animation: false,
+          animation,
           scales: {
             x: { beginAtZero: true, ticks: { precision: 0 } },
             y: { grid: { display: false } },
@@ -2171,7 +2197,7 @@ function SentimentAnalyticsDashboard({ apiRequest, onOpenReviews }) {
         options: {
           responsive: true,
           maintainAspectRatio: false,
-          animation: false,
+          animation,
           scales: {
             y: { beginAtZero: true, ticks: { precision: 0 } },
           },
@@ -4979,6 +5005,7 @@ Villas Under Maintenance
     payments={paymentTransactions}
     assignmentSummary={assignmentStats}
     today={today}
+    initialDataLoaded={!dataLoading}
 />
 
 </section>
