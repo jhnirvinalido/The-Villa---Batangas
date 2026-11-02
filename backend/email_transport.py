@@ -21,6 +21,8 @@ def send_resend(message, *, on_sending=None, on_accepted=None):
         "to": [address for _, address in getaddresses(message.get_all("To", []))],
         "subject": str(message.get("Subject", "")),
     }
+    if message.get("Message-ID"):
+        payload["headers"] = {"Message-ID": str(message["Message-ID"])}
     for kind in ("plain", "html"):
         part = message.get_body(preferencelist=(kind,))
         if part:

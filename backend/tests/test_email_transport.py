@@ -14,6 +14,7 @@ class EmailTransportTests(unittest.TestCase):
         message = EmailMessage()
         message["To"] = "guest@example.com"
         message["Subject"] = "Reservation"
+        message["Message-ID"] = "<feedback-booking@example.com>"
         message.set_content("Booking confirmed")
         message.add_alternative('<img src="cid:logo">', subtype="html")
         message.get_payload()[-1].add_related(b"image", maintype="image", subtype="png", cid="<logo>", filename="logo.png")
@@ -21,6 +22,7 @@ class EmailTransportTests(unittest.TestCase):
         self.assertEqual(send_resend(message, on_accepted=accepted), {})
         payload = post.call_args.kwargs["json"]
         self.assertEqual(payload["to"], ["guest@example.com"])
+        self.assertEqual(payload["headers"]["Message-ID"], "<feedback-booking@example.com>")
         self.assertIn("Booking confirmed", payload["text"])
         self.assertEqual(payload["attachments"][0]["content_id"], "logo")
         accepted.assert_called_once_with({})
