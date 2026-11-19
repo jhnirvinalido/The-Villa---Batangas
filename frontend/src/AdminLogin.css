@@ -14,7 +14,7 @@
   background:
     linear-gradient(120deg, rgb(47 30 21 / 78%), rgb(71 45 31 / 64%)),
     url("/image2.jpg") center / cover no-repeat;
-  font-family: "Avenir Next", "Segoe UI", system-ui, sans-serif;
+  font-family: var(--villa-font-sans);
 }
 .villa-login-page::before {
   position: fixed;

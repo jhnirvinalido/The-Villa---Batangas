@@ -40,6 +40,7 @@ from maintenance_oncall import public_router as maintenance_response_router
 from staff import router as staff_router
 from staff_villa_operations import router as staff_villa_operations_router
 from villa_catalog import router as villa_catalog_router
+from security_headers import SecurityHeadersMiddleware
 
 if TYPE_CHECKING:
     from supabase import Client
@@ -5273,6 +5274,7 @@ async def protect_feedback_responses(request, call_next):
 from frontend_hosting import mount_frontend
 
 mount_frontend(app, os.getenv("FRONTEND_DIST", "").strip())
+app.add_middleware(SecurityHeadersMiddleware)
 
 
 if __name__ == "__main__":

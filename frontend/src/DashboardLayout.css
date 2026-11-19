@@ -79,7 +79,7 @@
 .admin-dashboard-shell[class] .admin-brand-logo { display: grid; place-items: center; padding: 2px; background: #fffdf8; }
 .admin-dashboard-shell[class] .admin-brand-logo img { display: block; width: 100%; height: 100%; object-fit: contain; }
 .admin-dashboard-shell[class] .admin-brand-name { flex: 1; min-width: 0; font: 500 16px/1.15 Georgia, serif; color: #faf5ec; }
-.admin-dashboard-shell[class] .admin-brand-name small { display: block; margin-top: 5px; color: #bdad9c; font: 400 10px/1.2 'Avenir Next', sans-serif; letter-spacing: .04em; }
+.admin-dashboard-shell[class] .admin-brand-name small { display: block; margin-top: 5px; color: #bdad9c; font: 400 10px/1.2 var(--villa-font-sans); letter-spacing: .04em; }
 .admin-dashboard-shell[class] .admin-sidebar-collapse-control { display: grid; flex: 0 0 30px; width: 30px; height: 30px; place-items: center; padding: 0; border: 1px solid #ffffff20; border-radius: 6px; color: #dbcebf; background: transparent; }
 .admin-dashboard-shell[class] .admin-sidebar-collapse-control:hover { color: #fff; background: #ffffff12; }
 .admin-dashboard-shell[class] .admin-sidebar .admin-sidebar-nav { display: flex; flex: 1 1 auto; flex-direction: column; flex-wrap: nowrap; align-items: stretch; gap: 4px; min-height: 0; padding: 16px 10px; overflow-x: hidden; overflow-y: auto; }
